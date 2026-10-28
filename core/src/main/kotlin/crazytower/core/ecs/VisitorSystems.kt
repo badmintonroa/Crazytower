@@ -45,6 +45,7 @@ class VisitorSpawnSystem(
 }
 
 private val VISITABLE = setOf(RoomRole.FOOD, RoomRole.OFFICE)
+private val SIGHTS = setOf(RoomRole.LOBBY, RoomRole.SPECIAL)
 
 /** Picks the next stop for idle sightseers, or sends them home when they have seen enough. */
 class VisitorSystem(
@@ -61,7 +62,7 @@ class VisitorSystem(
         visitor.stopsLeft--
         // Sightseers look at the lobby, eat something or bother an office.
         val sights = sim.tower.allRooms.filter {
-            it.type.role == RoomRole.LOBBY || (it.tenant != null && it.type.role in VISITABLE)
+            it.type.role in SIGHTS || (it.tenant != null && it.type.role in VISITABLE)
         }
         val stop = sights[sim.random.nextInt(sights.size)]
         val x = stop.x + 0.5f + sim.random.nextFloat() * (stop.width - 1f)

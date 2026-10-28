@@ -27,6 +27,9 @@ import crazytower.core.ecs.VisitorSystem
 import crazytower.core.nav.NavGraph
 import crazytower.core.transport.Elevators
 import crazytower.core.transport.StairsLinks
+import crazytower.core.transport.TeleporterLinks
+import crazytower.core.ecs.EventSystem
+import crazytower.core.ecs.Vip
 import kotlin.random.Random
 
 /** Outcome of a build command, shown to the player when it fails. */
@@ -43,7 +46,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     val clock = GameClock()
     val tower = Tower()
     val elevators = Elevators(tower)
-    val nav = NavGraph(tower, listOf(StairsLinks, elevators))
+    val nav = NavGraph(tower, listOf(StairsLinks, TeleporterLinks, elevators))
     val news = NewsFeed()
     var money: Long = startMoney
         private set
@@ -54,6 +57,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             add(IdleSystem())
             add(TenantSystem())
             add(EconomySystem())
+            add(EventSystem())
             add(ScheduleSystem())
             add(VisitorSpawnSystem())
             add(VisitorSystem())
@@ -214,6 +218,9 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             if (mood < MOVE_OUT && clock.totalMinutes - room.since > MIN_STAY_MINUTES) leaving += room
         }
         val upkeep = tower.allRooms.sumOf { UPKEEP[it.type.role] ?: 0L }
+        // special rooms cheer everybody up a bit, every day
+        val specials = tower.allRooms.count { it.type.role == RoomRole.SPECIAL }
+        if (specials > 0) members.forEach { it[Schedule].mood = (it[Schedule].mood + 2f * specials).coerceAtMost(100f) }
         money += rent - upkeep
         val total = rent - upkeep + earnedToday
         news.post("Tagesabschluss: Miete ${rent.fmt()} $, Unterhalt ${upkeep.fmt()} $, Umsatz ${earnedToday.fmt()} $. " +
@@ -240,10 +247,72 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     val population: Int get() = members.numEntities
 
     /** Current tower stage, 1 to 5. */
-    val stage: Int get() = 1
+    var stage: Int = 1
+        private set
 
     /** Progress towards the next stage, 0 to 1. */
-    val stageProgress: Double get() = population / 300.0
+    val stageProgress: Double get() = Stages.progress(this)
+
+    /** Set when a VIP made it to her goal; needed for stage 5. */
+    var vipSurvived: Boolean = false
+        private set
+
+    val vipOnTheWay: Boolean get() = world.family { all(Vip) }.numEntities > 0
+
+    /** Checks whether the tower reached the next stage. Called every game hour. */
+    fun checkStage() {
+        if (stage >= Stages.all.size || !Stages.reached(this, stage + 1)) return
+        stage++
+        looksVersion++ // the lobbies get a new look
+        val info = Stages.info(stage)
+        news.post("STUFE $stage: Der Turm ist jetzt ein ${info.name}! Bis zur ${info.maxFloor}. Etage darf gebaut werden. ${info.unlocks}", important = true)
+    }
+
+    fun spend(amount: Long) {
+        money -= amount
+    }
+
+    fun toSave(): SaveGame = SaveGame(
+        minutes = clock.totalMinutes,
+        money = money,
+        stage = stage,
+        stars = stars,
+        vipSurvived = vipSurvived,
+        earnedToday = earnedToday,
+        rooms = tower.allRooms.map {
+            SavedRoom(it.id, it.type.id, it.floor, it.x, it.since, it.tenant?.id, moodOf(it))
+        },
+        news = news.latest.map { SavedNews(it.text, it.where?.floor, it.where?.x, it.important) },
+    )
+
+    private fun restore(save: SaveGame) {
+        clock.set(save.minutes)
+        money = save.money
+        stage = save.stage
+        stars = save.stars
+        vipSurvived = save.vipSurvived
+        earnedToday = save.earnedToday
+        for (saved in save.rooms) {
+            val room = tower.placeUnchecked(Catalog.type(saved.type), saved.floor, saved.x, saved.id)
+            val tenant = saved.tenant?.let { Tenants.byId(it) }
+            if (tenant != null) {
+                moveIn(room, tenant, announce = false)
+                saved.mood?.let { mood -> with(world) { membersOf(room.id).forEach { it[Schedule].mood = mood } } }
+            }
+            room.since = saved.since
+        }
+        for (item in save.news.asReversed()) {
+            news.post(item.text, item.floor?.let { Loc(it, item.x ?: 0f) }, item.important)
+        }
+    }
+
+    /** A teleporter sent [entity] to the wrong place. */
+    fun onMisfire(entity: Entity, landed: Room) {
+        if (random.nextInt(3) == 0) {
+            val name = with(world) { entity[Person].name }
+            news.post("$name wollte teleportieren und ist in der ${floorLabel(landed.floor)} gelandet. Nimmt es gelassen.", landed.center)
+        }
+    }
 
     /** Street exit closest to [x]: people leave the tower to the left or right edge. */
     fun streetExit(x: Float): Loc = Loc(GROUND_FLOOR, if (x < tower.width / 2f) 0f else tower.width - 0.01f)
@@ -276,6 +345,11 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             }
             return@with
         }
+        if (entity has Vip) {
+            vipSurvived = true
+            news.post("Frau Dr. Wichtig ist angekommen und nickt anerkennend. Der Turm ist bereit für Größeres.", Loc(entity[Position].floor, entity[Position].x), important = true)
+            entity.configure { it -= Vip }
+        }
         if (visitor != null && !visitor.leaving) {
             val room = tower.roomAt(entity[Position].floor, entity[Position].x.toInt())
             if (room?.type?.role == RoomRole.FOOD && room.tenant != null) earn(MEAL_PRICE)
@@ -295,11 +369,21 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             entity.configure { e -> e += Away(clock.totalMinutes) }
             return@with
         }
+        if (entity has Vip) {
+            news.post("Frau Dr. Wichtig hat den Weg nicht gefunden und reist beleidigt ab. Vielleicht ein Aufzug mehr?", important = true)
+            entity.configure { it -= Vip }
+        }
         val visitor = entity.getOrNull(Visitor) ?: return@with
         if (visitor.leaving) entity.remove() else visitor.stopsLeft = 0
     }
 
     companion object {
+        /** Rebuilds a simulation from a save game. */
+        fun load(save: SaveGame, seed: Long = 1L): Simulation {
+            require(save.version <= SaveGame.VERSION) { "Spielstand ist von einer neueren Version" }
+            return Simulation(seed, startMoney = 0).also { it.restore(save) }
+        }
+
         fun floorLabel(floor: Int): String = when {
             floor == 0 -> "Erdgeschoss"
             floor < 0 -> "${-floor}. Untergeschoss"
@@ -318,7 +402,10 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         const val MIN_STAY_MINUTES = 2 * 1440.0
 
         /** Daily cost per room role. */
-        val UPKEEP = mapOf(RoomRole.ELEVATOR to 60L, RoomRole.STAIRS to 10L, RoomRole.LOBBY to 40L, RoomRole.CORRIDOR to 5L)
+        val UPKEEP = mapOf(
+            RoomRole.ELEVATOR to 60L, RoomRole.STAIRS to 10L, RoomRole.LOBBY to 40L, RoomRole.CORRIDOR to 5L,
+            RoomRole.SPECIAL to 300L, RoomRole.SECURITY to 800L, RoomRole.TELEPORTER to 1_000L,
+        )
 
         val MOVE_OUT_REASONS = listOf(
             "Der Aufzug kam nie.",

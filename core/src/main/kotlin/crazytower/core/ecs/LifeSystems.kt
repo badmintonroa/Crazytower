@@ -88,3 +88,19 @@ class EconomySystem(
         sim.closeDay()
     }
 }
+
+/** Every game hour: maybe an absurd event, and a look whether the tower reached the next stage. */
+class EventSystem(
+    private val sim: Simulation = inject(),
+) : IntervalSystem() {
+    private var lastHour = -1
+
+    override fun onTick() {
+        val hour = (sim.clock.totalMinutes / 60).toInt()
+        if (lastHour < 0) lastHour = hour
+        if (hour == lastHour) return
+        lastHour = hour
+        sim.checkStage()
+        crazytower.core.Events.roll(sim)
+    }
+}

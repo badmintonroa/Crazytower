@@ -76,6 +76,7 @@ class ElevatorSystem(
     private fun runCar(car: Car) {
         car.riders.removeAll { it !in world } // people whose tenant moved out mid-ride
         car.waitingSince.keys.retainAll(car.waiting.values.flatten().toSet())
+        if (sim.clock.totalMinutes < car.blockedUntil) return
         if (car.doorTimer > 0f) {
             car.doorTimer -= deltaTime
             return
