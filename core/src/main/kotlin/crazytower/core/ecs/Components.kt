@@ -48,3 +48,15 @@ data class Stuck(val since: Double) : Component<Stuck> {
     override fun type() = Stuck
     companion object : ComponentType<Stuck>()
 }
+
+/** Inside the elevator car [carId]. The elevator system moves the person and lets it out. */
+data class Riding(val carId: Int) : Component<Riding> {
+    override fun type() = Riding
+    companion object : ComponentType<Riding>()
+}
+
+/** Somebody who belongs to a room: an employee of an office or a resident of a home. */
+data class Member(val roomId: Int) : Component<Member> {
+    override fun type() = Member
+    companion object : ComponentType<Member>()
+}

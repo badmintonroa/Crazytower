@@ -3,17 +3,22 @@ package crazytower.core
 import com.github.quillraven.fleks.Entity
 import com.github.quillraven.fleks.World
 import com.github.quillraven.fleks.configureWorld
+import crazytower.core.ecs.ElevatorSystem
 import crazytower.core.ecs.Idle
 import crazytower.core.ecs.IdleSystem
 import crazytower.core.ecs.MovementSystem
 import crazytower.core.ecs.PathfindingSystem
 import crazytower.core.ecs.Person
 import crazytower.core.ecs.Position
+import crazytower.core.ecs.RouteRefreshSystem
 import crazytower.core.ecs.StuckSystem
+import crazytower.core.ecs.TenantSystem
 import crazytower.core.ecs.Visitor
 import crazytower.core.ecs.VisitorSpawnSystem
 import crazytower.core.ecs.VisitorSystem
 import crazytower.core.nav.NavGraph
+import crazytower.core.transport.Elevators
+import crazytower.core.transport.StairsLinks
 import kotlin.random.Random
 
 /** Outcome of a build command, shown to the player when it fails. */
@@ -29,7 +34,8 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     val random = Random(seed)
     val clock = GameClock()
     val tower = Tower()
-    val nav = NavGraph(tower)
+    val elevators = Elevators(tower)
+    val nav = NavGraph(tower, listOf(StairsLinks, elevators))
     val news = NewsFeed()
     var money: Long = startMoney
         private set
@@ -38,9 +44,12 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         injectables { add(this@Simulation) }
         systems {
             add(IdleSystem())
+            add(TenantSystem())
             add(VisitorSpawnSystem())
             add(VisitorSystem())
+            add(RouteRefreshSystem())
             add(PathfindingSystem())
+            add(ElevatorSystem())
             add(MovementSystem())
             add(StuckSystem())
         }
@@ -57,7 +66,14 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         }
     }
 
+    /** Increases whenever a room changes its looks without the tower changing, e.g. a new tenant. */
+    var looksVersion: Int = 0
+        private set
+
     fun checkPlace(type: RoomType, floor: Int, x: Int): PlaceCheck {
+        if (type.minStage > stage) return PlaceCheck.no("Erst ab Stufe ${type.minStage}")
+        val maxFloor = Stages.info(stage).maxFloor
+        if (floor >= maxFloor) return PlaceCheck.no("Stufe $stage erlaubt nur $maxFloor Etagen")
         if (money < type.cost) return PlaceCheck.no("Zu wenig Geld")
         return tower.canPlace(type, floor, x)
     }
@@ -67,6 +83,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         if (!check.ok) return BuildResult(null, check.reason)
         money -= type.cost
         val room = tower.place(type, floor, x)
+        room.since = clock.totalMinutes
         if (type.role == RoomRole.LOBBY && tower.allRooms.count { it.type.role == RoomRole.LOBBY } == 1) {
             news.post("Die erste Lobby ist offen. Ein Mann fragt, ob es hier zum Bahnhof geht.", Loc(floor, room.centerX))
         }
@@ -76,16 +93,38 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     /** Money back when a room is torn down. */
     fun refundFor(room: Room): Long = room.type.cost / 4
 
+    fun checkDemolish(room: Room): PlaceCheck = tower.canRemove(room)
+
     /** Tears a room down and returns the refund. */
     fun demolish(roomId: Int): Long {
-        val room = tower.remove(roomId) ?: return 0
+        val room = tower.room(roomId) ?: return 0
+        if (!tower.canRemove(room).ok) return 0
+        room.tenant?.let { news.post("${it.name} zieht aus. Der Abrissbagger war sehr überzeugend.", room.center) }
+        tower.remove(roomId)
         val refund = refundFor(room)
         money += refund
         return refund
     }
 
+    fun moveIn(room: Room, tenant: TenantKind) {
+        room.tenant = tenant
+        room.since = clock.totalMinutes
+        looksVersion++
+        news.post("Neu im Turm: ${tenant.name} (${floorLabel(room.floor)}). ${tenant.quirk}", room.center)
+    }
+
+    fun moveOut(room: Room) {
+        room.tenant = null
+        room.since = clock.totalMinutes
+        looksVersion++
+    }
+
+    /** Tower rating, 1 to 5 stars. */
+    var stars: Int = 1
+
     /** People who live or work in the tower. Visitors don't count. */
-    val population: Int get() = 0
+    val population: Int
+        get() = tower.allRooms.sumOf { if (it.tenant != null) it.type.capacity else 0 }
 
     /** Current tower stage, 1 to 5. */
     val stage: Int get() = 1
@@ -123,6 +162,12 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     }
 
     companion object {
+        fun floorLabel(floor: Int): String = when {
+            floor == 0 -> "Erdgeschoss"
+            floor < 0 -> "${-floor}. Untergeschoss"
+            else -> "$floor. Etage"
+        }
+
         const val START_MONEY = 250_000L
         const val STEP_MINUTES = 0.1
         val VISITOR_LOOKS = listOf("tourist", "suit", "courier", "casual")

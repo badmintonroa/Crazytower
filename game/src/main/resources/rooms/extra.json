@@ -1,0 +1,292 @@
+{
+ "frames": {
+  "corridor.png": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "stairs.png": {
+   "frame": {
+    "x": 584,
+    "y": 0,
+    "w": 192,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 192,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   }
+  },
+  "elevator_shaft.png": {
+   "frame": {
+    "x": 1168,
+    "y": 0,
+    "w": 192,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 192,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   }
+  },
+  "home_empty.png": {
+   "frame": {
+    "x": 0,
+    "y": 200,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "home_family.png": {
+   "frame": {
+    "x": 584,
+    "y": 200,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "home_students.png": {
+   "frame": {
+    "x": 1168,
+    "y": 200,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "home_retirees.png": {
+   "frame": {
+    "x": 0,
+    "y": 400,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "home_influencer.png": {
+   "frame": {
+    "x": 584,
+    "y": 400,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "home_penguins.png": {
+   "frame": {
+    "x": 1168,
+    "y": 400,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "home_ghost.png": {
+   "frame": {
+    "x": 0,
+    "y": 600,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "food_empty.png": {
+   "frame": {
+    "x": 584,
+    "y": 600,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "food_imbiss.png": {
+   "frame": {
+    "x": 1168,
+    "y": 600,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "food_sushi.png": {
+   "frame": {
+    "x": 0,
+    "y": 800,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "food_cafe.png": {
+   "frame": {
+    "x": 584,
+    "y": 800,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  }
+ },
+ "meta": {
+  "image": "extra.png",
+  "scale": "4",
+  "size": {
+   "w": 1752,
+   "h": 1000
+  }
+ }
+}

@@ -42,10 +42,25 @@ object Autopilot {
     }
 }
 
-/** A small prebuilt tower for demos and screenshots. */
+/** A small prebuilt tower for demos and screenshots: lobbies, a few floors, stairs and an elevator. */
 object DemoTower {
     fun build(sim: Simulation) {
-        val mid = sim.tower.width / 2 - 9
+        val mid = sim.tower.width / 2 - 12
         for (i in 0 until 3) sim.build(Catalog.LOBBY, 0, mid + i * 6)
+        sim.build(Catalog.ELEVATOR, 0, mid + 18)
+        sim.build(Catalog.STAIRS, 0, mid + 20)
+        sim.build(Catalog.LOBBY, 0, mid + 22)
+        val plan = listOf(
+            listOf(Catalog.OFFICE, Catalog.OFFICE, Catalog.FOOD),
+            listOf(Catalog.OFFICE, Catalog.HOME, Catalog.OFFICE),
+            listOf(Catalog.HOME, Catalog.HOME, Catalog.CORRIDOR),
+        )
+        for ((i, row) in plan.withIndex()) {
+            val floor = i + 1
+            row.forEachIndexed { j, type -> sim.build(type, floor, mid + j * 6) }
+            sim.build(Catalog.ELEVATOR, floor, mid + 18)
+            if (floor < plan.size) sim.build(Catalog.STAIRS, floor, mid + 20)
+            sim.build(Catalog.CORRIDOR, floor, mid + 22)
+        }
     }
 }
