@@ -5,7 +5,6 @@ import com.github.quillraven.fleks.IntervalSystem
 import com.github.quillraven.fleks.IteratingSystem
 import com.github.quillraven.fleks.World.Companion.family
 import com.github.quillraven.fleks.World.Companion.inject
-import crazytower.core.GROUND_FLOOR
 import crazytower.core.Loc
 import crazytower.core.RoomRole
 import crazytower.core.Simulation
@@ -45,6 +44,9 @@ class VisitorSpawnSystem(
     }
 }
 
+private val VISITABLE = setOf(RoomRole.FOOD, RoomRole.OFFICE)
+private val SIGHTS = setOf(RoomRole.LOBBY, RoomRole.SPECIAL)
+
 /** Picks the next stop for idle sightseers, or sends them home when they have seen enough. */
 class VisitorSystem(
     private val sim: Simulation = inject(),
@@ -58,8 +60,12 @@ class VisitorSystem(
             return
         }
         visitor.stopsLeft--
-        val lobby = lobbies[sim.random.nextInt(lobbies.size)]
-        val x = lobby.x + 0.5f + sim.random.nextFloat() * (lobby.width - 1f)
-        entity.configure { it += Goal(Loc(GROUND_FLOOR, x)) }
+        // Sightseers look at the lobby, eat something or bother an office.
+        val sights = sim.tower.allRooms.filter {
+            it.type.role in SIGHTS || (it.tenant != null && it.type.role in VISITABLE)
+        }
+        val stop = sights[sim.random.nextInt(sights.size)]
+        val x = stop.x + 0.5f + sim.random.nextFloat() * (stop.width - 1f)
+        entity.configure { it += Goal(Loc(stop.floor, x)) }
     }
 }

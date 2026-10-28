@@ -6,8 +6,11 @@ import crazytower.core.Room
 import crazytower.core.Simulation
 import crazytower.core.ecs.Person
 import crazytower.core.ecs.Position
+import crazytower.core.ecs.Riding
 import crazytower.core.ecs.Route
+import crazytower.core.nav.Leg
 import crazytower.game.ui.chamferPath
+import crazytower.game.ui.label
 import korlibs.event.Key
 import korlibs.event.MouseButton
 import korlibs.image.color.RGBA
@@ -19,6 +22,7 @@ import korlibs.korge.input.onUpAnywhere
 import korlibs.korge.view.*
 import korlibs.math.geom.Anchor
 import korlibs.math.geom.Point
+import korlibs.math.interpolation.toRatio
 import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.max
@@ -54,14 +58,23 @@ class TowerView(
 ) : Container() {
     /** Everything that moves with the camera. */
     val world = container()
+    private val sky = world.solidRect(1.0, 1.0, Theme.SKY)
     private val backdrop = world.container()
+    private val dusk = world.solidRect(1.0, 1.0, RGBA(0, 0, 0, 0))
     private val roomsLayer = world.container()
+    private val carsLayer = world.container()
     private val peopleLayer = world.container()
     private val overlay = world.container()
 
     private val roomViews = HashMap<Int, View>()
+    private val roomArt = HashMap<Int, String>()
+    private val carViews = HashMap<Int, Container>()
+    private val carLabels = HashMap<Int, Text>()
     private val personViews = HashMap<Int, Image>()
     private var drawnVersion = -1
+    private var drawnLooks = -1
+    private var drawnDark = false
+    private var artCheck = 0
 
     private val ghost = overlay.container { visible = false }
     private val ghostFill = ghost.solidRect(10, 10, Theme.alpha(Theme.SELECT, 0.18))
@@ -97,8 +110,16 @@ class TowerView(
 
     // ---------------------------------------------------------------- backdrop
 
+    private fun syncSky() {
+        val light = DayLight.light(sim.clock.minuteOfDay)
+        sky.color = DayLight.skyColor(light)
+        dusk.color = RGBA(10, 12, 30, ((1 - light) * 110).toInt())
+    }
+
     private fun drawBackdrop() {
         val lotWidth = Metrics.x(sim.tower.width)
+        sky.size(lotWidth + 20000, 20000.0).xy(-10000.0, -18000.0)
+        dusk.size(lotWidth + 20000, 18000.0).xy(-10000.0, -18000.0 + 0.0)
         val random = Random(42)
         // low-poly skyline in two layers
         for ((color, maxHeight) in listOf(Theme.SKY_FAR to 900.0, Theme.SKY_NEAR to 520.0)) {
@@ -130,35 +151,81 @@ class TowerView(
 
     /** Mirrors the simulation into views. Called once per frame. */
     fun sync() {
-        if (drawnVersion != sim.tower.version) rebuildRooms()
+        val dark = DayLight.isDark(sim.clock.minuteOfDay)
+        if (drawnVersion != sim.tower.version || drawnLooks != sim.looksVersion || drawnDark != dark || ++artCheck % 60 == 0) {
+            drawnDark = dark
+            rebuildRooms()
+        }
+        syncSky()
+        syncCars()
         syncPeople()
         syncOverlay()
     }
 
     private fun rebuildRooms() {
         drawnVersion = sim.tower.version
+        drawnLooks = sim.looksVersion
         val alive = sim.tower.allRooms.associateBy { it.id }
         roomViews.keys.filter { it !in alive }.forEach { roomViews.remove(it)?.removeFromParent() }
         for (room in alive.values) {
-            if (room.id !in roomViews) roomViews[room.id] = createRoomView(room)
+            val art = artFor(room)
+            if (room.id !in roomViews || roomArt[room.id] != art) {
+                roomViews.remove(room.id)?.removeFromParent()
+                roomViews[room.id] = createRoomView(room)
+                roomArt[room.id] = art
+            }
         }
     }
 
-    /** Called when a room's look changed (e.g. a new tenant), so its view is redrawn. */
-    fun invalidateRoom(roomId: Int) {
-        roomViews.remove(roomId)?.removeFromParent()
-        drawnVersion = -1
+    /**
+     * Day art, the run-down version when its people are unhappy, or the night version
+     * when it's dark, whenever the atlases have one.
+     */
+    private fun artFor(room: Room): String {
+        val key = RoomLooks.art(sim, room)
+        val mood = sim.moodOf(room)
+        return when {
+            mood != null && mood < Simulation.UNHAPPY && assets.hasRoom(key + "_rundown") -> key + "_rundown"
+            DayLight.isDark(sim.clock.minuteOfDay) && assets.hasRoom(key + "_night") -> key + "_night"
+            else -> key
+        }
+    }
+
+    /** Elevator cars glide over their shafts; the number shows how many people ride along. */
+    private fun syncCars() {
+        val cars = sim.elevators.cars
+        carViews.keys.filter { it !in cars }.forEach {
+            carViews.remove(it)?.removeFromParent()
+            carLabels.remove(it)
+        }
+        for (car in cars.values) {
+            val view = carViews.getOrPut(car.id) {
+                carsLayer.container {
+                    graphics {
+                        fill(Theme.INK) { chamferPath(64.0, 82.0, 6.0, 0.0) }
+                        fill(Theme.GOLD) { chamferPath(64.0, 82.0, 6.0, 3.0) }
+                        fill(Theme.alpha(Theme.INK, 0.85)) { rect(10.0, 12.0, 44.0, 54.0) }
+                    }
+                }.also { carLabels[car.id] = it.label("", 14.0, Theme.GOLD, Theme.pixel).xy(24.0, 30.0) }
+            }
+            view.xy(Metrics.x(car.x) + 16.0, Metrics.floorTop(0) - car.position * Metrics.FLOOR + 6.0)
+            carLabels.getValue(car.id).text =
+                if (car.riders.isEmpty()) "" else car.riders.size.toString()
+        }
     }
 
     private fun createRoomView(room: Room): View {
         val view = roomsLayer.container { xy(Metrics.x(room.x), Metrics.floorTop(room.floor)) }
-        val art = assets.room(RoomLooks.art(sim, room))
+        val art = assets.room(artFor(room))
         val tileSegments = 6
         val tiles = (room.width + tileSegments - 1) / tileSegments
+        // rooms without night art are dimmed so they don't glow in the dark
+        val dimmed = DayLight.isDark(sim.clock.minuteOfDay) && !artFor(room).endsWith("_night")
         for (i in 0 until tiles) {
             view.image(art) {
                 scale = 1.0 / Assets.ROOM_ART_SCALE * 2
                 x = Metrics.x(i * tileSegments)
+                if (dimmed) colorMul = RGBA(120, 124, 165)
             }
         }
         return view
@@ -177,7 +244,9 @@ class TowerView(
             val moving = entity has Route
             val frame = if (moving) 1 + (floor(pos.x * 3).toInt() and 1) else 0
             view.bitmap = assets.person(person.look, frame)
-            view.x = Metrics.x(pos.x)
+            // people queueing at the same spot stand a little apart
+            val queueing = !moving || (entity[Route].legs.firstOrNull() is Leg.Ride)
+            view.x = Metrics.x(pos.x) + if (queueing) ((entity.id % 7) - 3) * 5.0 else 0.0
             view.y = Metrics.floorBottom(pos.floor) - Metrics.FEET
             view.scaleX = if (pos.facingLeft) -2.0 else 2.0
             view.scaleY = 2.0
@@ -236,8 +305,16 @@ class TowerView(
             }
             Tool.Demolish -> {
                 val room = sim.tower.roomAt(h.floor, floor(h.segment).toInt())
+                val blocked = room?.let { sim.checkDemolish(it) }
                 if (room == null) {
                     ghost.visible = false
+                } else if (blocked != null && !blocked.ok) {
+                    ghost.xy(Metrics.x(room.x), Metrics.floorTop(room.floor))
+                    ghostFill.size(Metrics.x(room.width), Metrics.FLOOR)
+                    ghostFill.color = Theme.alpha(Theme.ALARM, 0.1)
+                    frame(ghostFrame, Metrics.x(room.width), Metrics.FLOOR, Theme.ALARM)
+                    ghost.visible = true
+                    ghostInfo = blocked.reason to false
                 } else {
                     ghost.xy(Metrics.x(room.x), Metrics.floorTop(room.floor))
                     ghostFill.size(Metrics.x(room.width), Metrics.FLOOR)
@@ -362,7 +439,10 @@ class TowerView(
             }
             Tool.Demolish -> {
                 val room = sim.tower.roomAt(h.floor, floor(h.segment).toInt())
-                if (room != null) {
+                val blocked = room?.let { sim.checkDemolish(it) }
+                if (room != null && blocked != null && !blocked.ok) {
+                    game.say(blocked.reason)
+                } else if (room != null) {
                     val refund = sim.demolish(room.id)
                     game.say("${room.type.name} abgerissen, ${crazytower.game.ui.formatMoney(refund)} zurück")
                 }
@@ -392,6 +472,31 @@ class TowerView(
             room != null -> Selection.RoomSel(room.id)
             else -> null
         }
+    }
+}
+
+/** Daylight over the day: 1 at noon, 0 at night, with dawn and dusk in between. */
+object DayLight {
+    fun light(minuteOfDay: Int): Double {
+        val h = minuteOfDay / 60.0
+        return when {
+            h < 5 || h >= 21.5 -> 0.0
+            h < 7 -> (h - 5) / 2
+            h < 19 -> 1.0
+            else -> 1 - (h - 19) / 2.5
+        }
+    }
+
+    fun isDark(minuteOfDay: Int): Boolean = light(minuteOfDay) < 0.35
+
+    private val day = RGBA(70, 104, 160)
+    private val dusk = RGBA(150, 92, 130)
+    private val night = RGBA(16, 20, 44)
+
+    fun skyColor(light: Double): RGBA = when {
+        light >= 1 -> day
+        light >= 0.5 -> RGBA.interpolate(dusk, day, ((light - 0.5) * 2).toRatio())
+        else -> RGBA.interpolate(night, dusk, (light * 2).toRatio())
     }
 }
 
