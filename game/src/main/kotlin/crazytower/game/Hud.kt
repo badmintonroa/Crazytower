@@ -49,6 +49,8 @@ class Hud(
     private lateinit var stageHint: Text
     private lateinit var stageBar: Graphics
     private lateinit var stars: Container
+    private lateinit var moodText: Text
+    private var shownStars = -1
     private lateinit var clockText: Text
     private val speedButtons = ArrayList<Pair<Int, TextButton>>()
     private val categoryButtons = HashMap<Category, Button>()
@@ -97,7 +99,8 @@ class Hud(
             solidRect(8.0, 8.0, Theme.alpha(Theme.SELECT, 0.9)).xy(20.0, 18.0)
             solidRect(14.0, 12.0, Theme.alpha(Theme.SELECT, 0.6)).xy(17.0, 28.0)
             popText = label("", 20.0, Theme.TEXT, Theme.pixel).also { it.xy(42.0, 17.0) }
-            label("Bewohner", 12.0, Theme.TEXT_DIM).xy(95.0, 23.0)
+            label("Bewohner", 12.0, Theme.TEXT_DIM).xy(95.0, 14.0)
+            moodText = label("", 12.0, Theme.TEXT_DIM).also { it.xy(95.0, 30.0) }
         }
         val stageWidth = screenWidth - 24 - x - 150 - 10 - 206
         box(stageWidth) {
@@ -260,6 +263,9 @@ class Hud(
         moneyText.text = formatMoney(sim.money)
         moneyText.color = if (sim.money < 0) Theme.ALARM else Theme.TEXT
         popText.text = formatNumber(sim.population.toLong())
+        val mood = sim.satisfaction.toInt()
+        moodText.text = "Laune $mood %"
+        moodText.color = if (mood < 40) Theme.ALARM else Theme.TEXT_DIM
         syncStage()
         clockText.text = sim.clock.format()
         clockText.color = if (game.speed == 0) Theme.ALARM else Theme.TEXT
@@ -274,10 +280,13 @@ class Hud(
 
     private fun syncStage() {
         val stage = sim.stage
+        if (sim.stars != shownStars) {
+            shownStars = sim.stars
+            stars.removeChildren()
+            for (i in 0 until 5) Icons.star(stars, i < sim.stars).xy(i * 22.0, 0.0)
+        }
         if (stage != shownStage) {
             shownStage = stage
-            stars.removeChildren()
-            for (i in 0 until 5) Icons.star(stars, i < stage).xy(i * 22.0, 0.0)
             stageText.text = "STUFE $stage · ${Stages.info(stage).name.uppercase()}"
         }
         val next = if (stage < 5) Stages.info(stage + 1) else null

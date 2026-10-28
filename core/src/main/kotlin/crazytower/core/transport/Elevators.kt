@@ -28,6 +28,9 @@ class Car(val id: Int, val x: Int, var bottom: Int, var top: Int) {
     /** People waiting in front of the doors, per floor. Refreshed every tick by the elevator system. */
     val waiting = HashMap<Int, MutableList<Entity>>()
 
+    /** Game minute each waiting person arrived at the doors. */
+    val waitingSince = HashMap<Entity, Double>()
+
     val centerX: Float get() = x + 1f
     val floors: IntRange get() = bottom..top
     val waitingCount: Int get() = waiting.values.sumOf { it.size }

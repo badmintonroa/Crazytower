@@ -16,6 +16,8 @@ class Assets private constructor(
     private val rooms: Map<String, BmpSlice>,
     private val people: Map<String, List<BmpSlice>>,
 ) {
+    fun hasRoom(key: String): Boolean = key in rooms
+
     fun room(key: String): BmpSlice = rooms[key] ?: rooms.getValue(FALLBACK_ROOM)
 
     /** Frame 0 = standing, 1 and 2 = walking. */
@@ -44,7 +46,7 @@ class Assets private constructor(
 
         suspend fun load(): Assets {
             // Resource folders inside a jar can't be listed, so people/ carries an index.txt.
-            val rooms = loadAtlas("rooms/atlas") + loadAtlas("rooms/extra")
+            val rooms = loadAtlas("rooms/atlas") + loadAtlas("rooms/extra") + loadAtlas("rooms/night")
             val people = index("people").associateWith { name ->
                 val sheet = resourcesVfs["people/$name.png"].readBitmap()
                 (0 until 3).map { sheet.slice(RectangleInt(it * PERSON_W, 0, PERSON_W, PERSON_H)) }

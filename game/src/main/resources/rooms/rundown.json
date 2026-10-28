@@ -1,0 +1,373 @@
+{
+ "frames": {
+  "lobby_stage1_bruchbude_rundown.png": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "lobby_entrance_rundown.png": {
+   "frame": {
+    "x": 584,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "lobby_stage2_hochhaus_rundown.png": {
+   "frame": {
+    "x": 1168,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "lobby_stage3_wolkenkratzer_rundown.png": {
+   "frame": {
+    "x": 0,
+    "y": 200,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "lobby_stage4_megatower_rundown.png": {
+   "frame": {
+    "x": 584,
+    "y": 200,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "lobby_stage5_crazytower_rundown.png": {
+   "frame": {
+    "x": 1168,
+    "y": 200,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "office_empty_rundown.png": {
+   "frame": {
+    "x": 0,
+    "y": 400,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "office_accountant_rundown.png": {
+   "frame": {
+    "x": 584,
+    "y": 400,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "office_startup_rundown.png": {
+   "frame": {
+    "x": 1168,
+    "y": 400,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "office_callcenter_rundown.png": {
+   "frame": {
+    "x": 0,
+    "y": 600,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "office_clown_rundown.png": {
+   "frame": {
+    "x": 584,
+    "y": 600,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "office_excuses_rundown.png": {
+   "frame": {
+    "x": 1168,
+    "y": 600,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "office_vampire_rundown.png": {
+   "frame": {
+    "x": 0,
+    "y": 800,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "office_socks_rundown.png": {
+   "frame": {
+    "x": 584,
+    "y": 800,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "office_ministry_rundown.png": {
+   "frame": {
+    "x": 1168,
+    "y": 800,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "office_supervillain_rundown.png": {
+   "frame": {
+    "x": 0,
+    "y": 1000,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "office_timetravel_rundown.png": {
+   "frame": {
+    "x": 584,
+    "y": 1000,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "office_alien_rundown.png": {
+   "frame": {
+    "x": 1168,
+    "y": 1000,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  }
+ },
+ "meta": {
+  "image": "rooms_atlas_rundown@4x.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 1752,
+   "h": 1200
+  },
+  "scale": "4"
+ }
+}

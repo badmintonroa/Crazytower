@@ -4,7 +4,10 @@ import crazytower.core.Loc
 import crazytower.core.RoomRole
 import crazytower.core.Simulation
 import crazytower.core.transport.Elevators
+import crazytower.core.ecs.Activity
 import crazytower.core.ecs.Goal
+import crazytower.core.ecs.Member
+import crazytower.core.ecs.Schedule
 import crazytower.core.ecs.Idle
 import crazytower.core.ecs.Person
 import crazytower.core.ecs.Position
@@ -130,6 +133,7 @@ object RoomInfo {
             }
             tenant != null -> {
                 lines += "Raum" to room.type.name
+                sim.moodOf(room)?.let { lines += "Laune" to "${it.toInt()} %" }
                 lines += "Schicht" to tenant.shift.label
                 lines += if (room.type.role == RoomRole.HOME) "Bewohner" to "${room.type.capacity}" else "Leute" to "${room.type.capacity}"
                 RoomCard(tenant.name, where, lines, tenant.quirk)
@@ -147,13 +151,22 @@ object RoomInfo {
 /** Text for the inspector's person card. */
 object PersonInfo {
     fun role(sim: Simulation, e: com.github.quillraven.fleks.Entity): String = with(sim.world) {
-        if (e has Visitor) "Besucher" else "Bewohner"
+        val member = e.getOrNull(Member)
+        when {
+            e has Visitor -> "Besucher"
+            member != null && member.resident -> "Wohnt hier"
+            member != null -> "Arbeitet hier"
+            else -> "Gast"
+        }
     }
 
     fun doing(sim: Simulation, e: com.github.quillraven.fleks.Entity): String = with(sim.world) {
         val visitor = e.getOrNull(Visitor)
         when {
             e has Stuck -> "Findet keinen Weg"
+            e has Schedule && e[Schedule].activity == Activity.AT_ROOM && e.getOrNull(Member)?.resident == true ->
+                if (sim.clock.isNight) "Schläft" else "Ist zu Hause"
+            e has Schedule && e hasNo crazytower.core.ecs.Riding && e hasNo Goal -> e[Schedule].activity.label
             e has crazytower.core.ecs.Riding -> "Fährt Aufzug"
             (e.getOrNull(crazytower.core.ecs.Route)?.legs?.firstOrNull() is crazytower.core.nav.Leg.Ride) -> "Wartet auf den Aufzug"
             (e.getOrNull(crazytower.core.ecs.Route)?.legs?.firstOrNull() is crazytower.core.nav.Leg.Stairs) -> "Nimmt die Treppe"
@@ -164,5 +177,14 @@ object PersonInfo {
         }
     }
 
-    fun extra(sim: Simulation, e: com.github.quillraven.fleks.Entity): List<Pair<String, String>> = emptyList()
+    fun extra(sim: Simulation, e: com.github.quillraven.fleks.Entity): List<Pair<String, String>> = with(sim.world) {
+        val member = e.getOrNull(Member) ?: return emptyList()
+        val schedule = e[Schedule]
+        val room = sim.tower.room(member.roomId)
+        listOfNotNull(
+            room?.tenant?.let { (if (member.resident) "Bei" else "Firma") to it.name.take(24) },
+            "Schicht" to schedule.shift.label,
+            "Laune" to "${schedule.mood.toInt()} %",
+        )
+    }
 }

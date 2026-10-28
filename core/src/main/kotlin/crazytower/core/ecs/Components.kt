@@ -3,6 +3,7 @@ package crazytower.core.ecs
 import com.github.quillraven.fleks.Component
 import com.github.quillraven.fleks.ComponentType
 import crazytower.core.Loc
+import crazytower.core.Shift
 import crazytower.core.nav.Leg
 
 /** Where a person currently is. [x] is measured in segments. */
@@ -55,8 +56,38 @@ data class Riding(val carId: Int) : Component<Riding> {
     companion object : ComponentType<Riding>()
 }
 
-/** Somebody who belongs to a room: an employee of an office or a resident of a home. */
-data class Member(val roomId: Int) : Component<Member> {
+/** Somebody who belongs to a room: an employee of an office or restaurant, or a resident of a home. */
+data class Member(val roomId: Int, val resident: Boolean) : Component<Member> {
     override fun type() = Member
     companion object : ComponentType<Member>()
+}
+
+/** What a member is up to right now; shown in the inspector and used to react on arrival. */
+enum class Activity(val label: String) {
+    AWAY("Nicht im Turm"),
+    ARRIVING("Kommt in den Turm"),
+    AT_ROOM("Bei der Arbeit"),
+    WANDERING("Vertritt sich die Beine"),
+    TO_MEAL("Geht essen"),
+    EATING("Isst"),
+    LEAVING("Geht nach Hause"),
+}
+
+/**
+ * The daily routine of a member. [offset] shifts the times by a few minutes per person so
+ * not everybody turns up at the same second. [mood] is 0..100.
+ */
+class Schedule(val shift: Shift, val offset: Int) : Component<Schedule> {
+    var activity: Activity = Activity.AWAY
+    var ateOnDay: Int = -1
+    var tripStart: Double = 0.0
+    var mood: Float = 70f
+    override fun type() = Schedule
+    companion object : ComponentType<Schedule>()
+}
+
+/** Members outside the tower (at work elsewhere, asleep somewhere, partying). Not drawn. */
+data class Away(val since: Double) : Component<Away> {
+    override fun type() = Away
+    companion object : ComponentType<Away>()
 }
