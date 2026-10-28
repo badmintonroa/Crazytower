@@ -25,6 +25,15 @@ enum class RoomRole {
     OFFICE,
     HOME,
     FOOD,
+
+    /** Odd extras that make the tower more fun; sightseers love them. */
+    SPECIAL,
+
+    /** Needed for stage 4, keeps some of the chaos away. */
+    SECURITY,
+
+    /** Teleporters connect to each other, wherever they are. */
+    TELEPORTER,
     ;
 
     /** Rooms that get a tenant. */
@@ -88,7 +97,29 @@ object Catalog {
         description = "Hier essen Angestellte und Besucher.",
     )
 
-    val roomTypes: List<RoomType> = listOf(LOBBY, CORRIDOR, STAIRS, ELEVATOR, OFFICE, HOME, FOOD)
+    val COPYROOM = RoomType(
+        id = "copyroom", name = "Kopierraum der Ewigkeit", category = Category.SPECIAL, role = RoomRole.SPECIAL,
+        width = 6, cost = 40_000, minStage = 2, art = "extra_copyroom",
+        description = "Hebt die Laune im ganzen Turm. Niemand weiß, wer den Toner bezahlt.",
+    )
+    val SECURITY = RoomType(
+        id = "security", name = "Sicherheitsdienst", category = Category.SPECIAL, role = RoomRole.SECURITY,
+        width = 6, cost = 80_000, minStage = 3, art = "special_security",
+        description = "Weniger Chaos bei Ereignissen. Pflicht für Stufe 4.",
+    )
+    val TELEPORTER = RoomType(
+        id = "teleporter", name = "Teleporter", category = Category.SPECIAL, role = RoomRole.TELEPORTER,
+        width = 2, cost = 150_000, minStage = 4, art = "special_teleporter",
+        description = "Verbindet alle Teleporter miteinander. Meistens.",
+    )
+    val UFO_PAD = RoomType(
+        id = "ufo", name = "Ufo-Landeplatz", category = Category.SPECIAL, role = RoomRole.SPECIAL,
+        width = 6, cost = 500_000, minStage = 5, art = "special_ufo",
+        description = "Für Besuch von ganz weit weg.",
+    )
+
+    val roomTypes: List<RoomType> =
+        listOf(LOBBY, CORRIDOR, STAIRS, ELEVATOR, OFFICE, HOME, FOOD, COPYROOM, SECURITY, TELEPORTER, UFO_PAD)
 
     fun type(id: String): RoomType = roomTypes.first { it.id == id }
 }

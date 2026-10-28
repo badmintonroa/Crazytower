@@ -41,7 +41,13 @@ class MovementSystem(
             budget = when (leg) {
                 is Leg.Walk -> walk(pos, leg, budget)
                 is Leg.Stairs -> climb(pos, route, leg, budget)
+                is Leg.Teleport -> teleport(entity, pos, route, leg, budget)
                 is Leg.Ride -> break // elevators move riders themselves
+            }
+            if (budget < 0f) {
+                // teleporter misfire: the rest of the route is useless, plan again from here
+                entity.configure { it -= Route }
+                return
             }
             if (legDone(pos, route, leg)) {
                 route.legs.removeFirst()
@@ -72,6 +78,27 @@ class MovementSystem(
         }
     }
 
+    private fun teleport(entity: Entity, pos: Position, route: Route, leg: Leg.Teleport, budget: Float): Float {
+        val needed = NavCosts.TELEPORT - route.legProgress
+        if (budget < needed) {
+            route.legProgress += budget
+            return 0f
+        }
+        route.legProgress = NavCosts.TELEPORT
+        val pads = sim.tower.allRooms.filter { it.type.role == crazytower.core.RoomRole.TELEPORTER }
+        if (pads.size > 2 && sim.random.nextFloat() < MISFIRE_CHANCE) {
+            // "Kommt meistens dort an, wo man hinwollte."
+            val wrong = pads[sim.random.nextInt(pads.size)]
+            pos.floor = wrong.floor
+            pos.x = wrong.centerX
+            sim.onMisfire(entity, wrong)
+            return -1f
+        }
+        pos.floor = leg.toFloor
+        pos.x = leg.toX
+        return budget - needed
+    }
+
     private fun climb(pos: Position, route: Route, leg: Leg.Stairs, budget: Float): Float {
         val total = NavCosts.STAIRS_PER_FLOOR * abs(leg.toFloor - leg.fromFloor)
         val needed = total - route.legProgress
@@ -88,9 +115,12 @@ class MovementSystem(
     private fun legDone(pos: Position, route: Route, leg: Leg): Boolean = when (leg) {
         is Leg.Walk -> pos.x == leg.toX && pos.floor == leg.floor
         is Leg.Stairs -> pos.floor == leg.toFloor
+        is Leg.Teleport -> route.legProgress >= NavCosts.TELEPORT
         is Leg.Ride -> false // the elevator system removes ride legs
     }
 }
+
+private const val MISFIRE_CHANCE = 0.04f
 
 /** Lets people who could not find a way give up after a while and try again later. */
 class StuckSystem(

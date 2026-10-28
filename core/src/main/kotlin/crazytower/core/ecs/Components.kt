@@ -91,3 +91,9 @@ data class Away(val since: Double) : Component<Away> {
     override fun type() = Away
     companion object : ComponentType<Away>()
 }
+
+/** A very important visitor. If she reaches her goal in time, the tower is ready for stage 5. */
+data class Vip(val since: Double) : Component<Vip> {
+    override fun type() = Vip
+    companion object : ComponentType<Vip>()
+}

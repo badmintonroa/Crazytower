@@ -1,0 +1,174 @@
+package crazytower.core
+
+import crazytower.core.ecs.Away
+import crazytower.core.ecs.Goal
+import crazytower.core.ecs.Member
+import crazytower.core.ecs.Person
+import crazytower.core.ecs.Position
+import crazytower.core.ecs.Schedule
+import crazytower.core.ecs.Vip
+import crazytower.core.ecs.Visitor
+
+/**
+ * Absurd things that happen to the tower. The player can't prevent them, only live with them
+ * (a security service makes the bad ones rarer). Each event returns false when it doesn't fit
+ * the current tower, e.g. a clown takeover without offices.
+ */
+class TowerEvent(
+    val id: String,
+    val weight: Int,
+    val minStage: Int = 1,
+    val bad: Boolean = false,
+    val apply: Simulation.() -> Boolean,
+)
+
+object Events {
+    val all: List<TowerEvent> = listOf(
+        TowerEvent("clown", 4) {
+            val office = rentedRooms(RoomRole.OFFICE).filter { it.tenant?.id != "clown" }.randomOrNull(random) ?: return@TowerEvent false
+            val old = office.tenant!!.name
+            moveIn(office, Tenants.byId("clown"), announce = false)
+            news.post("$old ist über Nacht zur Clownsagentur Tröt geworden. Die Hupen sind beglaubigt.", office.center, important = true)
+            true
+        },
+        TowerEvent("ghost", 2) {
+            val home = rentedRooms(RoomRole.HOME).filter { it.tenant?.id != "ghost" }.randomOrNull(random) ?: return@TowerEvent false
+            val old = home.tenant!!.name
+            moveIn(home, Tenants.byId("ghost"), announce = false)
+            news.post("Bei $old spukt es. $old ist ausgezogen, das Gespenst bleibt und zahlt keine Miete.", home.center, important = true)
+            true
+        },
+        TowerEvent("wedding", 3, bad = true) {
+            val car = elevators.cars.values.filter { it.bottom != it.top }.randomOrNull(random) ?: return@TowerEvent false
+            car.blockedUntil = clock.totalMinutes + 45
+            news.post("Im Aufzug wird spontan eine Hochzeit gefeiert. Er fährt erst nach dem Brautstrauß wieder.",
+                Loc(car.position.toInt(), car.centerX), important = true)
+            true
+        },
+        TowerEvent("pigeons", 3, bad = true) {
+            val top = tower.builtFloors.maxOrNull() ?: return@TowerEvent false
+            if (top < 2) return@TowerEvent false
+            changeMood(-10f) { it.floor == top }
+            news.post("Tauben haben die ${Simulation.floorLabel(top)} besetzt. Sie wollen Mitspracherecht.", Loc(top, tower.width / 2f), important = true)
+            true
+        },
+        TowerEvent("pizza", 3) {
+            if (population == 0) return@TowerEvent false
+            changeMood(8f) { true }
+            news.post("Gratis-Pizza für alle! Keiner weiß, wer sie bestellt hat. Alle essen trotzdem.")
+            true
+        },
+        TowerEvent("refund", 2) {
+            val amount = 5_000L + random.nextLong(15_000)
+            earn(amount)
+            news.post("Das Finanzamt hat sich verrechnet. Zu deinen Gunsten. Einmalig: ${"%,d".format(amount).replace(',', '.')} \$.")
+            true
+        },
+        TowerEvent("fine", 2, bad = true) {
+            spend(3_000)
+            news.post("Bußgeld über 3.000 \$: Der Turm war drei Zentimeter zu hoch. Er wurde nicht kleiner.")
+            true
+        },
+        TowerEvent("influencer", 2) {
+            if (tower.allRooms.none { it.type.role == RoomRole.LOBBY }) return@TowerEvent false
+            repeat(12) { spawnVisitor() }
+            news.post("Ein Influencer hat den Turm gepostet. Busladungen voller Fans stehen in der Lobby.", important = true)
+            true
+        },
+        TowerEvent("smell", 2, bad = true) {
+            val office = rentedRooms(RoomRole.OFFICE).randomOrNull(random) ?: return@TowerEvent false
+            changeMood(-15f) { it.roomId == office.id }
+            news.post("Bei ${office.tenant!!.name} riecht es nach Fisch. Keiner gibt es zu.", office.center, important = true)
+            true
+        },
+        TowerEvent("tourist", 2) {
+            news.post("Ein Tourist sucht seit drei Tagen den Ausgang. Er findet es schön hier.")
+            true
+        },
+        TowerEvent("cat", 2) {
+            if (elevators.cars.isEmpty()) return@TowerEvent false
+            news.post("Eine Katze fährt seit Stunden Aufzug. Sie drückt alle Knöpfe. Jeden einzeln.")
+            true
+        },
+        TowerEvent("blackout", 2, minStage = 2, bad = true) {
+            if (elevators.cars.isEmpty()) return@TowerEvent false
+            elevators.cars.values.forEach { it.blockedUntil = clock.totalMinutes + 25 }
+            news.post("Stromausfall! Jemand hat den Wasserkocher und den Teilchenbeschleuniger gleichzeitig angemacht.", important = true)
+            true
+        },
+        TowerEvent("timetraveler", 2, minStage = 3) {
+            news.post("Ein Mann aus dem Jahr 2087 fragt, ob der Turm schon steht. Er steht.")
+            true
+        },
+        TowerEvent("penguins", 2, minStage = 3) {
+            changeMood(5f) { true }
+            news.post("Eine Pinguin-Parade zieht durch die Lobby. Die Laune steigt, die Raumtemperatur fällt.")
+            true
+        },
+        TowerEvent("vip", 4, minStage = 4) {
+            if (vipSurvived || vipOnTheWay) return@TowerEvent false
+            spawnVip()
+        },
+        TowerEvent("ufo", 2, minStage = 5) {
+            val pad = tower.allRooms.firstOrNull { it.type == Catalog.UFO_PAD }
+            if (pad != null) {
+                earn(50_000)
+                news.post("Ein Ufo ist gelandet und zahlt brav 50.000 \$ Parkgebühr. In Gold. Von Gliese.", pad.center, important = true)
+            } else {
+                news.post("Ein Ufo kreist über dem Turm und findet keinen Parkplatz.")
+            }
+            true
+        },
+    )
+
+    /** Rolls the dice for one hour: maybe something absurd happens. */
+    fun roll(sim: Simulation) {
+        if (sim.random.nextFloat() > CHANCE_PER_HOUR) return
+        val secured = sim.tower.allRooms.any { it.type.role == RoomRole.SECURITY }
+        val pool = all.filter { it.minStage <= sim.stage }
+        val weights = pool.map { if (it.bad && secured) it.weight / 2.0 else it.weight.toDouble() }
+        var pick = sim.random.nextDouble() * weights.sum()
+        for ((event, weight) in pool.zip(weights)) {
+            pick -= weight
+            if (pick <= 0) {
+                if (event.bad && secured && sim.random.nextFloat() < 0.3f) {
+                    sim.news.post("Der Sicherheitsdienst hat etwas Schlimmes verhindert. Er sagt nicht, was.")
+                } else {
+                    event.apply(sim)
+                }
+                return
+            }
+        }
+    }
+
+    const val CHANCE_PER_HOUR = 0.15f
+}
+
+private fun Simulation.rentedRooms(role: RoomRole): List<Room> = tower.allRooms.filter { it.type.role == role && it.tenant != null }
+
+/** Changes the mood of every member who is in the tower and matches [where]. */
+private fun Simulation.changeMood(delta: Float, where: (MoodTarget) -> Boolean) = with(world) {
+    family { all(Member, Schedule, Position) }.forEach { e ->
+        if (e has Away) return@forEach
+        if (where(MoodTarget(e[Position].floor, e[Member].roomId))) {
+            e[Schedule].mood = (e[Schedule].mood + delta).coerceIn(0f, 100f)
+        }
+    }
+}
+
+private class MoodTarget(val floor: Int, val roomId: Int)
+
+/** Sends a VIP to the highest rented room. Surviving the visit unlocks stage 5. */
+private fun Simulation.spawnVip(): Boolean {
+    val target = tower.allRooms.filter { it.tenant != null }.maxByOrNull { it.floor } ?: return false
+    world.entity {
+        it += Position(GROUND_FLOOR, 0f)
+        it += Person("Frau Dr. Wichtig", "official")
+        it += Visitor(stopsLeft = 0)
+        it += Vip(since = clock.totalMinutes)
+        it += Goal(spotIn(target))
+    }
+    news.post("VIP-Besuch! Frau Dr. Wichtig will zu ${target.tenant!!.name} in die ${Simulation.floorLabel(target.floor)}. Bitte nichts kaputt machen.",
+        target.center, important = true)
+    return true
+}

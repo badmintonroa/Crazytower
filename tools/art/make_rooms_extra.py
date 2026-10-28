@@ -282,12 +282,50 @@ def food_cafe():
     return r.save()
 
 
+def special_security():
+    r = Room(6, (70, 78, 98), floor=(40, 44, 60), ceiling=(20, 22, 34))
+    for i in range(3):
+        for j in range(2):
+            x, y = 40 + i * 70, 36 + j * 50
+            r.box(x, y, 60, 42, (30, 34, 46))
+            r.d.rectangle([x + 5, y + 5, x + 55, y + 37], fill=(90, 200, 150) if (i + j) % 2 else (120, 170, 230))
+    r.table(260, 120, color=(90, 96, 120))
+    r.sign(410, 44, "SICHERHEIT\nBITTE LÄCHELN", bg=(240, 220, 80), size=12)
+    r.d.ellipse([440, 104, 476, 140], fill=(240, 200, 160), outline=INK, width=3)
+    r.d.rectangle([444, 114, 472, 122], fill=INK)  # sunglasses
+    r.box(436, 140, 44, 28, (40, 44, 60))
+    return r.save()
+
+
+def special_teleporter():
+    r = Room(2, (60, 52, 100), floor=(36, 30, 64), ceiling=(20, 16, 40))
+    for i, c in enumerate([(120, 255, 230), (90, 210, 255), (180, 140, 255)]):
+        r.d.ellipse([30 + i * 8, 60 + i * 10, 162 - i * 8, 170 - i * 4], outline=c, width=4)
+    r.box(26, 158, 140, 12, (150, 150, 180))
+    r.d.ellipse([70, 80, 122, 132], fill=(200, 255, 245))
+    r.sign(20, 22, "MEISTENS", bg=(120, 255, 230), size=11)
+    return r.save()
+
+
+def special_ufo():
+    r = Room(6, (40, 54, 96), floor=(80, 86, 104), ceiling=(40, 54, 96))
+    for x, y in [(60, 30), (200, 50), (330, 24), (480, 60), (540, 30), (120, 80)]:
+        r.d.ellipse([x, y, x + 5, y + 5], fill=(255, 255, 220))
+    r.d.ellipse([170, 130, 410, 176], fill=(230, 230, 90), outline=INK, width=4)
+    r.d.text((262, 136), "UFO", fill=INK, font=font(26))
+    r.d.ellipse([240, 48, 340, 88], fill=(170, 190, 210), outline=INK, width=3)
+    r.d.ellipse([266, 30, 314, 66], fill=(150, 255, 200), outline=INK, width=3)
+    r.sign(440, 100, "PARKEN NUR\nMIT GOLD", bg=(255, 255, 255), size=11)
+    return r.save()
+
+
 ROOMS = {
     "corridor": corridor, "stairs": stairs, "elevator_shaft": elevator,
     "home_empty": home_empty, "home_family": home_family, "home_students": home_students,
     "home_retirees": home_retirees, "home_influencer": home_influencer,
     "home_penguins": home_penguins, "home_ghost": home_ghost,
     "food_empty": food_empty, "food_imbiss": food_imbiss, "food_sushi": food_sushi, "food_cafe": food_cafe,
+    "special_security": special_security, "special_teleporter": special_teleporter, "special_ufo": special_ufo,
 }
 
 

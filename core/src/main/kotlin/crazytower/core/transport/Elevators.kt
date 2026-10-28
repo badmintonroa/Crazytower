@@ -21,6 +21,9 @@ class Car(val id: Int, val x: Int, var bottom: Int, var top: Int) {
     /** +1 up, -1 down, 0 idle. */
     var direction: Int = 0
 
+    /** The car doesn't move before this game minute (weddings, blackouts). */
+    var blockedUntil: Double = 0.0
+
     /** Minutes the doors stay open. */
     var doorTimer: Float = 0f
     val riders = ArrayList<Entity>()
@@ -125,4 +128,17 @@ object StairsLinks : LinkProvider {
                 Link(Loc(room.floor + 1, x), Loc(room.floor, x), Leg.Stairs(room.floor + 1, room.floor, x), cost),
             )
         }
+}
+
+/** Every teleporter links to every other one. Fast, but it costs nerves (and sometimes the floor). */
+object TeleporterLinks : LinkProvider {
+    override fun links(tower: Tower): List<Link> {
+        val pads = tower.allRooms.filter { it.type.role == RoomRole.TELEPORTER }
+        val links = ArrayList<Link>()
+        for (a in pads) for (b in pads) {
+            if (a === b) continue
+            links += Link(a.center, b.center, Leg.Teleport(a.floor, b.floor, b.centerX)) { NavCosts.TELEPORT }
+        }
+        return links
+    }
 }
