@@ -44,7 +44,7 @@ class Assets private constructor(
 
         suspend fun load(): Assets {
             // Resource folders inside a jar can't be listed, so people/ carries an index.txt.
-            val rooms = loadAtlas("rooms/atlas")
+            val rooms = loadAtlas("rooms/atlas") + loadAtlas("rooms/extra")
             val people = index("people").associateWith { name ->
                 val sheet = resourcesVfs["people/$name.png"].readBitmap()
                 (0 until 3).map { sheet.slice(RectangleInt(it * PERSON_W, 0, PERSON_W, PERSON_H)) }

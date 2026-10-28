@@ -6,8 +6,11 @@ import crazytower.core.Room
 import crazytower.core.Simulation
 import crazytower.core.ecs.Person
 import crazytower.core.ecs.Position
+import crazytower.core.ecs.Riding
 import crazytower.core.ecs.Route
+import crazytower.core.nav.Leg
 import crazytower.game.ui.chamferPath
+import crazytower.game.ui.label
 import korlibs.event.Key
 import korlibs.event.MouseButton
 import korlibs.image.color.RGBA
@@ -56,12 +59,17 @@ class TowerView(
     val world = container()
     private val backdrop = world.container()
     private val roomsLayer = world.container()
+    private val carsLayer = world.container()
     private val peopleLayer = world.container()
     private val overlay = world.container()
 
     private val roomViews = HashMap<Int, View>()
+    private val roomArt = HashMap<Int, String>()
+    private val carViews = HashMap<Int, Container>()
+    private val carLabels = HashMap<Int, Text>()
     private val personViews = HashMap<Int, Image>()
     private var drawnVersion = -1
+    private var drawnLooks = -1
 
     private val ghost = overlay.container { visible = false }
     private val ghostFill = ghost.solidRect(10, 10, Theme.alpha(Theme.SELECT, 0.18))
@@ -130,24 +138,48 @@ class TowerView(
 
     /** Mirrors the simulation into views. Called once per frame. */
     fun sync() {
-        if (drawnVersion != sim.tower.version) rebuildRooms()
+        if (drawnVersion != sim.tower.version || drawnLooks != sim.looksVersion) rebuildRooms()
+        syncCars()
         syncPeople()
         syncOverlay()
     }
 
     private fun rebuildRooms() {
         drawnVersion = sim.tower.version
+        drawnLooks = sim.looksVersion
         val alive = sim.tower.allRooms.associateBy { it.id }
         roomViews.keys.filter { it !in alive }.forEach { roomViews.remove(it)?.removeFromParent() }
         for (room in alive.values) {
-            if (room.id !in roomViews) roomViews[room.id] = createRoomView(room)
+            val art = RoomLooks.art(sim, room)
+            if (room.id !in roomViews || roomArt[room.id] != art) {
+                roomViews.remove(room.id)?.removeFromParent()
+                roomViews[room.id] = createRoomView(room)
+                roomArt[room.id] = art
+            }
         }
     }
 
-    /** Called when a room's look changed (e.g. a new tenant), so its view is redrawn. */
-    fun invalidateRoom(roomId: Int) {
-        roomViews.remove(roomId)?.removeFromParent()
-        drawnVersion = -1
+    /** Elevator cars glide over their shafts; the number shows how many people ride along. */
+    private fun syncCars() {
+        val cars = sim.elevators.cars
+        carViews.keys.filter { it !in cars }.forEach {
+            carViews.remove(it)?.removeFromParent()
+            carLabels.remove(it)
+        }
+        for (car in cars.values) {
+            val view = carViews.getOrPut(car.id) {
+                carsLayer.container {
+                    graphics {
+                        fill(Theme.INK) { chamferPath(64.0, 82.0, 6.0, 0.0) }
+                        fill(Theme.GOLD) { chamferPath(64.0, 82.0, 6.0, 3.0) }
+                        fill(Theme.alpha(Theme.INK, 0.85)) { rect(10.0, 12.0, 44.0, 54.0) }
+                    }
+                }.also { carLabels[car.id] = it.label("", 14.0, Theme.GOLD, Theme.pixel).xy(24.0, 30.0) }
+            }
+            view.xy(Metrics.x(car.x) + 16.0, Metrics.floorTop(0) - car.position * Metrics.FLOOR + 6.0)
+            carLabels.getValue(car.id).text =
+                if (car.riders.isEmpty()) "" else car.riders.size.toString()
+        }
     }
 
     private fun createRoomView(room: Room): View {
@@ -177,7 +209,9 @@ class TowerView(
             val moving = entity has Route
             val frame = if (moving) 1 + (floor(pos.x * 3).toInt() and 1) else 0
             view.bitmap = assets.person(person.look, frame)
-            view.x = Metrics.x(pos.x)
+            // people queueing at the same spot stand a little apart
+            val queueing = !moving || (entity[Route].legs.firstOrNull() is Leg.Ride)
+            view.x = Metrics.x(pos.x) + if (queueing) ((entity.id % 7) - 3) * 5.0 else 0.0
             view.y = Metrics.floorBottom(pos.floor) - Metrics.FEET
             view.scaleX = if (pos.facingLeft) -2.0 else 2.0
             view.scaleY = 2.0
@@ -236,8 +270,16 @@ class TowerView(
             }
             Tool.Demolish -> {
                 val room = sim.tower.roomAt(h.floor, floor(h.segment).toInt())
+                val blocked = room?.let { sim.checkDemolish(it) }
                 if (room == null) {
                     ghost.visible = false
+                } else if (blocked != null && !blocked.ok) {
+                    ghost.xy(Metrics.x(room.x), Metrics.floorTop(room.floor))
+                    ghostFill.size(Metrics.x(room.width), Metrics.FLOOR)
+                    ghostFill.color = Theme.alpha(Theme.ALARM, 0.1)
+                    frame(ghostFrame, Metrics.x(room.width), Metrics.FLOOR, Theme.ALARM)
+                    ghost.visible = true
+                    ghostInfo = blocked.reason to false
                 } else {
                     ghost.xy(Metrics.x(room.x), Metrics.floorTop(room.floor))
                     ghostFill.size(Metrics.x(room.width), Metrics.FLOOR)
@@ -362,7 +404,10 @@ class TowerView(
             }
             Tool.Demolish -> {
                 val room = sim.tower.roomAt(h.floor, floor(h.segment).toInt())
-                if (room != null) {
+                val blocked = room?.let { sim.checkDemolish(it) }
+                if (room != null && blocked != null && !blocked.ok) {
+                    game.say(blocked.reason)
+                } else if (room != null) {
                     val refund = sim.demolish(room.id)
                     game.say("${room.type.name} abgerissen, ${crazytower.game.ui.formatMoney(refund)} zurück")
                 }

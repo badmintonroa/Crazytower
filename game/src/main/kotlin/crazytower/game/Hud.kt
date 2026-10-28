@@ -192,8 +192,8 @@ class Hud(
                 flyout.addChild(card)
                 y += 68.0
             }
-            flyout.label("Klicken zum Wählen, im Turm klicken zum Bauen.\nRechtsklick bricht ab.", 12.0, Theme.TEXT_DIM).xy(14.0, y + 2)
-            y += 40.0
+            flyout.label("Klicken zum Wählen, im Turm\nklicken zum Bauen. Rechtsklick\nbricht ab.", 12.0, Theme.TEXT_DIM).xy(14.0, y + 2)
+            y += 54.0
         }
         bg.resize(270.0, y + 10)
         flyout.panelWidth = 270.0
@@ -214,8 +214,8 @@ class Hud(
         init {
             enabled = unlocked
             content.image(assets.room(type.art)) {
-                scale = 72.0 / bitmap.width
-                xy(10.0, (59.0 - 72.0 * bitmap.height / bitmap.width) / 2)
+                scale = minOf(72.0 / bitmap.width, 44.0 / bitmap.height)
+                xy(10.0 + (72.0 - bitmap.width * scale) / 2, (59.0 - bitmap.height * scale) / 2)
                 alpha = if (unlocked) 1.0 else 0.35
             }
             val name = content.label(type.name, 15.0, Theme.TEXT, Theme.bodyBold).also { it.xy(92.0, 12.0) }
