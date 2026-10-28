@@ -67,12 +67,15 @@ class ElevatorSystem(
         val pos = entity[Position]
         if (pos.floor == leg.fromFloor && abs(pos.x - leg.x) < 0.3f) {
             car.waiting.getOrPut(leg.fromFloor) { ArrayList() } += entity
+            car.waitingSince.getOrPut(entity) { sim.clock.totalMinutes }
         }
     }
 
     private fun rideOf(entity: Entity): Leg.Ride? = entity[Route].legs.firstOrNull() as? Leg.Ride
 
     private fun runCar(car: Car) {
+        car.riders.removeAll { it !in world } // people whose tenant moved out mid-ride
+        car.waitingSince.keys.retainAll(car.waiting.values.flatten().toSet())
         if (car.doorTimer > 0f) {
             car.doorTimer -= deltaTime
             return
@@ -129,6 +132,7 @@ class ElevatorSystem(
             if (wants != car.direction) continue
             car.riders += person
             person.configure { it += Riding(car.id) }
+            car.waitingSince.remove(person)?.let { sim.onBoarded(person, sim.clock.totalMinutes - it) }
             opened = true
         }
         return opened

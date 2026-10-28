@@ -11,5 +11,5 @@ object RoomLooks {
 /** Decides whether a person is drawn (people riding in a closed elevator car are hidden, for example). */
 object PeopleVisibility {
     fun isVisible(sim: Simulation, entity: com.github.quillraven.fleks.Entity): Boolean =
-        with(sim.world) { entity hasNo crazytower.core.ecs.Riding }
+        with(sim.world) { entity hasNo crazytower.core.ecs.Riding && entity hasNo crazytower.core.ecs.Away }
 }

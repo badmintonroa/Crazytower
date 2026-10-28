@@ -10,8 +10,8 @@ class NewsFeed(private val capacity: Int = 50) {
 
     val latest: List<NewsItem> get() = items.toList()
 
-    fun post(text: String, where: Loc? = null): NewsItem {
-        val item = NewsItem(nextId++, text, where)
+    fun post(text: String, where: Loc? = null, important: Boolean = where != null): NewsItem {
+        val item = NewsItem(nextId++, text, where, important)
         items.addFirst(item)
         while (items.size > capacity) items.removeLast()
         return item
