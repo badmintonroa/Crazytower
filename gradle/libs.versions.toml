@@ -1,0 +1,14 @@
+[versions]
+kotlin = "2.0.21"
+korge = "6.0.0"
+fleks = "2.10"
+serialization = "1.7.3"
+
+[libraries]
+fleks = { module = "io.github.quillraven.fleks:Fleks", version.ref = "fleks" }
+korge = { module = "com.soywiz.korge:korge-jvm", version.ref = "korge" }
+serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

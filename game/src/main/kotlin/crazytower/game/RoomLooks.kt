@@ -1,0 +1,14 @@
+package crazytower.game
+
+import crazytower.core.Room
+import crazytower.core.Simulation
+
+/** Chooses the art for a room from its type (and later its tenant). */
+object RoomLooks {
+    fun art(sim: Simulation, room: Room): String = room.type.art
+}
+
+/** Decides whether a person is drawn (people riding in a closed elevator car are hidden, for example). */
+object PeopleVisibility {
+    fun isVisible(sim: Simulation, entity: com.github.quillraven.fleks.Entity): Boolean = true
+}
