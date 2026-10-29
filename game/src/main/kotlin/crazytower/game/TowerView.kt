@@ -69,6 +69,8 @@ class TowerView(
     private val backdrop = world.container()
     private val dusk = world.solidRect(1.0, 1.0, RGBA(0, 0, 0, 0))
     private val roomsLayer = world.container()
+    /** People busy inside rooms: behind stairs and elevator shafts that run through the room. */
+    private val insideLayer = world.container()
     private val waysLayer = world.container()
     private val carsLayer = world.container()
     private val peopleLayer = world.container()
@@ -192,7 +194,7 @@ class TowerView(
             if (payment.amount > 0) Sfx.play(Sfx.CASH, gapMillis = 400)
             if (!Options.current.moneyPopups) continue
             val text = (if (payment.amount > 0) "+" else "") + formatMoney(payment.amount)
-            val view = overlay.text(text, textSize = 22.0, color = if (payment.amount > 0) Theme.GOOD else Theme.ALARM, font = Theme.pixel)
+            val view = overlay.text(text, textSize = 22.0, color = if (payment.amount > 0) Theme.GOOD else Theme.ALARM, font = Theme.bodyBold)
             view.xy(Metrics.x(where.x) - view.width / 2, Metrics.floorTop(where.floor) + 18.0)
             floaters += Floater(view, 0.0)
         }
@@ -253,7 +255,7 @@ class TowerView(
                             fill(Theme.GOLD) { chamferPath(64.0, 82.0, 6.0, 3.0) }
                             fill(Theme.alpha(Theme.INK, 0.85)) { rect(10.0, 12.0, 44.0, 54.0) }
                         }
-                    }.also { carLabels[key] = it.label("", 14.0, Theme.GOLD, Theme.pixel).xy(20.0, 30.0) }
+                    }.also { carLabels[key] = it.label("", 14.0, Theme.GOLD, Theme.bodyBold).xy(20.0, 30.0) }
                 }
                 view.xy(Metrics.x(car.x) + 16.0, Metrics.floorTop(0) - cabin.position * Metrics.FLOOR + 6.0)
                 carLabels.getValue(key).text = if (cabin.riders.isEmpty()) "" else cabin.riders.size.toString()
@@ -340,6 +342,9 @@ class TowerView(
             val frame = if (moving) 1 + (floor(pos.x * 3).toInt() and 1) else 0
             view.bitmap = assets.person(person.look, frame)
             val queued = queues[entity.id]
+            // standing still in a room puts them behind a shaft; walking and queueing stays in front
+            val layer = if (!moving && queued == null && entity hasNo Riding) insideLayer else peopleLayer
+            if (view.parent !== layer) view.addTo(layer)
             val facingLeft = queued?.second ?: pos.facingLeft
             if (queued != null) {
                 view.bitmap = assets.person(person.look, 0)

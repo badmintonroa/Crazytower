@@ -21,7 +21,7 @@ class FinanceWindow(private val sim: Simulation, private val onClose: () -> Unit
     private var shownMinute = -1
 
     init {
-        label("FINANZEN", 20.0, Theme.TEXT, Theme.pixel).xy(18.0, 14.0)
+        label("FINANZEN", 20.0, Theme.TEXT, Theme.bodyBold).xy(18.0, 14.0)
         label("F oder Esc schließt", 12.0, Theme.TEXT_DIM).xy(panelWidth - 140.0, 20.0)
         TextButton(110.0, 36.0, "Schließen") { onClose() }.addTo(this).xy(panelWidth - 128.0, panelHeight - 50.0)
     }
@@ -39,20 +39,41 @@ class FinanceWindow(private val sim: Simulation, private val onClose: () -> Unit
         body.label("Nächste Zahlungen", 15.0, Theme.TEXT, Theme.bodyBold).xy(18.0, 52.0)
         val today = sim.clock.day
         var y = 80.0
-        val list = sim.upcoming(36).take(10)
+        val all = sim.upcoming(36)
+        val list = all.take(ROWS)
         if (list.isEmpty()) body.label("Noch keine Mieter, noch kein Geld.", 13.0, Theme.TEXT_DIM).xy(18.0, y)
         for (item in list) {
             val day = item.minute / GameClock.MINUTES_PER_DAY
             val m = item.minute % GameClock.MINUTES_PER_DAY
-            val time = (if (day == today) "" else if (day == today + 1) "morgen " else "${GameClock.WEEKDAYS[day % 7]} ") +
+            val time = (if (day == today) "" else "${GameClock.WEEKDAYS[day % 7]} ") +
                 "%02d:%02d".format(m / 60, m % 60)
-            body.label(time, 12.0, Theme.TEXT_DIM, Theme.pixel).xy(18.0, y)
-            body.label(item.label.take(26), 13.0, Theme.TEXT).xy(110.0, y - 1)
-            val amount = (if (item.amount > 0) "+" else "") + formatMoney(item.amount)
-            val text = body.label(amount, 13.0, if (item.amount >= 0) Theme.GOOD else Theme.ALARM, Theme.bodyBold)
-            text.xy(320.0 - text.width, y - 1)
-            y += 26.0
+            body.label(time, 12.0, Theme.TEXT_DIM, Theme.bodyBold).xy(18.0, y)
+            val amount = body.label(signed(item.amount), 13.0, if (item.amount >= 0) Theme.GOOD else Theme.ALARM, Theme.bodyBold)
+            amount.xy(AMOUNT_RIGHT - amount.width, y - 1)
+            val count = if (item.count > 1) " ×${item.count}" else ""
+            nameLabel(item.label, count, AMOUNT_RIGHT - amount.width - 10 - NAME_X).xy(NAME_X, y - 1)
+            y += 24.0
         }
+        if (all.isNotEmpty()) {
+            body.solidRect(AMOUNT_RIGHT - 18.0, 1.0, Theme.TEXT_DIM).xy(18.0, y + 2)
+            val total = all.sumOf { it.amount }
+            body.label("Summe nächste 36 Std.", 13.0, Theme.TEXT, Theme.bodyBold).xy(18.0, y + 8)
+            val sum = body.label(signed(total), 13.0, if (total >= 0) Theme.GOOD else Theme.ALARM, Theme.bodyBold)
+            sum.xy(AMOUNT_RIGHT - sum.width, y + 8)
+        }
+    }
+
+    private fun signed(amount: Long): String = (if (amount > 0) "+" else "") + formatMoney(amount)
+
+    /** The payer's name, shortened with "…" so that it and [suffix] fit into [width]. */
+    private fun nameLabel(name: String, suffix: String, width: Double): Text {
+        val label = body.label(name + suffix, 13.0, Theme.TEXT)
+        var keep = name.length
+        while (label.width > width && keep > 1) {
+            keep--
+            label.text = name.take(keep).trimEnd() + "…" + suffix
+        }
+        return label
     }
 
     private fun chart() {
@@ -83,6 +104,16 @@ class FinanceWindow(private val sim: Simulation, private val onClose: () -> Unit
         val sums = sim.finance.day(today)
         val parts = MoneyKind.entries.filter { it.income && (sums[it] ?: 0L) != 0L }
             .joinToString("  ·  ") { "${it.label} ${formatMoney(sums.getValue(it))}" }
-        body.label("Heute: " + parts.ifEmpty { "noch nichts eingenommen" }, 12.0, Theme.TEXT_DIM).xy(18.0, panelHeight - 40.0)
+        val todayLine = body.label("Heute: " + parts.ifEmpty { "noch nichts eingenommen" }, 12.0, Theme.TEXT_DIM)
+        todayLine.xy(18.0, panelHeight - 40.0)
+        // keep clear of the close button
+        val room = panelWidth - 128.0 - 12.0 - 18.0
+        if (todayLine.width > room) todayLine.scale = room / todayLine.width
+    }
+
+    private companion object {
+        const val ROWS = 8
+        const val NAME_X = 88.0
+        const val AMOUNT_RIGHT = 330.0
     }
 }

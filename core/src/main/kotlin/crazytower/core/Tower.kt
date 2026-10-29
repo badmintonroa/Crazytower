@@ -19,6 +19,9 @@ class Room(val id: Int, val type: RoomType, val floor: Int, val x: Int, val widt
     /** Homes: what the residents paid for the flat; half of it goes back when they leave unhappy. */
     var salePaid: Long = 0
 
+    /** Homes: the flat was sold once. Later residents buy it from the previous ones, not from the tower. */
+    var sold: Boolean = false
+
     /** Elevators: cabins in the shaft (every module of a shaft carries the same number). */
     var cabins: Int = 1
 }
@@ -118,6 +121,13 @@ class Tower(val width: Int = DEFAULT_WIDTH) {
             if (shaft.last - shaft.first + 1 > MAX_SHAFT_FLOORS) {
                 return PlaceCheck.no("Aufzug höchstens $MAX_SHAFT_FLOORS Etagen")
             }
+            // shafts keep at least a room's width apart, on this floor and the ones next to it
+            val crowded = (floor - 1..floor + 1).any { f ->
+                (x - ELEVATOR_GAP until x + width + ELEVATOR_GAP).any { s ->
+                    wayAt(f, s)?.let { it.type.role == RoomRole.ELEVATOR && it.x != x } == true
+                }
+            }
+            if (crowded) return PlaceCheck.no("Zu nah am nächsten Aufzug (mind. $ELEVATOR_GAP Felder Abstand)")
         }
         return PlaceCheck.OK
     }
@@ -219,5 +229,8 @@ class Tower(val width: Int = DEFAULT_WIDTH) {
         const val DEFAULT_WIDTH = 64
         const val MIN_FLOOR = -3
         const val MAX_SHAFT_FLOORS = 30
+
+        /** Free segments needed between two elevator shafts. */
+        const val ELEVATOR_GAP = 6
     }
 }

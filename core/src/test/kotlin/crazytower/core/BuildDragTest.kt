@@ -72,6 +72,7 @@ class BuildDragTest {
     @Test
     fun grabbingTheEndOfAShaftExtendsAndShortensIt() {
         val sim = Simulation(startMoney = 10_000_000)
+        sim.stage = 1 // taller than the building site allows
         sim.build(sim.planLobby(10, 15))
         sim.build(sim.planColumn(Catalog.ELEVATOR, 10, GROUND_FLOOR, 3))
         val longer = sim.planColumn(Catalog.ELEVATOR, 10, 3, 6)
@@ -138,5 +139,19 @@ class BuildDragTest {
         val office = TowerTestAccess.forcePlace(sim.tower, Catalog.OFFICE, GROUND_FLOOR, 10)
         val loaded = Simulation.load(SaveGame.fromJson(sim.toSave().toJson()))
         assertEquals(Catalog.OFFICE, loaded.tower.room(office.id)?.type)
+    }
+
+    @Test
+    fun elevatorsKeepTheirDistance() {
+        val sim = Simulation(startMoney = 10_000_000)
+        assertTrue(sim.build(Catalog.ELEVATOR, GROUND_FLOOR, 10).ok)
+        val gap = Tower.ELEVATOR_GAP
+        assertFalse(sim.checkPlace(Catalog.ELEVATOR, GROUND_FLOOR, 12).ok, "right next to it")
+        assertFalse(sim.checkPlace(Catalog.ELEVATOR, GROUND_FLOOR, 12 + gap - 1).ok)
+        assertTrue(sim.checkPlace(Catalog.ELEVATOR, GROUND_FLOOR, 12 + gap).ok)
+        assertFalse(sim.checkPlace(Catalog.ELEVATOR, GROUND_FLOOR, 10 - 2 - gap + 1).ok)
+        assertTrue(sim.checkPlace(Catalog.ELEVATOR, GROUND_FLOOR, 10 - 2 - gap).ok)
+        assertTrue(sim.checkPlace(Catalog.ELEVATOR, 1, 10).ok, "the same shaft grows")
+        assertTrue(sim.checkPlace(Catalog.STAIRS, GROUND_FLOOR, 12).ok, "stairs may stand close")
     }
 }

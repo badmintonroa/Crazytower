@@ -11,6 +11,7 @@ import kotlin.test.assertTrue
 class StageEventSaveTest {
     private fun bigTower(): Simulation {
         val sim = Simulation(seed = 21, startMoney = 50_000_000)
+        sim.stage = 1 // nine floors: past the building site
         for (i in 0 until 8) sim.build(Catalog.LOBBY, 0, i * 6)
         sim.build(Catalog.ELEVATOR, 0, 48)
         for (f in 1..9) {
@@ -96,5 +97,14 @@ class StageEventSaveTest {
         assertTrue(loaded.build(Catalog.OFFICE, 1, 10).ok.not())
         assertTrue(loaded.build(Catalog.HOME, 2, 10).ok)
         loaded.step(60.0)
+    }
+
+    @Test
+    fun aNewTowerStartsAtStageZeroWithoutStars() {
+        val sim = Simulation()
+        assertEquals(0, sim.stage)
+        assertEquals(0, sim.stars)
+        assertEquals("Baustelle", Stages.info(0).name)
+        assertFalse(sim.checkPlace(Catalog.OFFICE, Stages.info(0).maxFloor + 1, 10).ok)
     }
 }

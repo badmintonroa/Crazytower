@@ -41,7 +41,7 @@ class OptionsWindow(private val onClose: () -> Unit) : Container() {
     init {
         panelHeight = 72.0 + rows.size * 40.0 + 70.0
         Panel(panelWidth, panelHeight).addTo(this)
-        label("OPTIONEN", 20.0, Theme.TEXT, Theme.pixel).xy(18.0, 14.0)
+        label("OPTIONEN", 20.0, Theme.TEXT, Theme.bodyBold).xy(18.0, 14.0)
         label("O oder Esc schließt", 12.0, Theme.TEXT_DIM).xy(panelWidth - 140.0, 20.0)
         var y = 60.0
         for (row in rows) {

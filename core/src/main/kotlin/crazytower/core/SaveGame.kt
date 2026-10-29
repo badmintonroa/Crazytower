@@ -14,6 +14,7 @@ data class SaveGame(
     val money: Long,
     val stage: Int,
     val stars: Int,
+    val bestStars: Int = 0,
     val vipSurvived: Boolean,
     val earnedToday: Long,
     val rooms: List<SavedRoom>,
@@ -43,6 +44,7 @@ data class SavedRoom(
     val paidUntil: Double? = null,
     val salePaid: Long = 0,
     val cabins: Int = 1,
+    val sold: Boolean = false,
 )
 
 @Serializable

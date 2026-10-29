@@ -56,6 +56,7 @@ class TransportTest {
     @Test
     fun peopleRideTheElevatorToTheTop() {
         val sim = Simulation(seed = 5, startMoney = 10_000_000)
+        sim.stage = 1
         sim.build(Catalog.LOBBY, 0, 10)
         assertTrue(sim.build(Catalog.ELEVATOR, 0, 16).ok)
         for (f in 1..8) {
@@ -88,6 +89,7 @@ class TransportTest {
     }
 
     private fun shaft(sim: Simulation, floors: Int) {
+        sim.stage = 1 // taller than the building site allows
         sim.build(Catalog.LOBBY, 0, 10)
         sim.build(Catalog.ELEVATOR, 0, 16)
         for (f in 1..floors) {
@@ -137,5 +139,19 @@ class TransportTest {
         val one = minutesFor(1)
         val three = minutesFor(3)
         assertTrue(three < one, "three cabins ($three min) should beat one ($one min)")
+    }
+
+    @Test
+    fun cabinsStayBuyableWhenAStarIsLost() {
+        val sim = Simulation(seed = 5, startMoney = 10_000_000)
+        shaft(sim, 5)
+        sim.stars = 3
+        sim.stars = 1
+        val car = sim.elevators.cars.values.single()
+        assertTrue(sim.addCabin(car).ok, "one star less, still three cabins")
+        assertTrue(sim.addCabin(car).ok)
+        assertEquals(3, car.cabins.size)
+        val loaded = Simulation.load(SaveGame.fromJson(sim.toSave().toJson()))
+        assertEquals(3, loaded.bestStars)
     }
 }

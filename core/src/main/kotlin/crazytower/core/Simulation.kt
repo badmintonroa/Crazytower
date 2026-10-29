@@ -70,7 +70,12 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     }
 
     /** Rent and prices grow with the star rating: 20 % per star above the first. */
-    val starBonus: Double get() = 1.0 + 0.2 * (stars - 1)
+    /** What the next star still needs, e.g. "ein Imbiss"; empty at five stars. */
+    val nextStarMissing: List<String> get() = Rating.missing(stars, population, satisfaction, hasFood)
+
+    private val hasFood: Boolean get() = tower.allRooms.any { it.type.role == RoomRole.FOOD && it.tenant != null }
+
+    val starBonus: Double get() = 1.0 + 0.2 * (stars - 1).coerceAtLeast(0)
 
     val world: World = configureWorld(entityCapacity = 2048) {
         injectables { add(this@Simulation) }
@@ -222,7 +227,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     /** Whether the shaft [car] may get another cabin now, and why not. */
     fun checkCabin(car: Car): PlaceCheck = when {
         car.cabins.size >= Elevators.MAX_CABINS -> PlaceCheck(false, "Mehr Kabinen passen nicht in den Schacht")
-        car.cabins.size >= Elevators.maxCabins(stars) -> PlaceCheck(false, "Mehr Kabinen ab ${stars + 1} Sternen")
+        car.cabins.size >= Elevators.maxCabins(bestStars) -> PlaceCheck(false, "Mehr Kabinen ab ${bestStars + 1} Sternen")
         money < Elevators.CABIN_COST -> PlaceCheck(false, "Zu wenig Geld")
         else -> PlaceCheck(true)
     }
@@ -248,8 +253,11 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         car.setCabins(count)
     }
 
-    /** Money back when a room is torn down. */
-    fun refundFor(room: Room): Long = room.type.price(room.width) / 4
+    /**
+     * Money back when a room is torn down: a quarter of the price. Nothing for a flat that was
+     * sold once, or building, selling and tearing down flats would print money.
+     */
+    fun refundFor(room: Room): Long = if (room.sold) 0 else room.type.price(room.width) / 4
 
     fun checkDemolish(room: Room): PlaceCheck = tower.canRemove(room)
 
@@ -262,22 +270,24 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         tower.remove(roomId)
         val refund = refundFor(room)
         book(refund, MoneyKind.BUILD, "Abriss ${room.type.name}", room.center)
-        if (room.salePaid > 0) book(-room.salePaid / 2, MoneyKind.REFUND, "Kaufpreis zurück", room.center)
+        // the owners get their whole purchase price back: the flat is gone
+        if (room.tenant != null && room.salePaid > 0) book(-room.salePaid, MoneyKind.REFUND, "Kaufpreis zurück", room.center)
         return refund
     }
 
     /**
-     * A tenant moves in. New residents buy their flat right away; offices and restaurants pay
-     * at the end of each working day from now on. [announce] is false when loading a save.
+     * A tenant moves in. The first residents of a flat buy it right away; later ones buy it from
+     * the people who left, so the tower sees that money only once per flat. Offices and
+     * restaurants pay at the end of each working day from now on. [announce] is false when loading a save.
      */
     fun moveIn(room: Room, tenant: TenantKind, announce: Boolean = true) {
         removeMembers(room.id)
         room.tenant = tenant
         room.since = clock.totalMinutes
         room.paidUntil = clock.totalMinutes
-        room.salePaid = 0
         looksVersion++
-        if (announce && room.type.role == RoomRole.HOME && tenant.salePrice > 0) {
+        if (announce && room.type.role == RoomRole.HOME && tenant.salePrice > 0 && !room.sold) {
+            room.sold = true
             room.salePaid = (tenant.salePrice * starBonus).toLong()
             book(room.salePaid, MoneyKind.SALE, tenant.name, room.center)
         }
@@ -295,6 +305,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         if (announce) news.post("Neu im Turm: ${tenant.name} (${floorLabel(room.floor)}). ${tenant.quirk}", room.center)
     }
 
+    /** Unhappy tenants leave; the first owners of a flat get half their price back, once. */
     fun moveOut(room: Room) {
         removeMembers(room.id)
         if (room.salePaid > 0) book(-room.salePaid / 2, MoneyKind.REFUND, "Kaufpreis zurück", room.center)
@@ -383,7 +394,10 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         return if (mood < UNHAPPY) full / 2 else full
     }
 
-    /** Payments expected in the next [hours] game hours, soonest first. Upkeep is negative. */
+    /**
+     * Payments expected in the next [hours] game hours, soonest first. Upkeep is negative. The
+     * same payer at the same time is one entry with the amounts summed.
+     */
     fun upcoming(hours: Int = 36): List<Upcoming> {
         val now = clock.totalMinutes
         val horizon = now + hours * 60
@@ -404,7 +418,9 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             list += Upcoming(midnight, -upkeep(), "Unterhalt")
             midnight += GameClock.MINUTES_PER_DAY
         }
-        return list.sortedBy { it.minute }
+        return list.groupBy { it.minute to it.label }.values
+            .map { same -> same.first().copy(amount = same.sumOf { it.amount }, count = same.sumOf { it.count }) }
+            .sortedBy { it.minute }
     }
 
     private fun homeFees(): Long = tower.allRooms.count { it.type.role == RoomRole.HOME && it.tenant != null && it.tenant!!.salePrice > 0 } * HOME_FEE
@@ -433,7 +449,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             moveOut(room)
             news.post("$name zieht aus. Grund: ${MOVE_OUT_REASONS[random.nextInt(MOVE_OUT_REASONS.size)]}", room.center, important = true)
         }
-        val newStars = Rating.stars(population, satisfaction, tower.allRooms.any { it.type.role == RoomRole.FOOD && it.tenant != null })
+        val newStars = Rating.stars(population, satisfaction, hasFood)
         if (newStars != stars) {
             news.post(if (newStars > stars) "Der Turm hat jetzt $newStars Sterne! Neue Mieter werden neugierig." else "Ein Stern ist weg. Jemand hat ihn im Aufzug verloren.", important = true)
             stars = newStars
@@ -442,15 +458,25 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
 
     private fun Long.fmt(): String = "%,d".format(this).replace(',', '.')
 
-    /** Tower rating, 1 to 5 stars. Updated every midnight. */
-    var stars: Int = 1
+    /** Tower rating, 0 to 5 stars. Updated every midnight. */
+    var stars: Int = 0
+        set(value) {
+            field = value
+            if (value > bestStars) bestStars = value
+        }
+
+    /**
+     * The most stars the tower ever had. Elevator cabins go by this, so a tower that loses a
+     * star over a jam can still buy the cabins that end the jam.
+     */
+    var bestStars: Int = 0
 
     /** People who live or work in the tower. Visitors don't count. */
     val population: Int get() = members.numEntities
 
     /** Current tower stage, 1 to 5. */
-    var stage: Int = 1
-        private set
+    var stage: Int = 0
+        internal set // tests jump ahead
 
     /** Progress towards the next stage, 0 to 1. */
     val stageProgress: Double get() = Stages.progress(this)
@@ -463,7 +489,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
 
     /** Checks whether the tower reached the next stage. Called every game hour. */
     fun checkStage() {
-        if (stage >= Stages.all.size || !Stages.reached(this, stage + 1)) return
+        if (stage >= Stages.last || !Stages.reached(this, stage + 1)) return
         stage++
         looksVersion++ // the lobbies get a new look
         val info = Stages.info(stage)
@@ -475,12 +501,13 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         money = money,
         stage = stage,
         stars = stars,
+        bestStars = bestStars,
         vipSurvived = vipSurvived,
         earnedToday = earnedToday,
         rooms = tower.allRooms.map {
             SavedRoom(
                 it.id, it.type.id, it.floor, it.x, it.since, it.tenant?.id, moodOf(it),
-                it.width.takeIf { w -> w != it.type.width }, it.paidUntil, it.salePaid, it.cabins,
+                it.width.takeIf { w -> w != it.type.width }, it.paidUntil, it.salePaid, it.cabins, it.sold,
             )
         },
         news = news.latest.map { SavedNews(it.text, it.where?.floor, it.where?.x, it.important) },
@@ -491,6 +518,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         money = save.money
         stage = save.stage
         stars = save.stars
+        bestStars = maxOf(save.bestStars, save.stars)
         vipSurvived = save.vipSurvived
         for (saved in save.rooms) {
             val room = tower.placeUnchecked(Catalog.type(saved.type), saved.floor, saved.x, saved.id, saved.width ?: Catalog.type(saved.type).width)
@@ -502,6 +530,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             room.since = saved.since
             room.paidUntil = saved.paidUntil ?: save.minutes
             room.salePaid = saved.salePaid
+            room.sold = saved.sold || saved.salePaid > 0
             room.cabins = saved.cabins
         }
         for (item in save.news.asReversed()) {

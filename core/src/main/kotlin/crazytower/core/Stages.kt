@@ -1,8 +1,8 @@
 package crazytower.core
 
 /**
- * The five tower stages. Each one raises the height limit, changes the lobby and
- * unlocks new nonsense.
+ * The tower stages, from the building site (0) to the CrazyTower (5). Each one raises the
+ * height limit, changes the lobby and unlocks new nonsense.
  *
  * @param population residents and employees needed to reach this stage
  * @param unlocks what the ticker announces when the stage is reached
@@ -19,8 +19,10 @@ data class StageInfo(
 
 object Stages {
     val all = listOf(
-        StageInfo(1, "Bruchbude", maxFloor = 10, requirement = "Start", population = 0,
+        StageInfo(0, "Baustelle", maxFloor = 5, requirement = "Start", population = 0,
             lobbyArt = "lobby_stage1_bruchbude", unlocks = ""),
+        StageInfo(1, "Bruchbude", maxFloor = 10, requirement = "60 Bewohner", population = 60,
+            lobbyArt = "lobby_stage1_bruchbude", unlocks = "Neu: bis zur 10. Etage. Die Statik sagt vorsichtig ja."),
         StageInfo(2, "Hochhaus", maxFloor = 25, requirement = "300 Bewohner", population = 300,
             lobbyArt = "lobby_stage2_hochhaus",
             unlocks = "Neu: der Kopierraum der Ewigkeit. Wer reingeht, kommt mit 400 Kopien wieder raus."),
@@ -35,7 +37,10 @@ object Stages {
             unlocks = "Neu: Ufo-Landeplatz. Die Botschaft von Gliese 581 hat schon angefragt."),
     )
 
-    fun info(stage: Int): StageInfo = all[(stage - 1).coerceIn(0, all.lastIndex)]
+    /** The highest stage. */
+    val last: Int get() = all.last().number
+
+    fun info(stage: Int): StageInfo = all[stage.coerceIn(0, all.lastIndex)]
 
     /** Whether [sim] fulfils everything needed for [stage]. */
     fun reached(sim: Simulation, stage: Int): Boolean {
@@ -51,7 +56,7 @@ object Stages {
 
     /** Progress towards the next stage, 0..1, counting only the population. */
     fun progress(sim: Simulation): Double {
-        if (sim.stage >= all.size) return 1.0
+        if (sim.stage >= last) return 1.0
         val from = info(sim.stage).population
         val to = info(sim.stage + 1).population
         return ((sim.population - from).toDouble() / (to - from)).coerceIn(0.0, 1.0)

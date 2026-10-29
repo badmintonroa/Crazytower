@@ -17,8 +17,11 @@ enum class MoneyKind(val label: String, val income: Boolean) {
 /** One booking. [where] places the floating amount in the tower. */
 data class Payment(val minute: Double, val amount: Long, val kind: MoneyKind, val label: String, val where: Loc? = null)
 
-/** A payment the tower expects soon, for the HUD and the finance window. */
-data class Upcoming(val minute: Int, val amount: Long, val label: String, val where: Loc? = null)
+/**
+ * A payment the tower expects soon, for the HUD and the finance window. Payments by the
+ * same payer at the same minute are one entry: [count] payments summed into [amount].
+ */
+data class Upcoming(val minute: Int, val amount: Long, val label: String, val where: Loc? = null, val count: Int = 1)
 
 /**
  * Keeps the books: every payment, summed per day and kind for the last days, plus a queue

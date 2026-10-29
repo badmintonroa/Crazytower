@@ -86,14 +86,14 @@ data class TenantKind(
     val role: RoomRole,
     val art: String,
     val look: String,
-    val minStars: Int = 1,
+    val minStars: Int = 0,
     val plan: WorkPlan = OFFICE_HOURS,
     val rentPerDay: Long = 0,
     val salePrice: Long = 0,
     val quirk: String = "",
     /** Only appears through events, never as a regular new tenant. */
     val eventOnly: Boolean = false,
-    val minStage: Int = 1,
+    val minStage: Int = 0,
     val crew: List<String> = emptyList(),
 ) {
     /** The look of the [i]-th person of this tenant: the crew in turn, or always [look]. */
