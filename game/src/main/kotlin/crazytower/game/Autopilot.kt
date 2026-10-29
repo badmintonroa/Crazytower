@@ -67,6 +67,11 @@ object DemoTower {
             sim.build(Catalog.CORRIDOR, floor, mid + 18)
         }
         sim.build(sim.planColumn(Catalog.ELEVATOR, mid + 10, GROUND_FLOOR, plan.size))
+        // a second cabin, as if the tower had two stars already
+        val stars = sim.stars
+        sim.stars = 2
+        sim.elevators.cars.values.firstOrNull()?.let { sim.addCabin(it) }
+        sim.stars = stars
         sim.build(sim.planColumn(Catalog.STAIRS, mid + 20, GROUND_FLOOR, plan.size))
     }
 }

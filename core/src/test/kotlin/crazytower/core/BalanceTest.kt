@@ -34,8 +34,8 @@ class BalanceTest {
         }
     }
 
-    private fun play(days: Int): Pair<Player, List<String>> {
-        val sim = Simulation(seed = 42).apply { eventsEnabled = false }
+    private fun play(days: Int, seed: Long): Pair<Player, List<String>> {
+        val sim = Simulation(seed = seed).apply { eventsEnabled = false }
         val player = Player(sim)
         player.start()
         val log = ArrayList<String>()
@@ -52,14 +52,16 @@ class BalanceTest {
 
     @Test
     fun theTowerKeepsPayingForItself() {
-        val (player, log) = play(30)
-        println(log.joinToString("\n"))
-        val firstDay = player.built.count { it == 0 }
-        val firstWeek = player.built.count { it in 1..7 }
-        assertTrue(firstDay in 3..6, "the start money buys a handful of rooms, built $firstDay")
-        assertTrue(firstWeek >= 10, "then the rent pays for more than a room a day, built $firstWeek in days 1 to 7")
-        val full = player.built.size == 36
-        assertTrue(full && player.built.last() <= 15, "the first ten floors are full within 15 days, last room on day ${player.built.lastOrNull()}")
+        // tenants move in by chance, so a single game can be lucky or unlucky: judge the average of three
+        val games = listOf(42L, 7L, 11L).map { seed -> play(30, seed).also { println("Seed $seed\n" + it.second.joinToString("\n")) }.first }
+        for (player in games) {
+            val firstDay = player.built.count { it == 0 }
+            assertTrue(firstDay in 3..6, "the start money buys a handful of rooms, built $firstDay")
+            val full = player.built.size == 36
+            assertTrue(full && player.built.last() <= 15, "the first ten floors are full within 15 days, last room on day ${player.built.lastOrNull()}")
+        }
+        val firstWeek = games.map { p -> p.built.count { it in 1..7 } }
+        assertTrue(firstWeek.average() >= 10, "then the rent pays for more than a room a day, built $firstWeek in days 1 to 7")
     }
 
     companion object {

@@ -86,4 +86,56 @@ class TransportTest {
         for (f in 1 until Tower.MAX_SHAFT_FLOORS) tower.place(Catalog.ELEVATOR, f, 0)
         assertEquals("Aufzug höchstens ${Tower.MAX_SHAFT_FLOORS} Etagen", tower.canPlace(Catalog.ELEVATOR, Tower.MAX_SHAFT_FLOORS, 0).reason)
     }
+
+    private fun shaft(sim: Simulation, floors: Int) {
+        sim.build(Catalog.LOBBY, 0, 10)
+        sim.build(Catalog.ELEVATOR, 0, 16)
+        for (f in 1..floors) {
+            sim.build(Catalog.CORRIDOR, f, 10)
+            sim.build(Catalog.ELEVATOR, f, 16)
+        }
+    }
+
+    @Test
+    fun moreCabinsComeWithStars() {
+        val sim = Simulation(seed = 5, startMoney = 10_000_000)
+        shaft(sim, 6)
+        val car = sim.elevators.cars.values.single()
+        assertEquals(1, car.cabins.size)
+        assertFalse(sim.addCabin(car).ok, "one star: one cabin")
+        sim.stars = 3
+        val before = sim.money
+        assertTrue(sim.addCabin(car).ok)
+        assertTrue(sim.addCabin(car).ok)
+        assertFalse(sim.addCabin(car).ok, "three stars: three cabins")
+        assertEquals(3, car.cabins.size)
+        assertEquals(before - 2 * crazytower.core.transport.Elevators.CABIN_COST, sim.money)
+        // the shaft remembers its cabins in the save game
+        val loaded = Simulation.load(SaveGame.fromJson(sim.toSave().toJson()), seed = 1)
+        assertEquals(3, loaded.elevators.cars.values.single().cabins.size)
+        assertTrue(sim.removeCabin(car))
+        assertEquals(2, car.cabins.size)
+    }
+
+    @Test
+    fun severalCabinsCarryACrowdFaster() {
+        fun minutesFor(cabins: Int): Int {
+            val sim = Simulation(seed = 5, startMoney = 10_000_000)
+            sim.eventsEnabled = false
+            sim.stars = 5
+            shaft(sim, 8)
+            val car = sim.elevators.cars.values.single()
+            repeat(cabins - 1) { assertTrue(sim.addCabin(car).ok) }
+            val people = (0 until 40).map { i -> walker(sim, Loc(1 + i % 8, 12f)) }
+            var minutes = 0
+            while (minutes < 600 && people.any { e -> with(sim.world) { e has Goal } }) {
+                sim.step(1.0)
+                minutes++
+            }
+            return minutes
+        }
+        val one = minutesFor(1)
+        val three = minutesFor(3)
+        assertTrue(three < one, "three cabins ($three min) should beat one ($one min)")
+    }
 }

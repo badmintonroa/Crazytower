@@ -10,23 +10,31 @@ import crazytower.core.nav.LinkProvider
 import crazytower.core.nav.NavCosts
 import kotlin.math.abs
 
-/**
- * The car of one elevator shaft. A shaft is a stack of elevator modules at the same x;
- * the car keeps its [id] while the shaft grows or shrinks, so routes stay valid.
- */
-class Car(val id: Int, val x: Int, var bottom: Int, var top: Int) {
-    /** Current height in floors; fractional while moving. */
-    var position: Float = bottom.toFloat()
-
+/** One cabin in a shaft. A shaft can run several, like in SimTower. */
+class Cabin(var position: Float) {
     /** +1 up, -1 down, 0 idle. */
     var direction: Int = 0
-
-    /** The car doesn't move before this game minute (weddings, blackouts). */
-    var blockedUntil: Double = 0.0
 
     /** Minutes the doors stay open. */
     var doorTimer: Float = 0f
     val riders = ArrayList<Entity>()
+}
+
+/**
+ * One elevator shaft with its cabins. A shaft is a stack of elevator modules at the same x;
+ * it keeps its [id] while it grows or shrinks, so routes stay valid.
+ */
+class Car(val id: Int, val x: Int, var bottom: Int, var top: Int) {
+    val cabins = arrayListOf(Cabin(bottom.toFloat()))
+
+    /** Height of the first cabin, for news and events. */
+    val position: Float get() = cabins.first().position
+
+    /** Everybody riding in any cabin. */
+    val riders: List<Entity> get() = cabins.flatMap { it.riders }
+
+    /** The shaft doesn't move before this game minute (weddings, blackouts). */
+    var blockedUntil: Double = 0.0
 
     /** People waiting in front of the doors, per floor. Refreshed every tick by the elevator system. */
     val waiting = HashMap<Int, MutableList<Entity>>()
@@ -39,7 +47,25 @@ class Car(val id: Int, val x: Int, var bottom: Int, var top: Int) {
     val waitingCount: Int get() = waiting.values.sumOf { it.size }
 
     /** Rough minutes until a new passenger is picked up, used as path cost. */
-    fun waitEstimate(): Float = Elevators.WAIT_BASE + waitingCount * 0.15f + riders.size * 0.1f
+    fun waitEstimate(): Float =
+        (Elevators.WAIT_BASE + waitingCount * 0.15f / cabins.size + riders.size * 0.1f / cabins.size) / cabins.size.coerceAtMost(3)
+
+    /**
+     * Adds or removes cabins until there are [count]. New cabins start spread over the shaft;
+     * only empty cabins are taken away.
+     */
+    fun setCabins(count: Int) {
+        val want = count.coerceIn(1, Elevators.MAX_CABINS)
+        while (cabins.size < want) {
+            val i = cabins.size
+            val span = (top - bottom).coerceAtLeast(0)
+            cabins += Cabin((bottom + span * i / want).toFloat())
+        }
+        while (cabins.size > want) {
+            val empty = cabins.lastOrNull { it.riders.isEmpty() } ?: return
+            cabins.remove(empty)
+        }
+    }
 }
 
 /** Keeps one [Car] per elevator shaft in sync with the tower and offers rides to the navigation graph. */
@@ -82,11 +108,12 @@ class Elevators(private val tower: Tower) : LinkProvider {
                 old.remove(match)
                 match.bottom = range.first
                 match.top = range.last
-                match.position = match.position.coerceIn(range.first.toFloat(), range.last.toFloat())
+                for (cabin in match.cabins) cabin.position = cabin.position.coerceIn(range.first.toFloat(), range.last.toFloat())
                 match
             } else {
                 Car(nextId++, x, range.first, range.last)
             }
+            car.setCabins(range.maxOf { tower.wayAt(it, x)?.cabins ?: 1 })
             byId[car.id] = car
         }
         removed += old
@@ -110,8 +137,14 @@ class Elevators(private val tower: Tower) : LinkProvider {
 
     companion object {
         const val WAIT_BASE = 1.5f
-        const val CAPACITY = 10
-        const val DOOR_MINUTES = 0.4f
+        /** People per cabin. Cabins are big and slow, like in the original. */
+        const val CAPACITY = 16
+        const val DOOR_MINUTES = 0.5f
+        const val MAX_CABINS = 6
+        const val CABIN_COST = 4_000L
+
+        /** How many cabins a shaft may have at a star rating: one more per star, six at five stars. */
+        fun maxCabins(stars: Int): Int = if (stars >= 5) MAX_CABINS else stars.coerceIn(1, 4)
     }
 }
 

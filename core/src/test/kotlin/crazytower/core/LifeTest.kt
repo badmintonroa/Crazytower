@@ -35,8 +35,8 @@ class LifeTest {
 
     @Test
     fun nightShiftWorksAtNight() {
-        // a seed without the clown event, which would turn the vampires into clowns
         val sim = Simulation(seed = 3, startMoney = 10_000_000)
+        sim.eventsEnabled = false // the clown event would turn the vampires into clowns
         val office = sim.buildReachable(Catalog.OFFICE, 20)
         sim.moveIn(office, Tenants.byId("vampire"))
         stepTo(sim, 12)

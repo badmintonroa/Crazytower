@@ -16,6 +16,8 @@ import crazytower.core.ecs.Visitor
 import crazytower.game.ui.Panel
 import crazytower.game.ui.TextButton
 import crazytower.game.ui.label
+import korlibs.korge.input.onOut
+import korlibs.korge.input.onOver
 import korlibs.korge.view.*
 
 /** The info card on the right: shows the selected room or person. */
@@ -26,7 +28,14 @@ class Inspector(private val sim: Simulation, private val game: GameController, p
     private var shown: Any? = null
     private var refresh = 0
 
-    init { visible = false }
+    /** While the mouse is on the card it isn't rebuilt, so its buttons can be clicked. */
+    private var hovered = false
+
+    init {
+        visible = false
+        onOver { hovered = true }
+        onOut { hovered = false }
+    }
 
     fun sync() {
         val sel = game.selection
@@ -37,7 +46,7 @@ class Inspector(private val sim: Simulation, private val game: GameController, p
         }
         visible = true
         // rebuild when the selection changes and a few times per second for live values
-        if (sel != shown || ++refresh % 15 == 0) {
+        if (sel != shown || (++refresh % 15 == 0 && !hovered)) {
             shown = sel
             rebuild(sel)
         }
@@ -100,6 +109,22 @@ class Inspector(private val sim: Simulation, private val game: GameController, p
             box.label(quirk, 12.0, Theme.TEXT).xy(10.0, 24.0)
             y += 66.0
         }
+        val shaft = (sel as? Selection.RoomSel)?.let { sim.tower.room(it.roomId) }?.takeIf { it.type.role == RoomRole.ELEVATOR }
+            ?.let { room -> sim.elevators.cars.values.firstOrNull { it.x == room.x && room.floor in it.floors } }
+        if (shaft != null) {
+            val half = (panelWidth - 40) / 2
+            TextButton(half, 40.0, "+ Kabine", 14.0) {
+                val result = sim.addCabin(shaft)
+                game.say(if (result.ok) "Neue Kabine, ${crazytower.game.ui.formatMoney(Elevators.CABIN_COST)}" else result.reason)
+                Sfx.play(if (result.ok) Sfx.BUILD else Sfx.ERROR)
+                shown = null
+            }.addTo(this).xy(16.0, y + 8).also { it.enabled = sim.checkCabin(shaft).ok }
+            TextButton(half, 40.0, "− Kabine", 14.0) {
+                if (sim.removeCabin(shaft)) Sfx.play(Sfx.DEMOLISH)
+                shown = null
+            }.addTo(this).xy(24.0 + half, y + 8).also { it.enabled = shaft.cabins.size > 1 }
+            y += 48.0
+        }
         TextButton(panelWidth - 32, 40.0, "Schließen", 14.0) { game.selection = null }.addTo(this).xy(16.0, y + 8)
         y += 56.0
         panelHeight = y + 8
@@ -126,7 +151,9 @@ object RoomInfo {
                 val car = sim.elevators.cars.values.firstOrNull { it.x == room.x && room.floor in it.floors }
                 if (car != null) {
                     lines += "Schacht" to "${floorName(car.bottom)} bis ${floorName(car.top)}"
-                    lines += "Fahrgäste" to "${car.riders.size} von ${Elevators.CAPACITY}"
+                    lines += "Kabinen" to "${car.cabins.size} von ${Elevators.maxCabins(sim.stars)}" +
+                        if (car.cabins.size < Elevators.MAX_CABINS && Elevators.maxCabins(sim.stars) <= car.cabins.size) " (mehr mit Sternen)" else ""
+                    lines += "Fahrgäste" to "${car.riders.size} von ${Elevators.CAPACITY * car.cabins.size}"
                     lines += "Warten" to "${car.waitingCount} Leute"
                 }
                 RoomCard(room.type.name, where, lines, null)

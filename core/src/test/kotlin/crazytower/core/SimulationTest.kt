@@ -41,9 +41,24 @@ class SimulationTest {
                 assertFalse(e has Stuck)
             }
         }
-        assertTrue(maxSeen > 3, "visitors should arrive, saw $maxSeen")
+        // an empty tower only draws a few curious people
+        assertTrue(maxSeen in 1..crazytower.core.ecs.VisitorSpawnSystem.BASE_VISITORS, "a few visitors should arrive, saw $maxSeen")
         // After closing time everybody has gone home.
         sim.step(16 * 60.0)
         assertEquals(0, sim.world.family { all(Visitor) }.numEntities)
+    }
+
+    @Test
+    fun visitorsGrowWithRentedRooms() {
+        val sim = Simulation(seed = 7, startMoney = 10_000_000)
+        sim.eventsEnabled = false
+        sim.build(sim.planLobby(10, 33))
+        assertEquals(crazytower.core.ecs.VisitorSpawnSystem.BASE_VISITORS, crazytower.core.ecs.VisitorSpawnSystem.maxVisitors(sim, 4))
+        repeat(3) { i ->
+            val room = sim.buildReachable(Catalog.OFFICE, 10 + i * 6)
+            sim.moveIn(room, Tenants.byId("accountant"), announce = false)
+        }
+        assertEquals(crazytower.core.ecs.VisitorSpawnSystem.BASE_VISITORS + 3 * crazytower.core.ecs.VisitorSpawnSystem.VISITORS_PER_TENANT,
+            crazytower.core.ecs.VisitorSpawnSystem.maxVisitors(sim, 4))
     }
 }

@@ -7,6 +7,7 @@ import com.github.quillraven.fleks.World.Companion.inject
 import crazytower.core.Simulation
 import crazytower.core.nav.Leg
 import crazytower.core.nav.NavCosts
+import crazytower.core.transport.Cabin
 import crazytower.core.transport.Car
 import crazytower.core.transport.Elevators
 import kotlin.math.abs
@@ -74,45 +75,69 @@ class ElevatorSystem(
     private fun rideOf(entity: Entity): Leg.Ride? = entity[Route].legs.firstOrNull() as? Leg.Ride
 
     private fun runCar(car: Car) {
-        car.riders.removeAll { it !in world } // people whose tenant moved out mid-ride
+        for (cabin in car.cabins) cabin.riders.removeAll { it !in world } // people whose tenant moved out mid-ride
         car.waitingSince.keys.retainAll(car.waiting.values.flatten().toSet())
         if (sim.clock.totalMinutes < car.blockedUntil) return
-        if (car.doorTimer > 0f) {
-            car.doorTimer -= deltaTime
+        val assigned = assignCalls(car)
+        for (cabin in car.cabins) runCabin(car, cabin, assigned[cabin].orEmpty())
+    }
+
+    /**
+     * Every floor where people wait goes to one cabin: the nearest one that is idle or already
+     * heading that way, so several cabins don't all chase the same call.
+     */
+    private fun assignCalls(car: Car): Map<Cabin, Set<Int>> {
+        val result = HashMap<Cabin, MutableSet<Int>>()
+        val span = (car.top - car.bottom + 1).toFloat()
+        for ((floor, list) in car.waiting) {
+            if (list.isEmpty()) continue
+            val best = car.cabins.minBy { cabin ->
+                val distance = abs(cabin.position - floor)
+                val away = cabin.direction != 0 && (floor - cabin.position) * cabin.direction < -0.001f
+                distance + (if (away) span else 0f) + cabin.riders.size * 0.1f
+            }
+            result.getOrPut(best) { HashSet() } += floor
+        }
+        return result
+    }
+
+    private fun runCabin(car: Car, cabin: Cabin, waitingCalls: Set<Int>) {
+        if (cabin.doorTimer > 0f) {
+            cabin.doorTimer -= deltaTime
             return
         }
-        val here = car.position.roundToInt()
-        if (abs(car.position - here) < 0.001f && stopAt(car, here)) {
-            car.doorTimer = Elevators.DOOR_MINUTES
+        val here = cabin.position.roundToInt()
+        if (abs(cabin.position - here) < 0.001f && stopAt(car, cabin, here, waitingCalls)) {
+            cabin.doorTimer = Elevators.DOOR_MINUTES
             return
         }
-        val calls = calls(car)
+        val calls = calls(cabin, waitingCalls)
         if (calls.isEmpty()) {
-            car.direction = 0
+            cabin.direction = 0
             return
         }
-        if (car.direction == 0 || calls.none { (it - car.position) * car.direction > 0.001f }) {
-            val nearest = calls.minBy { abs(it - car.position) }
-            car.direction = sign(nearest - car.position).toInt()
-            if (car.direction == 0) return
+        if (cabin.direction == 0 || calls.none { (it - cabin.position) * cabin.direction > 0.001f }) {
+            val nearest = calls.minBy { abs(it - cabin.position) }
+            cabin.direction = sign(nearest - cabin.position).toInt()
+            if (cabin.direction == 0) return
         }
         val step = deltaTime / NavCosts.ELEVATOR_PER_FLOOR
-        val next = if (car.direction > 0) ceil(car.position + 0.001f).toInt() else floor(car.position - 0.001f).toInt()
-        car.position = if (next in calls && abs(next - car.position) <= step) {
+        val next = if (cabin.direction > 0) ceil(cabin.position + 0.001f).toInt() else floor(cabin.position - 0.001f).toInt()
+        cabin.position = if (next in calls && abs(next - cabin.position) <= step) {
             next.toFloat()
         } else {
-            (car.position + car.direction * step).coerceIn(car.bottom.toFloat(), car.top.toFloat())
+            (cabin.position + cabin.direction * step).coerceIn(car.bottom.toFloat(), car.top.toFloat())
         }
-        val shown = car.position.roundToInt()
-        for (rider in car.riders) rider[Position].floor = shown
+        val shown = cabin.position.roundToInt()
+        for (rider in cabin.riders) rider[Position].floor = shown
     }
 
     /** Unloads and loads at [floor]. Returns true when the doors opened for somebody. */
-    private fun stopAt(car: Car, floor: Int): Boolean {
+    private fun stopAt(car: Car, cabin: Cabin, floor: Int, waitingCalls: Set<Int>): Boolean {
         var opened = false
-        val leaving = car.riders.filter { rideOf(it)?.toFloor == floor }
+        val leaving = cabin.riders.filter { rideOf(it)?.toFloor == floor }
         for (rider in leaving) {
-            car.riders -= rider
+            cabin.riders -= rider
             val pos = rider[Position]
             pos.floor = floor
             pos.x = car.centerX
@@ -121,35 +146,42 @@ class ElevatorSystem(
             rider.configure { it -= Riding }
             opened = true
         }
-        val queue = car.waiting[floor].orEmpty()
-        if (car.riders.isEmpty() && calls(car).none { it != floor && (it - floor) * car.direction > 0 }) {
-            car.direction = 0
+        val queue = car.waiting[floor] ?: return opened
+        if (cabin.riders.isEmpty() && calls(cabin, waitingCalls).none { it != floor && (it - floor) * cabin.direction > 0 }) {
+            cabin.direction = 0
         }
+        val boarded = ArrayList<Entity>()
         for (person in queue) {
-            if (car.riders.size >= Elevators.CAPACITY) break
+            if (cabin.riders.size >= Elevators.CAPACITY) break
             val ride = rideOf(person) ?: continue
             val wants = sign((ride.toFloor - ride.fromFloor).toFloat()).toInt()
-            if (car.direction == 0) car.direction = wants
-            if (wants != car.direction) continue
-            car.riders += person
+            if (cabin.direction == 0) cabin.direction = wants
+            if (wants != cabin.direction) continue
+            cabin.riders += person
+            boarded += person
             person.configure { it += Riding(car.id) }
             car.waitingSince.remove(person)?.let { sim.onBoarded(person, sim.clock.totalMinutes - it) }
             opened = true
         }
+        // nobody boards two cabins in the same tick
+        queue.removeAll(boarded.toSet())
         return opened
     }
 
-    /** Floors the car has a reason to go to. */
-    private fun calls(car: Car): Set<Int> {
-        val result = HashSet<Int>()
-        for (rider in car.riders) rideOf(rider)?.let { result += it.toFloor }
-        for ((floor, list) in car.waiting) if (list.isNotEmpty()) result += floor
+    /** Floors the cabin has a reason to go to: where its riders want out, and the calls it was given. */
+    private fun calls(cabin: Cabin, waitingCalls: Set<Int>): Set<Int> {
+        val result = HashSet(waitingCalls)
+        for (rider in cabin.riders) rideOf(rider)?.let { result += it.toFloor }
         return result
     }
 
     private fun dropEveryone(car: Car) {
-        val floor = car.position.roundToInt()
-        for (rider in car.riders) {
+        for (cabin in car.cabins) dropCabin(car, cabin)
+    }
+
+    private fun dropCabin(car: Car, cabin: Cabin) {
+        val floor = cabin.position.roundToInt()
+        for (rider in cabin.riders) {
             if (rider !in world) continue
             val pos = rider[Position]
             pos.floor = floor
@@ -159,6 +191,6 @@ class ElevatorSystem(
                 it -= Route
             }
         }
-        car.riders.clear()
+        cabin.riders.clear()
     }
 }

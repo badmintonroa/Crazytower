@@ -138,6 +138,7 @@ class TowerView(
         val random = Random(42)
         // low-poly skyline in two layers
         for ((color, maxHeight) in listOf(Theme.SKY_FAR to 900.0, Theme.SKY_NEAR to 520.0)) {
+            // drawn once at its own size: scaled to window pixels the skyline would be a texture wider than the GPU allows
             backdrop.graphics {
                 fill(color) {
                     moveTo(Point(-4000.0, 0.0))
@@ -153,7 +154,7 @@ class TowerView(
                     lineTo(Point(x, 0.0))
                     close()
                 }
-            }
+            }.also { it.autoScaling = false }
         }
         backdrop.solidRect(lotWidth + 8000, 3000.0, Theme.GROUND).xy(-4000.0, 0.0)
         backdrop.solidRect(lotWidth + 8000, 20.0, Theme.GROUND_DARK).xy(-4000.0, 6.0)
@@ -214,7 +215,8 @@ class TowerView(
         val alive = sim.tower.allRooms.associateBy { it.id }
         roomViews.keys.filter { it !in alive }.forEach { roomViews.remove(it)?.removeFromParent() }
         for (room in alive.values) {
-            val art = artFor(room)
+            // the key includes position and width: a lobby that grew by merging keeps its id and art
+            val art = "${artFor(room)}@${room.x}+${room.width}"
             if (room.id !in roomViews || roomArt[room.id] != art) {
                 roomViews.remove(room.id)?.removeFromParent()
                 roomViews[room.id] = createRoomView(room)
@@ -237,26 +239,29 @@ class TowerView(
         }
     }
 
-    /** Elevator cars glide over their shafts; the number shows how many people ride along. */
+    /** Elevator cabins glide over their shafts; the number shows how many people ride along. */
     private fun syncCars() {
-        val cars = sim.elevators.cars
-        carViews.keys.filter { it !in cars }.forEach {
+        val alive = HashSet<Int>()
+        for (car in sim.elevators.cars.values) {
+            car.cabins.forEachIndexed { i, cabin ->
+                val key = car.id * 16 + i
+                alive += key
+                val view = carViews.getOrPut(key) {
+                    carsLayer.container {
+                        graphics {
+                            fill(Theme.INK) { chamferPath(64.0, 82.0, 6.0, 0.0) }
+                            fill(Theme.GOLD) { chamferPath(64.0, 82.0, 6.0, 3.0) }
+                            fill(Theme.alpha(Theme.INK, 0.85)) { rect(10.0, 12.0, 44.0, 54.0) }
+                        }
+                    }.also { carLabels[key] = it.label("", 14.0, Theme.GOLD, Theme.pixel).xy(20.0, 30.0) }
+                }
+                view.xy(Metrics.x(car.x) + 16.0, Metrics.floorTop(0) - cabin.position * Metrics.FLOOR + 6.0)
+                carLabels.getValue(key).text = if (cabin.riders.isEmpty()) "" else cabin.riders.size.toString()
+            }
+        }
+        carViews.keys.filter { it !in alive }.forEach {
             carViews.remove(it)?.removeFromParent()
             carLabels.remove(it)
-        }
-        for (car in cars.values) {
-            val view = carViews.getOrPut(car.id) {
-                carsLayer.container {
-                    graphics {
-                        fill(Theme.INK) { chamferPath(64.0, 82.0, 6.0, 0.0) }
-                        fill(Theme.GOLD) { chamferPath(64.0, 82.0, 6.0, 3.0) }
-                        fill(Theme.alpha(Theme.INK, 0.85)) { rect(10.0, 12.0, 44.0, 54.0) }
-                    }
-                }.also { carLabels[car.id] = it.label("", 14.0, Theme.GOLD, Theme.pixel).xy(24.0, 30.0) }
-            }
-            view.xy(Metrics.x(car.x) + 16.0, Metrics.floorTop(0) - car.position * Metrics.FLOOR + 6.0)
-            carLabels.getValue(car.id).text =
-                if (car.riders.isEmpty()) "" else car.riders.size.toString()
         }
     }
 
@@ -299,8 +304,30 @@ class TowerView(
             .takeIf { assets.hasRoom(it) }
             ?.let { assets.room(it) }
 
+    /**
+     * Where the people waiting for an elevator stand: in a line in front of the doors, the
+     * first one closest, like in SimTower. Long lines continue on the other side of the shaft.
+     * Maps entity id to x in segments and whether they face left.
+     */
+    private fun elevatorQueues(): Map<Int, Pair<Float, Boolean>> {
+        val spots = HashMap<Int, Pair<Float, Boolean>>()
+        for (car in sim.elevators.cars.values) {
+            for (line in car.waiting.values) {
+                line.sortedBy { car.waitingSince[it] ?: 0.0 }.forEachIndexed { i, entity ->
+                    spots[entity.id] = if (i < QUEUE_SIDE) {
+                        car.x - QUEUE_GAP * (i + 0.6f) to false
+                    } else {
+                        car.x + 2 + QUEUE_GAP * (i - QUEUE_SIDE + 0.6f) to true
+                    }
+                }
+            }
+        }
+        return spots
+    }
+
     private fun syncPeople() {
         val seen = HashSet<Int>()
+        val queues = elevatorQueues()
         val family = sim.world.family { all(Person, Position) }
         family.forEach { entity ->
             val pos = entity[Position]
@@ -312,14 +339,21 @@ class TowerView(
             val moving = entity has Route
             val frame = if (moving) 1 + (floor(pos.x * 3).toInt() and 1) else 0
             view.bitmap = assets.person(person.look, frame)
-            // people queueing at the same spot stand a little apart
-            val queueing = !moving || (entity[Route].legs.firstOrNull() is Leg.Ride)
-            view.x = Metrics.x(pos.x) + if (queueing) ((entity.id % 7) - 3) * 5.0 else 0.0
+            val queued = queues[entity.id]
+            val facingLeft = queued?.second ?: pos.facingLeft
+            if (queued != null) {
+                view.bitmap = assets.person(person.look, 0)
+                view.x = Metrics.x(queued.first)
+            } else {
+                // people standing at the same spot stand a little apart
+                val queueing = !moving || (entity[Route].legs.firstOrNull() is Leg.Ride)
+                view.x = Metrics.x(pos.x) + if (queueing) ((entity.id % 7) - 3) * 5.0 else 0.0
+            }
             view.y = Metrics.floorBottom(pos.floor) - Metrics.FEET
             val scale = assets.personScale(person.look, 2.0)
             // native 12x24 pixel art stays crisp, the 4x art is shrunk smoothly
             view.smoothing = scale < 1.0
-            view.scaleX = if (pos.facingLeft) -scale else scale
+            view.scaleX = if (facingLeft) -scale else scale
             view.scaleY = scale
             // with a thinner crowd only every second or fourth person is drawn, but never the selected one
             val shown = (entity.id % 4) < Options.current.crowd * 4 || (game.selection as? Selection.PersonSel)?.entity == entity
@@ -465,11 +499,15 @@ class TowerView(
     private fun setupInput() {
         hit.onMove { updateHover() }
         world.onMove { updateHover() }
-        hit.onScroll { e -> zoomAt(e.currentPosGlobal, if (e.scrollDeltaYPixels > 0) 1 / 1.12 else 1.12) }
+        // on the whole view, not only the empty sky: the rooms are in front of the hit area
+        onScroll { e ->
+            val at = screen(e.currentPosGlobal)
+            if (!isOverUi(at)) zoomAt(at, if (e.scrollDeltaYPixels > 0) 1 / 1.12 else 1.12)
+        }
         for (target in listOf<View>(hit, world)) {
             target.onDown { e ->
-                if (isOverUi(e.currentPosGlobal)) return@onDown
-                dragStart = e.currentPosGlobal
+                if (isOverUi(screen(e.currentPosGlobal))) return@onDown
+                dragStart = screen(e.currentPosGlobal)
                 dragOrigin = Point(world.x, world.y)
                 dragging = false
                 dragButton = e.button
@@ -478,7 +516,7 @@ class TowerView(
         }
         onMove { e ->
             val start = dragStart ?: return@onMove
-            val delta = e.currentPosGlobal - start
+            val delta = screen(e.currentPosGlobal) - start
             val panButton = dragButton != MouseButton.LEFT || game.tool == null
             if (!dragging && panButton && (abs(delta.x) > 4 || abs(delta.y) > 4)) dragging = true
             if (dragging) {
@@ -522,14 +560,18 @@ class TowerView(
         clampCamera()
     }
 
+    /** A window point in screen layout units (what [world]'s position and the HUD use). */
+    private fun screen(global: Point): Point = globalToLocal(global)
+
+    /** Zooms around [screenPoint] (screen layout units), keeping the spot under it in place. */
     private fun zoomAt(screenPoint: Point, factor: Double) {
         val newZoom = (zoom * factor).coerceIn(0.35, 2.0)
-        val local = world.globalToLocal(screenPoint)
+        val localX = (screenPoint.x - world.x) / zoom
+        val localY = (screenPoint.y - world.y) / zoom
         zoom = newZoom
         world.scale = zoom
-        val after = world.localToGlobal(local)
-        world.x += screenPoint.x - after.x
-        world.y += screenPoint.y - after.y
+        world.x = screenPoint.x - localX * zoom
+        world.y = screenPoint.y - localY * zoom
         clampCamera()
     }
 
@@ -561,7 +603,7 @@ class TowerView(
         val global = stage.views.globalMousePos
         val local = world.globalToLocal(global)
         val floorIndex = floor(-local.y / Metrics.FLOOR).toInt()
-        hover = Hover(floorIndex, (local.x / Metrics.SEG).toFloat(), global)
+        hover = Hover(floorIndex, (local.x / Metrics.SEG).toFloat(), screen(global))
     }
 
     /**
@@ -646,7 +688,7 @@ class TowerView(
     }
 
     private fun select(h: Hover) {
-        val local = world.globalToLocal(h.screen)
+        val local = world.globalToLocal(localToGlobal(h.screen))
         // people first: they stand in front of the rooms
         var best: Entity? = null
         var bestDistance = Double.MAX_VALUE
@@ -672,6 +714,10 @@ class TowerView(
         }
     }
 }
+
+/** People in an elevator line stand this many segments apart; this many on the near side, the rest on the far side. */
+private const val QUEUE_GAP = 0.55f
+private const val QUEUE_SIDE = 8
 
 /** Daylight over the day: 1 at noon, 0 at night, with dawn and dusk in between. */
 object DayLight {

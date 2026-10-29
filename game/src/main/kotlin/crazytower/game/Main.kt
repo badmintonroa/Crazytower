@@ -8,10 +8,10 @@ suspend fun main() {
     // CRAZYTOWER_SOUNDS=<folder> writes all sounds as WAV files and quits
     System.getenv("CRAZYTOWER_SOUNDS")?.let { Sfx.exportWav(java.io.File(it)); return }
     val settings = Options.current
-    val (vw, vh) = settings.virtualSize(settings.windowWidth, settings.windowHeight)
     Korge(
         windowSize = Size(settings.windowWidth, settings.windowHeight),
-        virtualSize = Size(vw, vh),
+        // one virtual pixel per window pixel; GameScene scales the layout to fit
+        virtualSize = Size(settings.windowWidth, settings.windowHeight),
         title = "CrazyTower",
         backgroundColor = Theme.SKY,
     ) {
