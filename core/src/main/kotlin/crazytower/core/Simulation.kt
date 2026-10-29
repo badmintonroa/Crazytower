@@ -70,6 +70,11 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     }
 
     /** Rent and prices grow with the star rating: 20 % per star above the first. */
+    /** What the next star still needs, e.g. "ein Imbiss"; empty at five stars. */
+    val nextStarMissing: List<String> get() = Rating.missing(stars, population, satisfaction, hasFood)
+
+    private val hasFood: Boolean get() = tower.allRooms.any { it.type.role == RoomRole.FOOD && it.tenant != null }
+
     val starBonus: Double get() = 1.0 + 0.2 * (stars - 1).coerceAtLeast(0)
 
     val world: World = configureWorld(entityCapacity = 2048) {
@@ -439,7 +444,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             moveOut(room)
             news.post("$name zieht aus. Grund: ${MOVE_OUT_REASONS[random.nextInt(MOVE_OUT_REASONS.size)]}", room.center, important = true)
         }
-        val newStars = Rating.stars(population, satisfaction, tower.allRooms.any { it.type.role == RoomRole.FOOD && it.tenant != null })
+        val newStars = Rating.stars(population, satisfaction, hasFood)
         if (newStars != stars) {
             news.post(if (newStars > stars) "Der Turm hat jetzt $newStars Sterne! Neue Mieter werden neugierig." else "Ein Stern ist weg. Jemand hat ihn im Aufzug verloren.", important = true)
             stars = newStars

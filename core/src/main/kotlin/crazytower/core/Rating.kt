@@ -24,6 +24,16 @@ object Rating {
         return stars
     }
 
+    /** What is still missing for the star after [stars], shortest first; empty at five stars. */
+    fun missing(stars: Int, population: Int, satisfaction: Float, hasFood: Boolean): List<String> {
+        val step = nextStep(stars) ?: return emptyList()
+        return buildList {
+            if (step.needsFood && !hasFood) add("ein Imbiss")
+            if (satisfaction < step.satisfaction) add("Laune ${step.satisfaction.toInt()} %")
+            if (population < step.population) add("${step.population} Bewohner")
+        }
+    }
+
     /** What the next star needs, for the HUD; null at five stars. */
     fun nextStep(stars: Int): Step? = steps.firstOrNull { it.stars == stars + 1 }
 }

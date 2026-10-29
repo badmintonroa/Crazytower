@@ -1,6 +1,7 @@
 package crazytower.game
 
 import crazytower.core.Catalog
+import crazytower.core.Category
 import crazytower.core.GROUND_FLOOR
 import crazytower.core.Loc
 import crazytower.core.MoneyKind
@@ -30,6 +31,7 @@ object Autopilot {
         tower.lookAt(Loc(2, sim.tower.width / 2f))
         if (System.getenv("CRAZYTOWER_FINANCE") != null) game.financeOpen = true
         if (System.getenv("CRAZYTOWER_OPTIONS") != null) game.optionsOpen = true
+        System.getenv("CRAZYTOWER_CATEGORY")?.let { name -> Category.entries.firstOrNull { it.name == name }?.let { game.openCategory(it) } }
         System.getenv("CRAZYTOWER_CELEBRATE")?.let { hud.celebrate(stage = it == "stage") }
         var frames = 0
         root.addUpdater {

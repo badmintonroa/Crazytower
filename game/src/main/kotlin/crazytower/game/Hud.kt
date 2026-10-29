@@ -4,9 +4,12 @@ import crazytower.core.Catalog
 import crazytower.core.Category
 import crazytower.core.GameClock
 import crazytower.core.NewsItem
+import crazytower.core.Rating
+import crazytower.core.RoomRole
 import crazytower.core.RoomType
 import crazytower.core.Simulation
 import crazytower.core.Stages
+import crazytower.core.Tenants
 import crazytower.game.ui.Button
 import crazytower.game.ui.Icons
 import crazytower.game.ui.Panel
@@ -60,11 +63,12 @@ class Hud(
     private var stageBarWidth = 164.0
     private lateinit var stars: Container
     private lateinit var moodText: Text
+    private lateinit var starHint: Text
     private var shownStars = -1
     private lateinit var clockText: Text
     private val speedButtons = ArrayList<Pair<Int, TextButton>>()
     private val categoryButtons = HashMap<Category, Button>()
-    private var flyoutKey: Pair<Category?, Int>? = null
+    private var flyoutKey: Triple<Category?, Int, Int>? = null
     private lateinit var tickerText: Text
     private lateinit var tickerClip: Container
     private var tickerOffset = 0.0
@@ -125,11 +129,12 @@ class Hud(
         }
         val stageWidth = screenWidth - 24 - x - 150 - 10 - 254 - 10 - 60
         box(stageWidth) {
-            stars = container { xy(16.0, 20.0) }
-            stageText = label("", 16.0, Theme.TEXT, Theme.bodyBold).also { it.xy(140.0, 12.0) }
-            stageHint = label("", 12.0, Theme.TEXT_DIM).also { it.xy(140.0, 34.0) }
-            stageBarWidth = stageWidth - 156.0
-            stageBar = graphics { }.also { it.xy(140.0, 50.0) }
+            stars = container { xy(16.0, 12.0) }
+            starHint = label("", 11.0, Theme.GOLD).also { it.xy(16.0, 36.0) }
+            stageText = label("", 16.0, Theme.TEXT, Theme.bodyBold).also { it.xy(152.0, 12.0) }
+            stageHint = label("", 12.0, Theme.TEXT_DIM).also { it.xy(152.0, 34.0) }
+            stageBarWidth = stageWidth - 168.0
+            stageBar = graphics { }.also { it.xy(152.0, 50.0) }
         }
         box(150.0) {
             sun(this, 16.0, 19.0)
@@ -191,7 +196,7 @@ class Hud(
     }
 
     private fun refreshFlyout(force: Boolean = false) {
-        val key = game.category to sim.stage
+        val key = Triple(game.category, sim.stage, sim.stars)
         if (!force && key == flyoutKey) {
             updateFlyoutSelection()
             return
@@ -221,7 +226,7 @@ class Hud(
                 val card = ItemCard(type, sim.stage >= type.minStage)
                 card.xy(14.0, y)
                 flyout.addChild(card)
-                y += 68.0
+                y += card.cardHeight + 6
             }
             flyout.label("Klicken zum Wählen, im Turm\nklicken zum Bauen. Rechtsklick\nbricht ab.", 12.0, Theme.TEXT_DIM).xy(14.0, y + 2)
             y += 54.0
@@ -239,9 +244,14 @@ class Hud(
         }
     }
 
-    /** A build list entry: art thumbnail, name and price (or the stage that unlocks it). */
-    private inner class ItemCard(val type: RoomType, unlocked: Boolean) :
-        Button(242.0, 62.0, { game.tool = Tool.Build(type) }) {
+    /**
+     * A build list entry: art thumbnail, name and price (or the stage that unlocks it), and
+     * below that who lives or works there and what the room earns.
+     */
+    private inner class ItemCard(
+        val type: RoomType, unlocked: Boolean, val info: List<String> = roomInfo(type),
+        val cardHeight: Double = if (info.isEmpty()) 62.0 else 66.0 + info.size * 17.0,
+    ) : Button(242.0, cardHeight, { game.tool = Tool.Build(type) }) {
         init {
             enabled = unlocked
             content.image(assets.room(type.art)) {
@@ -253,8 +263,42 @@ class Hud(
             val sub = content.label(
                 if (!unlocked) "AB STUFE ${type.minStage}" else if (type.stretchable) "${formatMoney(type.cost)}/FELD" else formatMoney(type.cost), 13.0, Theme.TEXT, Theme.bodyBold,
             ).also { it.xy(92.0, 33.0) }
-            onRestyle = { name.color = it.ink; sub.color = it.ink }
+            val lines = info.mapIndexed { i, line -> content.label(line, 12.0, Theme.TEXT_DIM).also { it.xy(12.0, 60.0 + i * 17.0) } }
+            onRestyle = { b ->
+                name.color = b.ink
+                sub.color = b.ink
+                lines.forEach { it.color = if (b.selected) b.ink else Theme.TEXT_DIM }
+            }
             onRestyle(this)
+        }
+    }
+
+    /** Who a room of [type] brings into the tower and how it pays, for the tenants that would come now. */
+    private fun roomInfo(type: RoomType): List<String> {
+        val tenants = Tenants.candidates(type.role, sim.stars, sim.stage)
+        fun range(values: List<Long>): String {
+            if (values.isEmpty()) return "–"
+            val low = (values.min() * sim.starBonus).toLong()
+            val high = (values.max() * sim.starBonus).toLong()
+            return if (low == high) formatMoney(low) else "${formatNumber(low)}–${formatMoney(high)}"
+        }
+        return when (type.role) {
+            RoomRole.HOME -> listOf(
+                "${type.capacity} Bewohner ziehen ein",
+                "Verkauf einmalig: ${range(tenants.map { it.salePrice })}",
+                "dann ${formatMoney(Simulation.HOME_FEE)} Nebenkosten alle ${Simulation.FEE_EVERY_DAYS} Tage",
+            )
+            RoomRole.OFFICE -> listOf(
+                "${type.capacity} Angestellte, kommen zur Arbeit",
+                "Miete pro Arbeitstag: ${range(tenants.map { it.rentPerDay })}",
+                "mehr Sterne bringen bessere Mieter",
+            )
+            RoomRole.FOOD -> listOf(
+                "${type.capacity} Angestellte, Pflicht für Stern 3",
+                "Miete pro Tag: ${range(tenants.map { it.rentPerDay })}",
+                "plus ${formatMoney(Simulation.MEAL_PRICE)}–${formatMoney(Simulation.VISITOR_MEAL_PRICE)} pro Essen",
+            )
+            else -> emptyList()
         }
     }
 
@@ -345,6 +389,13 @@ class Hud(
         if (stage != shownStage) {
             shownStage = stage
             stageText.text = "STUFE $stage · ${Stages.info(stage).name.uppercase()}"
+        }
+        val missing = sim.nextStarMissing
+        starHint.text = when {
+            sim.stars >= Rating.steps.size -> ""
+            // everything is there, the rating catches up at the next check
+            missing.isEmpty() -> "Stern ${sim.stars + 1}: kommt bald"
+            else -> "Stern ${sim.stars + 1}: ${missing.first()}"
         }
         val next = if (stage < Stages.last) Stages.info(stage + 1) else null
         stageHint.text = next?.let { "Für Stufe ${it.number}: ${it.requirement}" } ?: "Der Turm ist komplett verrückt."
