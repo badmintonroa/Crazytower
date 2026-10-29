@@ -81,9 +81,19 @@ class SimulationTest {
     }
 
     @Test
-    fun aFlatSellsForLessThanItCosts() {
-        val dearest = Tenants.all.filter { it.role == RoomRole.HOME }.maxOf { it.salePrice }
-        assertTrue(dearest < Catalog.HOME.cost, "flats earn through the fees, not the sale")
+    fun flatsPayOffAtOnceAndOfficesOvertakeThemWithinAWeek() {
+        val flats = Tenants.candidates(RoomRole.HOME, 0, 0)
+        val offices = Tenants.candidates(RoomRole.OFFICE, 0, 0)
+        assertTrue(flats.all { it.salePrice <= Catalog.HOME.cost }, "a flat never sells for more than it costs")
+        fun flat(days: Int, tenant: TenantKind) = tenant.salePrice - Catalog.HOME.cost + Simulation.HOME_FEE * days
+        fun office(days: Int, tenant: TenantKind) = tenant.rentPerDay * days - Catalog.OFFICE.cost
+        for (f in flats) {
+            assertTrue(flat(1, f) >= 0, "${f.name} pays off after a day")
+            for (o in offices) {
+                val overtakes = (1..30).first { office(it, o) > flat(it, f) }
+                assertTrue(overtakes in 5..7, "${o.name} overtakes ${f.name} on day $overtakes")
+            }
+        }
     }
 
     @Test

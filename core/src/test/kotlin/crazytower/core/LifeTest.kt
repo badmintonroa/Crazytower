@@ -98,7 +98,7 @@ class LifeTest {
     }
 
     @Test
-    fun flatsAreSoldOnceAndPayFeesEveryThreeDays() {
+    fun flatsAreSoldOnceAndPayFeesEveryDay() {
         val sim = Simulation(seed = 9, startMoney = 1_000_000).apply { eventsEnabled = false }
         val home = sim.buildReachable(Catalog.HOME, 20)
         val before = sim.money

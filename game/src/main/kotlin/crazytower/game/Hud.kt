@@ -286,7 +286,7 @@ class Hud(
             RoomRole.HOME -> listOf(
                 "${type.capacity} Bewohner ziehen ein",
                 "Verkauf einmalig: ${range(tenants.map { it.salePrice }, bonus = 1.0)}",
-                "dann ${formatMoney((Simulation.HOME_FEE * sim.starBonus).toLong())} alle ${Simulation.FEE_EVERY_DAYS} Tage",
+                "dann ${formatMoney((Simulation.HOME_FEE * sim.starBonus).toLong())} Hausgeld pro Tag",
             )
             RoomRole.OFFICE -> listOf(
                 "${type.capacity} Angestellte, kommen zur Arbeit",
