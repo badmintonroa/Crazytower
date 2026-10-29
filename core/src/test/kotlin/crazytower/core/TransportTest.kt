@@ -54,6 +54,89 @@ class TransportTest {
         assertEquals(1, path.count { it is Leg.Stairs })
     }
 
+    private fun tallCorridor(sim: Simulation, top: Int) {
+        sim.build(Catalog.LOBBY, 0, 10)
+        for (f in 1..top) assertTrue(sim.build(Catalog.CORRIDOR, f, 10).ok, "corridor $f")
+    }
+
+    @Test
+    fun nobodyClimbsMoreThanFiveFloorsOnFoot() {
+        val sim = Simulation(startMoney = 10_000_000)
+        sim.stage = 1
+        tallCorridor(sim, 8)
+        assertTrue(sim.build(sim.planColumn(Catalog.STAIRS, 12, GROUND_FLOOR, 8)).ok)
+        assertEquals(5, sim.nav.findPath(Loc(0, 2f), Loc(5, 14f))?.count { it is Leg.Stairs })
+        assertEquals(null, sim.nav.findPath(Loc(0, 2f), Loc(8, 14f)))
+    }
+
+    @Test
+    fun theLastFloorsAfterTheElevatorAreWalked() {
+        val sim = Simulation(startMoney = 10_000_000)
+        sim.stage = 1
+        tallCorridor(sim, 9)
+        for (f in 0..6) assertTrue(sim.build(Catalog.ELEVATOR, f, 16).ok, "elevator $f")
+        assertTrue(sim.build(sim.planColumn(Catalog.STAIRS, 12, 6, 9)).ok)
+        val path = sim.nav.findPath(Loc(0, 2f), Loc(9, 14f))
+        assertNotNull(path)
+        assertEquals(1, path.count { it is Leg.Ride })
+        assertEquals(3, path.count { it is Leg.Stairs })
+    }
+
+    @Test
+    fun expressElevatorsOnlyStopOnEveryFifthFloor() {
+        val sim = Simulation(startMoney = 10_000_000)
+        sim.stage = 2
+        tallCorridor(sim, 10)
+        assertTrue(sim.build(sim.planColumn(Catalog.EXPRESS, 16, GROUND_FLOOR, 10)).ok)
+        val car = sim.elevators.cars.values.single()
+        assertTrue(car.express)
+        assertEquals(listOf(0, 5, 10), car.stops)
+        assertEquals(listOf(Leg.Ride(car.id, 0, 10, car.centerX)), sim.nav.findPath(Loc(0, 17f), Loc(10, 17f)))
+        // floor 7 has no stop: ride to 5, walk the rest
+        assertTrue(sim.build(sim.planColumn(Catalog.STAIRS, 12, 5, 7)).ok)
+        val path = assertNotNull(sim.nav.findPath(Loc(0, 17f), Loc(7, 14f)))
+        assertEquals(Leg.Ride(car.id, 0, 5, car.centerX), path.first())
+        assertEquals(2, path.count { it is Leg.Stairs })
+    }
+
+    @Test
+    fun expressAndNormalShaftsDoNotMix() {
+        val sim = Simulation(startMoney = 10_000_000)
+        sim.stage = 2
+        tallCorridor(sim, 6)
+        assertTrue(sim.build(sim.planColumn(Catalog.ELEVATOR, 16, GROUND_FLOOR, 3)).ok)
+        assertFalse(sim.checkPlace(Catalog.EXPRESS, 4, 16).ok)
+    }
+
+    @Test
+    fun skyLobbiesOnEveryTenthFloor() {
+        val sim = Simulation(startMoney = 10_000_000)
+        sim.stage = 2
+        tallCorridor(sim, 9)
+        sim.build(Catalog.LOBBY, 0, 16)
+        for (f in 1..9) assertTrue(sim.build(Catalog.CORRIDOR, f, 16).ok)
+        assertFalse(sim.checkPlace(Catalog.LOBBY, 7, 10).ok)
+        assertTrue(sim.build(sim.planLobby(10, 15, 10)).ok)
+        assertTrue(sim.build(sim.planLobby(16, 21, 10)).ok)
+        val sky = sim.tower.allRooms.filter { it.type.role == RoomRole.LOBBY && it.floor == 10 }
+        assertEquals(1, sky.size, "touching sky lobby pieces are joined")
+        assertEquals(12, sky.single().width)
+    }
+
+    @Test
+    fun everyFurtherShaftCostsMore() {
+        val sim = Simulation(startMoney = 10_000_000)
+        assertTrue(sim.build(sim.planLobby(0, 59)).ok)
+        assertEquals(6_000, sim.priceAt(Catalog.ELEVATOR, GROUND_FLOOR, 10))
+        assertTrue(sim.build(Catalog.ELEVATOR, GROUND_FLOOR, 10).ok)
+        assertEquals(6_000, sim.priceAt(Catalog.ELEVATOR, 1, 10), "growing a shaft stays at the normal price")
+        assertEquals(9_000, sim.priceAt(Catalog.ELEVATOR, GROUND_FLOOR, 30))
+        val before = sim.money
+        assertTrue(sim.build(Catalog.ELEVATOR, GROUND_FLOOR, 30).ok)
+        assertEquals(9_000, before - sim.money)
+        assertEquals(12_000, sim.priceAt(Catalog.ELEVATOR, GROUND_FLOOR, 50))
+    }
+
     @Test
     fun peopleRideTheElevatorToTheTop() {
         val sim = Simulation(seed = 5, startMoney = 10_000_000)

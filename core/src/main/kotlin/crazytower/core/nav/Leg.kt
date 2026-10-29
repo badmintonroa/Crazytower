@@ -23,6 +23,9 @@ object NavCosts {
     /** Minutes to climb one floor on the stairs. */
     const val STAIRS_PER_FLOOR = 2.5f
 
+    /** Most floors anyone climbs on foot in a row. Further up, only an elevator will do. */
+    const val MAX_STAIRS_FLOORS = 5
+
     /** Minutes an elevator car needs per floor. */
     const val ELEVATOR_PER_FLOOR = 0.6f
 

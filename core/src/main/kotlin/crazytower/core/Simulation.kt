@@ -113,7 +113,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     fun checkPlace(type: RoomType, floor: Int, x: Int, width: Int = type.width): PlaceCheck {
         val rules = checkRules(type, floor, x, width)
         if (!rules.ok) return rules
-        if (money < type.price(width)) return PlaceCheck.no("Zu wenig Geld")
+        if (money < priceAt(type, floor, x, width)) return PlaceCheck.no("Zu wenig Geld")
         return tower.canPlace(type, floor, x, width)
     }
 
@@ -146,12 +146,27 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         return PlaceCheck.OK
     }
 
+    /**
+     * Elevator shafts in the tower besides the one a module at [x] on [floor] would belong to.
+     * Every one of them makes the next shaft dearer, so elevators are not built everywhere.
+     */
+    fun otherShafts(type: RoomType, floor: Int, x: Int): Int = elevators.cars.values.count {
+        !(it.x == x && it.express == type.express && floor in it.bottom - 1..it.top + 1)
+    }
+
+    /** What building [type] at [x] on [floor] costs right now. Elevators get dearer with each shaft. */
+    fun priceAt(type: RoomType, floor: Int, x: Int, width: Int = type.width): Long {
+        val base = type.price(width)
+        if (type.role != RoomRole.ELEVATOR) return base
+        return (base * (1 + SHAFT_SURCHARGE * otherShafts(type, floor, x))).toLong()
+    }
+
     fun build(type: RoomType, floor: Int, x: Int, width: Int = type.width): BuildResult {
         val check = checkPlace(type, floor, x, width)
         if (!check.ok) return BuildResult(null, check.reason)
         val firstLobby = type.role == RoomRole.LOBBY && tower.allRooms.none { it.type.role == RoomRole.LOBBY }
         var room = tower.place(type, floor, x, width)
-        book(-type.price(width), MoneyKind.BUILD, type.name, Loc(floor, x + width / 2f))
+        book(-priceAt(type, floor, x, width), MoneyKind.BUILD, type.name, Loc(floor, x + width / 2f))
         room.since = clock.totalMinutes
         if (type.role == RoomRole.LOBBY) room = tower.mergeLobbies() ?: room
         if (firstLobby) {
@@ -161,16 +176,17 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     }
 
     /**
-     * The lobby pieces a drag along the ground floor from segment [from] to [to] would add.
-     * Segments that already belong to a lobby are skipped, so dragging over the old lobby is free.
+     * The lobby pieces a drag along [floor] (the ground floor or a sky lobby floor) from segment
+     * [from] to [to] would add. Segments that already belong to a lobby are skipped, so dragging
+     * over the old lobby is free.
      */
-    fun planLobby(from: Int, to: Int): BuildPlan {
+    fun planLobby(from: Int, to: Int, floor: Int = GROUND_FLOOR): BuildPlan {
         val lo = minOf(from, to).coerceIn(0, lotWidth - 1)
         val hi = maxOf(from, to).coerceIn(0, lotWidth - 1)
         val pieces = ArrayList<IntRange>()
         var start = -1
         for (s in lo..hi + 1) {
-            val free = s <= hi && tower.roomAt(GROUND_FLOOR, s)?.type?.role != RoomRole.LOBBY
+            val free = s <= hi && tower.roomAt(floor, s)?.type?.role != RoomRole.LOBBY
             if (free && start < 0) start = s
             if (!free && start >= 0) {
                 pieces += start until s
@@ -178,14 +194,16 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             }
         }
         val cost = pieces.sumOf { Catalog.LOBBY.price(it.last - it.first + 1) }
-        var check = PlaceCheck.OK
+        val maxFloor = Stages.info(stage).maxFloor
+        var check = if (floor >= maxFloor) PlaceCheck.no("Stufe $stage erlaubt nur $maxFloor Etagen") else PlaceCheck.OK
         for (piece in pieces) {
-            val c = tower.canPlace(Catalog.LOBBY, GROUND_FLOOR, piece.first, piece.last - piece.first + 1)
+            if (!check.ok) break
+            val c = tower.canPlace(Catalog.LOBBY, floor, piece.first, piece.last - piece.first + 1)
             if (!c.ok) { check = c; break }
         }
         if (check.ok && cost > money) check = PlaceCheck.no("Zu wenig Geld")
         if (check.ok && pieces.isEmpty()) check = PlaceCheck.no("Hier ist schon Lobby")
-        return BuildPlan(Catalog.LOBBY, pieces.map { BuildPlan.Piece(GROUND_FLOOR, it.first, it.last - it.first + 1) }, cost, check)
+        return BuildPlan(Catalog.LOBBY, pieces.map { BuildPlan.Piece(floor, it.first, it.last - it.first + 1) }, cost, check)
     }
 
     /**
@@ -225,7 +243,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         // build outward from the floor that is carried: up from below, down from the ground in the basement
         floors = floors.sortedBy { if (it >= GROUND_FLOOR) it else -it }
         val fresh = floors.filter { f -> tower.wayAt(f, x)?.let { it.type == type && it.x == x } != true }
-        val cost = type.price() * fresh.size
+        val cost = fresh.sumOf { priceAt(type, it, x) }
         var check = PlaceCheck.OK
         val assumed = HashSet<Int>()
         for (f in fresh) {
@@ -479,7 +497,15 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     private fun homeFees(): Long = tower.allRooms.count { it.type.role == RoomRole.HOME && it.tenant != null && it.tenant!!.salePrice > 0 } * (HOME_FEE * starBonus).toLong()
 
     private fun upkeep(): Long = tower.allRooms.sumOf { (UPKEEP[it.type.role] ?: 0L) * (if (it.type.perSegment) it.width else 6) / 6 } +
-        elevators.cars.values.sumOf { it.cabins.size } * CABIN_UPKEEP
+        elevators.cars.values.sumOf { it.cabins.size } * CABIN_UPKEEP + shaftSurcharge()
+
+    /** Each elevator shaft beyond the first makes every shaft's upkeep dearer. */
+    private fun shaftSurcharge(): Long {
+        val shafts = elevators.cars.size
+        if (shafts < 2) return 0
+        val floors = elevators.cars.values.sumOf { it.top - it.bottom + 1 }
+        return (floors * UPKEEP.getValue(RoomRole.ELEVATOR) * UPKEEP_SURCHARGE * (shafts - 1)).toLong()
+    }
 
     /**
      * Midnight: maintenance, every few days the home fees, unhappy tenants move out, new star
@@ -763,6 +789,12 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         const val MIN_STAY_MINUTES = 2 * 1440.0
 
         /** Daily cost per room role. */
+        /** Every elevator shaft already standing adds this share to the price of a new one. */
+        const val SHAFT_SURCHARGE = 0.5
+
+        /** Every shaft beyond the first adds this share to the upkeep of all elevator floors. */
+        const val UPKEEP_SURCHARGE = 0.25
+
         val UPKEEP = mapOf(
             RoomRole.ELEVATOR to 60L, RoomRole.STAIRS to 10L, RoomRole.LOBBY to 40L, RoomRole.CORRIDOR to 5L,
             RoomRole.SPECIAL to 300L, RoomRole.SECURITY to 800L, RoomRole.TELEPORTER to 1_000L,

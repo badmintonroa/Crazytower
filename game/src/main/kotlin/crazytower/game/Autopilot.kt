@@ -5,6 +5,7 @@ import crazytower.core.Category
 import crazytower.core.GROUND_FLOOR
 import crazytower.core.Loc
 import crazytower.core.MoneyKind
+import crazytower.core.RoomRole
 import crazytower.core.Simulation
 import korlibs.image.format.PNG
 import korlibs.image.format.writeTo
@@ -27,7 +28,9 @@ object Autopilot {
         val minutes = System.getenv("CRAZYTOWER_MINUTES")?.toDoubleOrNull() ?: 90.0
         if (sim.tower.allRooms.isEmpty()) DemoTower.build(sim)
         sim.step(minutes)
-        game.selection = sim.tower.allRooms.firstOrNull()?.let { Selection.RoomSel(it.id) }
+        // CRAZYTOWER_SELECT=<role> selects a room of that role instead, e.g. ELEVATOR for the shaft handles
+        val role = System.getenv("CRAZYTOWER_SELECT")?.let { name -> RoomRole.entries.firstOrNull { it.name == name } }
+        game.selection = sim.tower.allRooms.firstOrNull { role == null || it.type.role == role }?.let { Selection.RoomSel(it.id) }
         tower.lookAt(Loc(2, sim.lotWidth / 2f))
         if (System.getenv("CRAZYTOWER_FINANCE") != null) game.financeOpen = true
         if (System.getenv("CRAZYTOWER_OPTIONS") != null) game.optionsOpen = true

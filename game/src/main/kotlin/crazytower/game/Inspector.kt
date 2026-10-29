@@ -153,7 +153,8 @@ object RoomInfo {
                     lines += "Schacht" to "${floorName(car.bottom)} bis ${floorName(car.top)}"
                     lines += "Kabinen" to "${car.cabins.size} von ${Elevators.maxCabins(sim.bestStars)}" +
                         if (car.cabins.size < Elevators.MAX_CABINS && Elevators.maxCabins(sim.bestStars) <= car.cabins.size) " (mehr mit Sternen)" else ""
-                    lines += "Fahrgäste" to "${car.riders.size} von ${Elevators.CAPACITY * car.cabins.size}"
+                    if (car.express) lines += "Hält auf" to car.stops.joinToString(", ") { if (it == 0) "EG" else "$it" }
+                    lines += "Fahrgäste" to "${car.riders.size} von ${car.capacity * car.cabins.size}"
                     lines += "Warten" to "${car.waitingCount} Leute"
                 }
                 RoomCard(room.type.name, where, lines, null)

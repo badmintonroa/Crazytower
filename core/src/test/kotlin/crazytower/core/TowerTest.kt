@@ -10,7 +10,7 @@ class TowerTest {
     fun lobbyOnlyOnGroundFloor() {
         val tower = Tower()
         assertTrue(tower.canPlace(Catalog.LOBBY, 0, 10).ok)
-        assertEquals("Lobby nur im Erdgeschoss", tower.canPlace(Catalog.LOBBY, 1, 10).reason)
+        assertEquals("Lobby nur im Erdgeschoss und alle 10 Etagen", tower.canPlace(Catalog.LOBBY, 1, 10).reason)
     }
 
     @Test

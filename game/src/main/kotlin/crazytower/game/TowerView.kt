@@ -10,11 +10,14 @@ import crazytower.core.Room
 import crazytower.core.RoomRole
 import crazytower.core.RoomType
 import crazytower.core.Simulation
+import crazytower.core.Tower
 import crazytower.core.ecs.Person
 import crazytower.core.ecs.Position
 import crazytower.core.ecs.Riding
 import crazytower.core.ecs.Route
 import crazytower.core.nav.Leg
+import crazytower.core.transport.Elevators
+import crazytower.core.transport.Car
 import crazytower.game.ui.chamferPath
 import crazytower.game.ui.formatMoney
 import crazytower.game.ui.label
@@ -36,6 +39,10 @@ import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.random.Random
+
+/** Express elevators wear red so they stand out from the normal shafts. */
+private val EXPRESS_RED = RGBA(214, 64, 52)
+private val EXPRESS_TINT = RGBA(255, 150, 140)
 
 /** Screen metrics of the tower at zoom 1: the native art is shown at twice its size. */
 object Metrics {
@@ -90,6 +97,15 @@ class TowerView(
     private var artCheck = 0
 
     private val ghost = overlay.container { visible = false }
+    private val shaftHandles = overlay.container()
+    private var drawnHandles: Any? = null
+    private var handles: List<Handle> = emptyList()
+
+    /** The end module of a selected shaft whose arrow the player is dragging. */
+    private var arrowDrag: Room? = null
+
+    /** The press hit a shaft handle, so letting go must not select anything. */
+    private var handlePressed = false
     private val selectionFrame = overlay.container { visible = false }
     private val personMarker = overlay.graphics {
         fill(Theme.SELECT) {
@@ -276,7 +292,7 @@ class TowerView(
                     carsLayer.container {
                         graphics {
                             fill(Theme.INK) { chamferPath(64.0, 82.0, 6.0, 0.0) }
-                            fill(Theme.GOLD) { chamferPath(64.0, 82.0, 6.0, 3.0) }
+                            fill(if (car.express) EXPRESS_RED else Theme.GOLD) { chamferPath(64.0, 82.0, 6.0, 3.0) }
                             fill(Theme.alpha(Theme.INK, 0.85)) { rect(10.0, 12.0, 44.0, 54.0) }
                         }
                     }.also { carLabels[key] = it.label("", 14.0, Theme.GOLD, Theme.bodyBold).xy(20.0, 30.0) }
@@ -301,7 +317,7 @@ class TowerView(
         // rooms without night art are dimmed so they don't glow in the dark
         val dimmed = DayLight.isDark(sim.clock.minuteOfDay) && !key.endsWith("_night")
         // a long lobby gets a door at each end; the right one is the left one mirrored
-        val entrance = if (room.type.role == RoomRole.LOBBY && tiles >= 2) entranceArt(key) else null
+        val entrance = if (room.type.role == RoomRole.LOBBY && room.floor == GROUND_FLOOR && tiles >= 2) entranceArt(key) else null
         val clip = view.clipContainer(Size(Metrics.x(room.width), Metrics.FLOOR))
         for (i in 0 until tiles) {
             val last = i == tiles - 1
@@ -317,6 +333,7 @@ class TowerView(
                     scaleX = -scaleX
                     x = Metrics.x(room.width)
                 }
+                if (room.type.express) colorMul = EXPRESS_TINT
                 if (dimmed) colorMul = RGBA(120, 124, 165)
             }
         }
@@ -412,7 +429,103 @@ class TowerView(
             }
             null -> {}
         }
+        syncHandles()
         updateGhost()
+    }
+
+    // ---------------------------------------------------------------- shaft handles
+
+    private enum class HandleKind { UP, DOWN, ADD_CABIN, REMOVE_CABIN }
+
+    /** A clickable spot next to the selected shaft, in world coordinates. */
+    private data class Handle(val kind: HandleKind, val x: Double, val y: Double, val w: Double, val h: Double) {
+        fun contains(p: Point) = p.x in x..x + w && p.y in y..y + h
+    }
+
+    /** The shaft of the selected elevator module, if one is selected. */
+    private fun selectedShaft(): Pair<Room, Car>? {
+        val room = (game.selection as? Selection.RoomSel)?.let { sim.tower.room(it.roomId) } ?: return null
+        if (room.type.role != RoomRole.ELEVATOR) return null
+        val car = sim.elevators.cars.values.firstOrNull { it.x == room.x && it.express == room.type.express && room.floor in it.floors } ?: return null
+        return room to car
+    }
+
+    /**
+     * A selected shaft shows arrows above and below to drag it longer or shorter, and
+     * plus and minus buttons for cabins next to the selected floor.
+     */
+    private fun syncHandles() {
+        val shaft = selectedShaft()
+        val key = shaft?.let { (room, car) -> listOf(car.id, car.bottom, car.top, room.floor, car.cabins.size, sim.checkCabin(car).ok) }
+        if (key == drawnHandles) return
+        drawnHandles = key
+        shaftHandles.removeChildren()
+        handles = emptyList()
+        val (room, car) = shaft ?: return
+        val left = Metrics.x(car.x)
+        val width = Metrics.x(2)
+        val size = 34.0
+        val side = left + width + 6
+        val mid = Metrics.floorTop(room.floor) + Metrics.FLOOR / 2
+        handles = listOf(
+            Handle(HandleKind.UP, left + (width - size) / 2, Metrics.floorTop(car.top) - size - 4, size, size),
+            Handle(HandleKind.DOWN, left + (width - size) / 2, Metrics.floorBottom(car.bottom) + 4, size, size),
+            Handle(HandleKind.ADD_CABIN, side, mid - size - 2, size, size),
+            Handle(HandleKind.REMOVE_CABIN, side, mid + 2, size, size),
+        )
+        for (handle in handles) {
+            val enabled = when (handle.kind) {
+                HandleKind.ADD_CABIN -> sim.checkCabin(car).ok
+                HandleKind.REMOVE_CABIN -> car.cabins.size > 1
+                else -> true
+            }
+            val color = if (enabled) Theme.SELECT else Theme.TEXT_LOCKED
+            shaftHandles.container {
+                xy(handle.x, handle.y)
+                graphics {
+                    fill(Theme.INK) { roundRect(0.0, 0.0, handle.w, handle.h, 6.0, 6.0) }
+                    val c = handle.w / 2
+                    fill(color) {
+                        when (handle.kind) {
+                            HandleKind.UP -> { moveTo(Point(c, 7.0)); lineTo(Point(handle.w - 7, handle.h - 9)); lineTo(Point(7.0, handle.h - 9)); close() }
+                            HandleKind.DOWN -> { moveTo(Point(c, handle.h - 7)); lineTo(Point(handle.w - 7, 9.0)); lineTo(Point(7.0, 9.0)); close() }
+                            HandleKind.ADD_CABIN -> { rect(8.0, c - 2.5, handle.w - 16, 5.0); rect(c - 2.5, 8.0, 5.0, handle.h - 16) }
+                            HandleKind.REMOVE_CABIN -> rect(8.0, c - 2.5, handle.w - 16, 5.0)
+                        }
+                    }
+                }
+            }
+        }
+        shaftHandles.label("${car.cabins.size}", 14.0, Theme.GOLD, Theme.bodyBold).xy(side + size + 6, mid - 9)
+    }
+
+    /** The left button went down: a press on a shaft handle acts on the shaft instead of the tower. */
+    private fun pressHandle(global: Point): Boolean {
+        if (game.tool != null) return false
+        val local = world.globalToLocal(global)
+        val handle = handles.firstOrNull { it.contains(local) } ?: return false
+        val (_, car) = selectedShaft() ?: return false
+        handlePressed = true
+        when (handle.kind) {
+            HandleKind.UP, HandleKind.DOWN -> {
+                arrowDrag = sim.tower.wayAt(if (handle.kind == HandleKind.UP) car.top else car.bottom, car.x)
+            }
+            HandleKind.ADD_CABIN -> {
+                val result = sim.addCabin(car)
+                game.say(if (result.ok) "Neue Kabine, ${formatMoney(Elevators.CABIN_COST)}" else result.reason)
+                Sfx.play(if (result.ok) Sfx.BUILD else Sfx.ERROR)
+            }
+            HandleKind.REMOVE_CABIN -> if (sim.removeCabin(car)) Sfx.play(Sfx.DEMOLISH)
+        }
+        return true
+    }
+
+    /** What letting go of a dragged shaft arrow at [h] would do: modules to remove, or a plan to build. */
+    private fun arrowPlan(end: Room, h: Hover): Pair<List<Room>, BuildPlan?> {
+        val removed = sim.planRetract(end, h.floor)
+        if (removed.isNotEmpty()) return removed to null
+        if (h.floor == end.floor) return emptyList<Room>() to null
+        return emptyList<Room>() to sim.planColumn(end.type, end.x, end.floor, h.floor)
     }
 
     private fun updateGhost() {
@@ -420,6 +533,22 @@ class TowerView(
         val tool = game.tool
         ghostInfo = null
         ghost.visible = false
+        val end = arrowDrag
+        if (h != null && end != null) {
+            val (removed, plan) = arrowPlan(end, h)
+            when {
+                removed.isNotEmpty() -> {
+                    showGhost(removed.map { Ghost(it.floor, it.x, it.width) }, Theme.ALARM, 0.25)
+                    ghostInfo = "${removed.size} ${if (removed.size == 1) "Etage" else "Etagen"} abbauen · ${formatMoney(removed.sumOf { sim.refundFor(it) })} zurück" to true
+                }
+                plan != null -> {
+                    showGhost(plan.pieces.map { Ghost(it.floor, it.x, it.width) }, if (plan.check.ok) Theme.SELECT else Theme.ALARM, 0.2)
+                    ghostInfo = if (plan.check.ok) "${plan.type.name} · +${plan.pieces.size} Etagen · ${formatMoney(plan.cost)} · Loslassen zum Bauen" to true else plan.check.reason to false
+                }
+                else -> ghostInfo = "Nach oben oder unten ziehen zum Verlängern oder Kürzen" to true
+            }
+            return
+        }
         if (h == null || tool == null) return
         when (tool) {
             is Tool.Build -> when {
@@ -491,14 +620,16 @@ class TowerView(
         if (type.fillsGap) return sim.planGap(h.floor, floor(h.segment).toInt())
         val anchor = pressHover ?: h
         return if (type.stretchable) {
-            if (h.floor != GROUND_FLOOR) return BuildPlan(type, emptyList(), 0, PlaceCheck.no("Lobby nur im Erdgeschoss"))
+            if (!Tower.isLobbyFloor(anchor.floor)) {
+                return BuildPlan(type, emptyList(), 0, PlaceCheck.no("Lobby nur im Erdgeschoss und alle ${Tower.SKY_LOBBY_EVERY} Etagen"))
+            }
             val from = floor(anchor.segment).toInt()
             val to = floor(h.segment).toInt()
             if (pressHover == null || from == to) {
                 val x = BuildRules.snapX(h.segment, type.width, sim.lotWidth)
-                sim.planLobby(x, x + type.width - 1)
+                sim.planLobby(x, x + type.width - 1, anchor.floor)
             } else {
-                sim.planLobby(from, to)
+                sim.planLobby(from, to, anchor.floor)
             }
         } else {
             val x = BuildRules.snapX(anchor.segment, type.width, sim.lotWidth)
@@ -541,13 +672,14 @@ class TowerView(
                 dragOrigin = Point(world.x, world.y)
                 dragging = false
                 dragButton = e.button
-                if (e.button == MouseButton.LEFT) pressBuildTool()
+                handlePressed = false
+                if (e.button == MouseButton.LEFT && !pressHandle(e.currentPosGlobal)) pressBuildTool()
             }
         }
         onMove { e ->
             val start = dragStart ?: return@onMove
             val delta = screen(e.currentPosGlobal) - start
-            val panButton = dragButton != MouseButton.LEFT || game.tool == null
+            val panButton = dragButton != MouseButton.LEFT || (game.tool == null && !handlePressed)
             if (!dragging && panButton && (abs(delta.x) > 4 || abs(delta.y) > 4)) dragging = true
             if (dragging) {
                 world.x = dragOrigin.x + delta.x
@@ -561,7 +693,15 @@ class TowerView(
             val wasDrag = dragging
             dragStart = null
             dragging = false
-            if (!wasDrag && e.button == MouseButton.LEFT) clicked()
+            val end = arrowDrag
+            if (end != null) {
+                updateHover()
+                hover?.let { h -> releaseArrow(end, h) }
+            } else if (!wasDrag && !handlePressed && e.button == MouseButton.LEFT) {
+                clicked()
+            }
+            arrowDrag = null
+            handlePressed = false
             if (!wasDrag && e.button == MouseButton.RIGHT) game.cancel()
             pressHover = null
             grabbedEnd = null
@@ -690,6 +830,23 @@ class TowerView(
                 }
             }
             null -> select(h)
+        }
+    }
+
+    private fun releaseArrow(end: Room, h: Hover) {
+        val (removed, plan) = arrowPlan(end, h)
+        when {
+            removed.isNotEmpty() -> {
+                val refund = sim.demolishAll(removed)
+                Sfx.play(Sfx.DEMOLISH)
+                game.say("${end.type.name} um ${removed.size} ${if (removed.size == 1) "Etage" else "Etagen"} gekürzt, ${formatMoney(refund)} zurück")
+            }
+            plan != null -> build(plan)
+        }
+        // keep the shaft selected: pick a module that still stands
+        if (sim.tower.room(end.id) == null) {
+            val car = sim.elevators.cars.values.firstOrNull { it.x == end.x && it.express == end.type.express }
+            game.selection = car?.let { sim.tower.wayAt(it.top, it.x) }?.let { Selection.RoomSel(it.id) }
         }
     }
 

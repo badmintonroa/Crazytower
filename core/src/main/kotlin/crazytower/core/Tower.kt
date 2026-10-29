@@ -104,7 +104,7 @@ class Tower(val width: Int = DEFAULT_WIDTH) {
     fun canPlace(type: RoomType, floor: Int, x: Int, width: Int = type.width, assumed: Set<Int> = emptySet()): PlaceCheck {
         if (width < 1 || x < 0 || x + width > this.width) return PlaceCheck.no("Außerhalb des Grundstücks")
         if (floor < MIN_FLOOR) return PlaceCheck.no("Tiefer geht es nicht")
-        if (type.role == RoomRole.LOBBY && floor != GROUND_FLOOR) return PlaceCheck.no("Lobby nur im Erdgeschoss")
+        if (type.role == RoomRole.LOBBY && !isLobbyFloor(floor)) return PlaceCheck.no("Lobby nur im Erdgeschoss und alle $SKY_LOBBY_EVERY Etagen")
         if (floor == GROUND_FLOOR && type.role != RoomRole.LOBBY && !type.role.isWay) {
             return PlaceCheck.no("Im Erdgeschoss ist nur Platz für die Lobby")
         }
@@ -117,14 +117,15 @@ class Tower(val width: Int = DEFAULT_WIDTH) {
             return PlaceCheck.no(if (floor > 0) "Darunter fehlt der Unterbau" else "Darüber fehlt die Decke")
         }
         if (type.role == RoomRole.ELEVATOR) {
-            val shaft = shaftRange(floor, x, extraFloors = assumed + floor)
-            if (shaft.last - shaft.first + 1 > MAX_SHAFT_FLOORS) {
-                return PlaceCheck.no("Aufzug höchstens $MAX_SHAFT_FLOORS Etagen")
+            val shaft = shaftRange(floor, x, type, extraFloors = assumed + floor)
+            val maxFloors = if (type.express) MAX_EXPRESS_FLOORS else MAX_SHAFT_FLOORS
+            if (shaft.last - shaft.first + 1 > maxFloors) {
+                return PlaceCheck.no("${type.name} höchstens $maxFloors Etagen")
             }
             // shafts keep at least two rooms' width apart, on this floor and the ones next to it
             val crowded = (floor - 1..floor + 1).any { f ->
                 (x - ELEVATOR_GAP until x + width + ELEVATOR_GAP).any { s ->
-                    wayAt(f, s)?.let { it.type.role == RoomRole.ELEVATOR && it.x != x } == true
+                    wayAt(f, s)?.let { it.type.role == RoomRole.ELEVATOR && (it.x != x || it.type != type) } == true
                 }
             }
             if (crowded) return PlaceCheck.no("Zu nah am nächsten Aufzug (mind. $ELEVATOR_GAP Felder Abstand)")
@@ -160,13 +161,13 @@ class Tower(val width: Int = DEFAULT_WIDTH) {
 
     /**
      * Floor range of the elevator shaft through segment [x] on [floor], counting stacked
-     * elevator modules at the same x. [extraFloors] are treated as modules (for placement checks).
+     * modules of the same [type] at the same x. [extraFloors] are treated as modules (for placement checks).
      */
-    fun shaftRange(floor: Int, x: Int, extraFloors: Set<Int> = emptySet()): IntRange {
+    fun shaftRange(floor: Int, x: Int, type: RoomType, extraFloors: Set<Int> = emptySet()): IntRange {
         fun isModule(f: Int): Boolean {
             if (f in extraFloors) return true
             val r = wayAt(f, x) ?: return false
-            return r.type.role == RoomRole.ELEVATOR && r.x == x
+            return r.type == type && r.x == x
         }
         var bottom = floor
         while (isModule(bottom - 1)) bottom--
@@ -201,24 +202,24 @@ class Tower(val width: Int = DEFAULT_WIDTH) {
     }
 
     /**
-     * Joins touching lobbies on the ground floor into one, so a dragged lobby grows the old
+     * Joins touching lobbies on the same floor into one, so a dragged lobby grows the old
      * one instead of standing next to it. Returns the joined lobby, or null if nothing changed.
      */
     fun mergeLobbies(): Room? {
-        val lobbies = rooms.values.filter { it.type.role == RoomRole.LOBBY && it.floor == GROUND_FLOOR }.sortedBy { it.x }
+        val lobbies = rooms.values.filter { it.type.role == RoomRole.LOBBY }.sortedWith(compareBy({ it.floor }, { it.x }))
         var joined: Room? = null
         var run = ArrayList<Room>()
         fun flush() {
             if (run.size > 1) {
                 val first = run.first()
                 run.forEach { remove(it.id) }
-                joined = placeUnchecked(first.type, GROUND_FLOOR, first.x, first.id, run.last().right - first.x)
+                joined = placeUnchecked(first.type, first.floor, first.x, first.id, run.last().right - first.x)
                     .also { it.since = first.since }
             }
             run = ArrayList()
         }
         for (lobby in lobbies) {
-            if (run.isNotEmpty() && run.last().right != lobby.x) flush()
+            if (run.isNotEmpty() && (run.last().floor != lobby.floor || run.last().right != lobby.x)) flush()
             run += lobby
         }
         flush()
@@ -229,7 +230,13 @@ class Tower(val width: Int = DEFAULT_WIDTH) {
         /** Laid out for the widest lot; the simulation limits building to the current [Lot]. */
         val DEFAULT_WIDTH = Lot.maxWidth
         const val MIN_FLOOR = -3
-        const val MAX_SHAFT_FLOORS = 30
+        const val MAX_SHAFT_FLOORS = 25
+        const val MAX_EXPRESS_FLOORS = 100
+
+        /** Besides the ground floor, a sky lobby fits on every tenth floor, like in SimTower. */
+        const val SKY_LOBBY_EVERY = 10
+
+        fun isLobbyFloor(floor: Int) = floor == GROUND_FLOOR || (floor > GROUND_FLOOR && floor % SKY_LOBBY_EVERY == 0)
 
         /** Free segments needed between two elevator shafts. */
         const val ELEVATOR_GAP = 12

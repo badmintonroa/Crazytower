@@ -121,7 +121,7 @@ class ElevatorSystem(
             cabin.direction = sign(nearest - cabin.position).toInt()
             if (cabin.direction == 0) return
         }
-        val step = deltaTime / NavCosts.ELEVATOR_PER_FLOOR
+        val step = deltaTime / car.minutesPerFloor
         val next = if (cabin.direction > 0) ceil(cabin.position + 0.001f).toInt() else floor(cabin.position - 0.001f).toInt()
         cabin.position = if (next in calls && abs(next - cabin.position) <= step) {
             next.toFloat()
@@ -152,7 +152,7 @@ class ElevatorSystem(
         }
         val boarded = ArrayList<Entity>()
         for (person in queue) {
-            if (cabin.riders.size >= Elevators.CAPACITY) break
+            if (cabin.riders.size >= car.capacity) break
             val ride = rideOf(person) ?: continue
             val wants = sign((ride.toFloor - ride.fromFloor).toFloat()).toInt()
             if (cabin.direction == 0) cabin.direction = wants
