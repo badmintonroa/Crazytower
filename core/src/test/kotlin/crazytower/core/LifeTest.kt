@@ -59,6 +59,19 @@ class LifeTest {
     }
 
     @Test
+    fun paymentsAtTheSameTimeFromTheSamePayerAreSummed() {
+        val sim = Simulation(seed = 9, startMoney = 1_000_000).apply { eventsEnabled = false }
+        sim.build(sim.planLobby(20, 37))
+        val offices = listOf(sim.buildReachable(Catalog.OFFICE, 20)) +
+            listOf(26, 32).map { sim.build(Catalog.OFFICE, 1, it).room!! }
+        val accountant = Tenants.byId("accountant")
+        offices.forEach { sim.moveIn(it, accountant) }
+        val entry = sim.upcoming().single { it.label == accountant.name }
+        assertEquals(3, entry.count)
+        assertEquals(3 * accountant.rentPerDay, entry.amount)
+    }
+
+    @Test
     fun officesPayAfterWork() {
         val sim = Simulation(seed = 9, startMoney = 1_000_000).apply { eventsEnabled = false }
         val office = sim.buildReachable(Catalog.OFFICE, 20)

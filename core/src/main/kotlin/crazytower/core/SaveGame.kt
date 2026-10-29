@@ -14,6 +14,7 @@ data class SaveGame(
     val money: Long,
     val stage: Int,
     val stars: Int,
+    val bestStars: Int = 0,
     val vipSurvived: Boolean,
     val earnedToday: Long,
     val rooms: List<SavedRoom>,

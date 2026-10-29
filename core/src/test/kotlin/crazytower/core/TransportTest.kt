@@ -140,4 +140,18 @@ class TransportTest {
         val three = minutesFor(3)
         assertTrue(three < one, "three cabins ($three min) should beat one ($one min)")
     }
+
+    @Test
+    fun cabinsStayBuyableWhenAStarIsLost() {
+        val sim = Simulation(seed = 5, startMoney = 10_000_000)
+        shaft(sim, 5)
+        sim.stars = 3
+        sim.stars = 1
+        val car = sim.elevators.cars.values.single()
+        assertTrue(sim.addCabin(car).ok, "one star less, still three cabins")
+        assertTrue(sim.addCabin(car).ok)
+        assertEquals(3, car.cabins.size)
+        val loaded = Simulation.load(SaveGame.fromJson(sim.toSave().toJson()))
+        assertEquals(3, loaded.bestStars)
+    }
 }

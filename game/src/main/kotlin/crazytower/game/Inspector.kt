@@ -151,8 +151,8 @@ object RoomInfo {
                 val car = sim.elevators.cars.values.firstOrNull { it.x == room.x && room.floor in it.floors }
                 if (car != null) {
                     lines += "Schacht" to "${floorName(car.bottom)} bis ${floorName(car.top)}"
-                    lines += "Kabinen" to "${car.cabins.size} von ${Elevators.maxCabins(sim.stars)}" +
-                        if (car.cabins.size < Elevators.MAX_CABINS && Elevators.maxCabins(sim.stars) <= car.cabins.size) " (mehr mit Sternen)" else ""
+                    lines += "Kabinen" to "${car.cabins.size} von ${Elevators.maxCabins(sim.bestStars)}" +
+                        if (car.cabins.size < Elevators.MAX_CABINS && Elevators.maxCabins(sim.bestStars) <= car.cabins.size) " (mehr mit Sternen)" else ""
                     lines += "Fahrgäste" to "${car.riders.size} von ${Elevators.CAPACITY * car.cabins.size}"
                     lines += "Warten" to "${car.waitingCount} Leute"
                 }

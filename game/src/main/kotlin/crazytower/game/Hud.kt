@@ -348,8 +348,11 @@ class Hud(
     fun sync(dtSeconds: Double) {
         moneyText.text = formatMoney(sim.money)
         moneyText.color = if (sim.money < 0) Theme.ALARM else Theme.TEXT
-        val next = sim.upcoming(24).firstOrNull { it.amount > 0 }
-        nextText.text = next?.let { "nächste: +${formatMoney(it.amount)} um ${clockOf(it.minute)}" } ?: "keine Einnahmen in Sicht"
+        val coming = sim.upcoming(24).filter { it.amount > 0 }
+        val nextMinute = coming.firstOrNull()?.minute
+        nextText.text = nextMinute?.let { m ->
+            "nächste: +${formatMoney(coming.filter { it.minute == m }.sumOf { it.amount })} um ${clockOf(m)}"
+        } ?: "keine Einnahmen in Sicht"
         finance.visible = game.financeOpen
         if (finance.visible) finance.sync()
         options.visible = game.optionsOpen

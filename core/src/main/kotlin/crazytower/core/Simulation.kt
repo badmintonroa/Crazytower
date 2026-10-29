@@ -227,7 +227,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     /** Whether the shaft [car] may get another cabin now, and why not. */
     fun checkCabin(car: Car): PlaceCheck = when {
         car.cabins.size >= Elevators.MAX_CABINS -> PlaceCheck(false, "Mehr Kabinen passen nicht in den Schacht")
-        car.cabins.size >= Elevators.maxCabins(stars) -> PlaceCheck(false, "Mehr Kabinen ab ${stars + 1} Sternen")
+        car.cabins.size >= Elevators.maxCabins(bestStars) -> PlaceCheck(false, "Mehr Kabinen ab ${bestStars + 1} Sternen")
         money < Elevators.CABIN_COST -> PlaceCheck(false, "Zu wenig Geld")
         else -> PlaceCheck(true)
     }
@@ -394,7 +394,10 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         return if (mood < UNHAPPY) full / 2 else full
     }
 
-    /** Payments expected in the next [hours] game hours, soonest first. Upkeep is negative. */
+    /**
+     * Payments expected in the next [hours] game hours, soonest first. Upkeep is negative. The
+     * same payer at the same time is one entry with the amounts summed.
+     */
     fun upcoming(hours: Int = 36): List<Upcoming> {
         val now = clock.totalMinutes
         val horizon = now + hours * 60
@@ -415,7 +418,9 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             list += Upcoming(midnight, -upkeep(), "Unterhalt")
             midnight += GameClock.MINUTES_PER_DAY
         }
-        return list.sortedBy { it.minute }
+        return list.groupBy { it.minute to it.label }.values
+            .map { same -> same.first().copy(amount = same.sumOf { it.amount }, count = same.sumOf { it.count }) }
+            .sortedBy { it.minute }
     }
 
     private fun homeFees(): Long = tower.allRooms.count { it.type.role == RoomRole.HOME && it.tenant != null && it.tenant!!.salePrice > 0 } * HOME_FEE
@@ -455,6 +460,16 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
 
     /** Tower rating, 0 to 5 stars. Updated every midnight. */
     var stars: Int = 0
+        set(value) {
+            field = value
+            if (value > bestStars) bestStars = value
+        }
+
+    /**
+     * The most stars the tower ever had. Elevator cabins go by this, so a tower that loses a
+     * star over a jam can still buy the cabins that end the jam.
+     */
+    var bestStars: Int = 0
 
     /** People who live or work in the tower. Visitors don't count. */
     val population: Int get() = members.numEntities
@@ -486,6 +501,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         money = money,
         stage = stage,
         stars = stars,
+        bestStars = bestStars,
         vipSurvived = vipSurvived,
         earnedToday = earnedToday,
         rooms = tower.allRooms.map {
@@ -502,6 +518,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         money = save.money
         stage = save.stage
         stars = save.stars
+        bestStars = maxOf(save.bestStars, save.stars)
         vipSurvived = save.vipSurvived
         for (saved in save.rooms) {
             val room = tower.placeUnchecked(Catalog.type(saved.type), saved.floor, saved.x, saved.id, saved.width ?: Catalog.type(saved.type).width)
