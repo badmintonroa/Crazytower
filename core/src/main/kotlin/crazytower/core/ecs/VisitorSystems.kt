@@ -31,17 +31,27 @@ class VisitorSpawnSystem(
         // one "lobby" per six segments, however the player has dragged them
         val lobbies = (sim.tower.allRooms.filter { it.type.role == RoomRole.LOBBY }.sumOf { it.width } + 5) / 6
         val hour = sim.clock.hour
-        if (lobbies == 0 || hour < 7 || hour >= 22 || visitors.numEntities >= MAX_PER_LOBBY * lobbies) {
+        val limit = maxVisitors(sim, lobbies)
+        if (lobbies == 0 || hour < 7 || hour >= 22 || visitors.numEntities >= limit) {
             cooldown = 5f
             return
         }
-        cooldown = (SPAWN_EVERY / lobbies).coerceAtLeast(0.5f) * (0.5f + sim.random.nextFloat())
+        cooldown = (SPAWN_EVERY * 4 / limit).coerceAtLeast(0.5f) * (0.5f + sim.random.nextFloat())
         sim.spawnVisitor()
     }
 
     companion object {
         const val SPAWN_EVERY = 6f
         const val MAX_PER_LOBBY = 8
+        /** A few curious people come to an empty tower, then three more for every rented office or restaurant. */
+        const val BASE_VISITORS = 3
+        const val VISITORS_PER_TENANT = 3
+
+        /** How many sightseers may be in the tower: grows with what there is to see, not with the lobby alone. */
+        fun maxVisitors(sim: Simulation, lobbies: Int): Int {
+            val rented = sim.tower.allRooms.count { it.tenant != null && it.type.role in VISITABLE }
+            return minOf(MAX_PER_LOBBY * lobbies, BASE_VISITORS + VISITORS_PER_TENANT * rented)
+        }
     }
 }
 

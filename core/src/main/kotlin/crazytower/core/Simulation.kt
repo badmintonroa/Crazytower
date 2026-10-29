@@ -524,7 +524,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         }
         if (visitor != null && !visitor.leaving) {
             val room = tower.roomAt(entity[Position].floor, entity[Position].x.toInt())
-            if (room?.type?.role == RoomRole.FOOD && room.tenant != null) earn(MEAL_PRICE)
+            if (room?.type?.role == RoomRole.FOOD && room.tenant != null) earn(VISITOR_MEAL_PRICE)
         }
         when {
             visitor != null && visitor.leaving -> entity.remove()
@@ -569,6 +569,8 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         const val MEAL_MOOD = 8f
         const val STUCK_MOOD = 15f
         const val MEAL_PRICE = 12L
+        /** Sightseers order the menu with dessert; there are fewer of them than residents. */
+        const val VISITOR_MEAL_PRICE = 40L
 
         /** Every this many days each sold flat pays its fees. */
         const val FEE_EVERY_DAYS = 3
