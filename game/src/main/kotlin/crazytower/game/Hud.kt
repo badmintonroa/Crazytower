@@ -335,8 +335,8 @@ class Hud(
     private fun syncStage() {
         val stage = sim.stage
         // a celebration only for real gains, not when the HUD is first drawn
-        if (shownStage > 0 && stage > shownStage) celebration.showStage(stage, sim.stars)
-        else if (shownStars > 0 && sim.stars > shownStars) celebration.showStar(sim.stars)
+        if (shownStage >= 0 && stage > shownStage) celebration.showStage(stage, sim.stars)
+        else if (shownStars >= 0 && sim.stars > shownStars) celebration.showStar(sim.stars)
         if (sim.stars != shownStars) {
             shownStars = sim.stars
             stars.removeChildren()
@@ -346,7 +346,7 @@ class Hud(
             shownStage = stage
             stageText.text = "STUFE $stage · ${Stages.info(stage).name.uppercase()}"
         }
-        val next = if (stage < 5) Stages.info(stage + 1) else null
+        val next = if (stage < Stages.last) Stages.info(stage + 1) else null
         stageHint.text = next?.let { "Für Stufe ${it.number}: ${it.requirement}" } ?: "Der Turm ist komplett verrückt."
         val progress = sim.stageProgress.coerceIn(0.0, 1.0)
         val w = stageBarWidth

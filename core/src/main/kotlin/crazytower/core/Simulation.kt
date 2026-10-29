@@ -70,7 +70,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     }
 
     /** Rent and prices grow with the star rating: 20 % per star above the first. */
-    val starBonus: Double get() = 1.0 + 0.2 * (stars - 1)
+    val starBonus: Double get() = 1.0 + 0.2 * (stars - 1).coerceAtLeast(0)
 
     val world: World = configureWorld(entityCapacity = 2048) {
         injectables { add(this@Simulation) }
@@ -248,8 +248,11 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         car.setCabins(count)
     }
 
-    /** Money back when a room is torn down. */
-    fun refundFor(room: Room): Long = room.type.price(room.width) / 4
+    /**
+     * Money back when a room is torn down: a quarter of the price. Nothing for a flat that was
+     * sold once, or building, selling and tearing down flats would print money.
+     */
+    fun refundFor(room: Room): Long = if (room.sold) 0 else room.type.price(room.width) / 4
 
     fun checkDemolish(room: Room): PlaceCheck = tower.canRemove(room)
 
@@ -262,22 +265,24 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         tower.remove(roomId)
         val refund = refundFor(room)
         book(refund, MoneyKind.BUILD, "Abriss ${room.type.name}", room.center)
-        if (room.salePaid > 0) book(-room.salePaid / 2, MoneyKind.REFUND, "Kaufpreis zurück", room.center)
+        // the owners get their whole purchase price back: the flat is gone
+        if (room.tenant != null && room.salePaid > 0) book(-room.salePaid, MoneyKind.REFUND, "Kaufpreis zurück", room.center)
         return refund
     }
 
     /**
-     * A tenant moves in. New residents buy their flat right away; offices and restaurants pay
-     * at the end of each working day from now on. [announce] is false when loading a save.
+     * A tenant moves in. The first residents of a flat buy it right away; later ones buy it from
+     * the people who left, so the tower sees that money only once per flat. Offices and
+     * restaurants pay at the end of each working day from now on. [announce] is false when loading a save.
      */
     fun moveIn(room: Room, tenant: TenantKind, announce: Boolean = true) {
         removeMembers(room.id)
         room.tenant = tenant
         room.since = clock.totalMinutes
         room.paidUntil = clock.totalMinutes
-        room.salePaid = 0
         looksVersion++
-        if (announce && room.type.role == RoomRole.HOME && tenant.salePrice > 0) {
+        if (announce && room.type.role == RoomRole.HOME && tenant.salePrice > 0 && !room.sold) {
+            room.sold = true
             room.salePaid = (tenant.salePrice * starBonus).toLong()
             book(room.salePaid, MoneyKind.SALE, tenant.name, room.center)
         }
@@ -295,6 +300,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         if (announce) news.post("Neu im Turm: ${tenant.name} (${floorLabel(room.floor)}). ${tenant.quirk}", room.center)
     }
 
+    /** Unhappy tenants leave; the first owners of a flat get half their price back, once. */
     fun moveOut(room: Room) {
         removeMembers(room.id)
         if (room.salePaid > 0) book(-room.salePaid / 2, MoneyKind.REFUND, "Kaufpreis zurück", room.center)
@@ -442,15 +448,15 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
 
     private fun Long.fmt(): String = "%,d".format(this).replace(',', '.')
 
-    /** Tower rating, 1 to 5 stars. Updated every midnight. */
-    var stars: Int = 1
+    /** Tower rating, 0 to 5 stars. Updated every midnight. */
+    var stars: Int = 0
 
     /** People who live or work in the tower. Visitors don't count. */
     val population: Int get() = members.numEntities
 
     /** Current tower stage, 1 to 5. */
-    var stage: Int = 1
-        private set
+    var stage: Int = 0
+        internal set // tests jump ahead
 
     /** Progress towards the next stage, 0 to 1. */
     val stageProgress: Double get() = Stages.progress(this)
@@ -463,7 +469,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
 
     /** Checks whether the tower reached the next stage. Called every game hour. */
     fun checkStage() {
-        if (stage >= Stages.all.size || !Stages.reached(this, stage + 1)) return
+        if (stage >= Stages.last || !Stages.reached(this, stage + 1)) return
         stage++
         looksVersion++ // the lobbies get a new look
         val info = Stages.info(stage)
@@ -480,7 +486,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         rooms = tower.allRooms.map {
             SavedRoom(
                 it.id, it.type.id, it.floor, it.x, it.since, it.tenant?.id, moodOf(it),
-                it.width.takeIf { w -> w != it.type.width }, it.paidUntil, it.salePaid, it.cabins,
+                it.width.takeIf { w -> w != it.type.width }, it.paidUntil, it.salePaid, it.cabins, it.sold,
             )
         },
         news = news.latest.map { SavedNews(it.text, it.where?.floor, it.where?.x, it.important) },
@@ -502,6 +508,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             room.since = saved.since
             room.paidUntil = saved.paidUntil ?: save.minutes
             room.salePaid = saved.salePaid
+            room.sold = saved.sold || saved.salePaid > 0
             room.cabins = saved.cabins
         }
         for (item in save.news.asReversed()) {

@@ -56,6 +56,7 @@ class TransportTest {
     @Test
     fun peopleRideTheElevatorToTheTop() {
         val sim = Simulation(seed = 5, startMoney = 10_000_000)
+        sim.stage = 1
         sim.build(Catalog.LOBBY, 0, 10)
         assertTrue(sim.build(Catalog.ELEVATOR, 0, 16).ok)
         for (f in 1..8) {
@@ -88,6 +89,7 @@ class TransportTest {
     }
 
     private fun shaft(sim: Simulation, floors: Int) {
+        sim.stage = 1 // taller than the building site allows
         sim.build(Catalog.LOBBY, 0, 10)
         sim.build(Catalog.ELEVATOR, 0, 16)
         for (f in 1..floors) {

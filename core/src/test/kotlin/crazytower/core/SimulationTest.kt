@@ -61,4 +61,28 @@ class SimulationTest {
         assertEquals(crazytower.core.ecs.VisitorSpawnSystem.BASE_VISITORS + 3 * crazytower.core.ecs.VisitorSpawnSystem.VISITORS_PER_TENANT,
             crazytower.core.ecs.VisitorSpawnSystem.maxVisitors(sim, 4))
     }
+
+    @Test
+    fun flatsDoNotPrintMoney() {
+        val sim = Simulation(seed = 3, startMoney = 1_000_000)
+        sim.eventsEnabled = false
+        sim.build(sim.planLobby(10, 21))
+        val family = Tenants.byId("family")
+        // build, sell, tear down, again and again: every round costs money
+        sim.demolish(sim.buildReachable(Catalog.HOME, 10).id) // builds the stairs once
+        val start2 = sim.money
+        repeat(3) {
+            val home = sim.build(Catalog.HOME, 1, 10).room!!
+            sim.moveIn(home, family)
+            sim.demolish(home.id)
+        }
+        assertTrue(sim.money < start2, "the build-sell-demolish loop must lose money: ${sim.money - start2}")
+        // a flat is sold once: when its owners leave, the next residents buy it from them
+        val home = sim.build(Catalog.HOME, 1, 10).room!!
+        sim.moveIn(home, family)
+        val afterSale = sim.money
+        sim.moveOut(home)
+        sim.moveIn(home, family)
+        assertTrue(sim.money < afterSale, "a second sale of the same flat must not bring money")
+    }
 }

@@ -59,7 +59,7 @@ data class RoomType(
     val role: RoomRole,
     val width: Int,
     val cost: Long,
-    val minStage: Int = 1,
+    val minStage: Int = 0,
     val art: String,
     val capacity: Int = 0,
     val description: String = "",

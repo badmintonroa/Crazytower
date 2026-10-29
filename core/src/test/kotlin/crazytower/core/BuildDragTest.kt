@@ -72,6 +72,7 @@ class BuildDragTest {
     @Test
     fun grabbingTheEndOfAShaftExtendsAndShortensIt() {
         val sim = Simulation(startMoney = 10_000_000)
+        sim.stage = 1 // taller than the building site allows
         sim.build(sim.planLobby(10, 15))
         sim.build(sim.planColumn(Catalog.ELEVATOR, 10, GROUND_FLOOR, 3))
         val longer = sim.planColumn(Catalog.ELEVATOR, 10, 3, 6)

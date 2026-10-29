@@ -19,6 +19,9 @@ class Room(val id: Int, val type: RoomType, val floor: Int, val x: Int, val widt
     /** Homes: what the residents paid for the flat; half of it goes back when they leave unhappy. */
     var salePaid: Long = 0
 
+    /** Homes: the flat was sold once. Later residents buy it from the previous ones, not from the tower. */
+    var sold: Boolean = false
+
     /** Elevators: cabins in the shaft (every module of a shaft carries the same number). */
     var cabins: Int = 1
 }

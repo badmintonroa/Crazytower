@@ -5,7 +5,7 @@ import kotlin.test.assertTrue
 
 /**
  * Plays 30 days like a sensible player: a lobby, an elevator through the middle, then every
- * hour the next room as soon as there is money for it. Checks that the start money runs out
+ * hour the next room as soon as there is money for it, and more cabins when the stars allow. Checks that the start money runs out
  * quickly but the tower keeps paying for new rooms.
  */
 class BalanceTest {
@@ -21,6 +21,10 @@ class BalanceTest {
         }
 
         fun tryBuild() {
+            // a sensible player adds elevator cabins as soon as the stars allow
+            sim.elevators.cars.values.firstOrNull()?.let { car ->
+                if (sim.money >= crazytower.core.transport.Elevators.CABIN_COST + RESERVE && sim.checkCabin(car).ok) sim.addCabin(car)
+            }
             val floor = 1 + next / pattern.size
             if (floor >= Stages.info(sim.stage).maxFloor) return
             val slot = next % pattern.size
