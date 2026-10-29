@@ -1,8 +1,13 @@
 package crazytower.game
 
 import com.github.quillraven.fleks.Entity
+import crazytower.core.BuildPlan
+import crazytower.core.GROUND_FLOOR
 import crazytower.core.Loc
+import crazytower.core.PlaceCheck
 import crazytower.core.Room
+import crazytower.core.RoomRole
+import crazytower.core.RoomType
 import crazytower.core.Simulation
 import crazytower.core.ecs.Person
 import crazytower.core.ecs.Position
@@ -10,6 +15,7 @@ import crazytower.core.ecs.Riding
 import crazytower.core.ecs.Route
 import crazytower.core.nav.Leg
 import crazytower.game.ui.chamferPath
+import crazytower.game.ui.formatMoney
 import crazytower.game.ui.label
 import korlibs.event.Key
 import korlibs.event.MouseButton
@@ -22,6 +28,7 @@ import korlibs.korge.input.onUpAnywhere
 import korlibs.korge.view.*
 import korlibs.math.geom.Anchor
 import korlibs.math.geom.Point
+import korlibs.math.geom.Size
 import korlibs.math.interpolation.toRatio
 import kotlin.math.abs
 import kotlin.math.floor
@@ -53,8 +60,8 @@ class TowerView(
     private val sim: Simulation,
     private val game: GameController,
     private val assets: Assets,
-    private val screenWidth: Double,
-    private val screenHeight: Double,
+    private var screenWidth: Double,
+    private var screenHeight: Double,
 ) : Container() {
     /** Everything that moves with the camera. */
     val world = container()
@@ -62,6 +69,7 @@ class TowerView(
     private val backdrop = world.container()
     private val dusk = world.solidRect(1.0, 1.0, RGBA(0, 0, 0, 0))
     private val roomsLayer = world.container()
+    private val waysLayer = world.container()
     private val carsLayer = world.container()
     private val peopleLayer = world.container()
     private val overlay = world.container()
@@ -77,8 +85,6 @@ class TowerView(
     private var artCheck = 0
 
     private val ghost = overlay.container { visible = false }
-    private val ghostFill = ghost.solidRect(10, 10, Theme.alpha(Theme.SELECT, 0.18))
-    private val ghostFrame = ghost.container()
     private val selectionFrame = overlay.container { visible = false }
     private val personMarker = overlay.graphics {
         fill(Theme.SELECT) {
@@ -97,9 +103,18 @@ class TowerView(
         private set
 
     private var zoom = 1.0
+
+    /** Where the left button went down with a build tool: the anchor of a lobby or shaft drag. */
+    private var pressHover: Hover? = null
+
+    /** The end module of a shaft or staircase the player grabbed to shorten it. */
+    private var grabbedEnd: Room? = null
     private var dragStart: Point? = null
     private var dragOrigin = Point(0.0, 0.0)
     private var dragging = false
+
+    /** An invisible full-screen hit area so clicks in empty sky still reach us. */
+    private val hit = SolidRect(screenWidth, screenHeight, RGBA(0, 0, 0, 0)).also { addChildAt(it, 0) }
 
     init {
         drawBackdrop()
@@ -149,8 +164,8 @@ class TowerView(
 
     // ---------------------------------------------------------------- sync
 
-    /** Mirrors the simulation into views. Called once per frame. */
-    fun sync() {
+    /** Mirrors the simulation into views. Called once per frame with the real seconds since the last one. */
+    fun sync(dtSeconds: Double = 0.0) {
         val dark = DayLight.isDark(sim.clock.minuteOfDay)
         if (drawnVersion != sim.tower.version || drawnLooks != sim.looksVersion || drawnDark != dark || ++artCheck % 60 == 0) {
             drawnDark = dark
@@ -160,6 +175,37 @@ class TowerView(
         syncCars()
         syncPeople()
         syncOverlay()
+        syncMoney(dtSeconds)
+    }
+
+    private class Floater(val view: Text, var age: Double)
+
+    private val floaters = ArrayList<Floater>()
+
+    /** Payments rise as "+1.800 $" from the room that paid, and fade away. */
+    private fun syncMoney(dt: Double) {
+        val fresh = sim.finance.fresh
+        while (fresh.isNotEmpty()) {
+            val payment = fresh.removeFirst()
+            val where = payment.where ?: continue
+            if (payment.amount > 0) Sfx.play(Sfx.CASH, gapMillis = 400)
+            if (!Options.current.moneyPopups) continue
+            val text = (if (payment.amount > 0) "+" else "") + formatMoney(payment.amount)
+            val view = overlay.text(text, textSize = 22.0, color = if (payment.amount > 0) Theme.GOOD else Theme.ALARM, font = Theme.pixel)
+            view.xy(Metrics.x(where.x) - view.width / 2, Metrics.floorTop(where.floor) + 18.0)
+            floaters += Floater(view, 0.0)
+        }
+        val it = floaters.iterator()
+        while (it.hasNext()) {
+            val f = it.next()
+            f.age += dt
+            f.view.y -= dt * 30
+            f.view.alpha = (1.0 - (f.age - 1.2) / 0.8).coerceIn(0.0, 1.0)
+            if (f.age > 2.0) {
+                f.view.removeFromParent()
+                it.remove()
+            }
+        }
     }
 
     private fun rebuildRooms() {
@@ -215,21 +261,43 @@ class TowerView(
     }
 
     private fun createRoomView(room: Room): View {
-        val view = roomsLayer.container { xy(Metrics.x(room.x), Metrics.floorTop(room.floor)) }
-        val art = assets.room(artFor(room))
+        val layer = if (room.type.role.isWay) waysLayer else roomsLayer
+        val view = layer.container { xy(Metrics.x(room.x), Metrics.floorTop(room.floor)) }
+        val key = artFor(room)
+        val art = assets.room(key)
         val tileSegments = 6
         val tiles = (room.width + tileSegments - 1) / tileSegments
         // rooms without night art are dimmed so they don't glow in the dark
-        val dimmed = DayLight.isDark(sim.clock.minuteOfDay) && !artFor(room).endsWith("_night")
+        val dimmed = DayLight.isDark(sim.clock.minuteOfDay) && !key.endsWith("_night")
+        // a long lobby gets a door at each end; the right one is the left one mirrored
+        val entrance = if (room.type.role == RoomRole.LOBBY && tiles >= 2) entranceArt(key) else null
+        val clip = view.clipContainer(Size(Metrics.x(room.width), Metrics.FLOOR))
         for (i in 0 until tiles) {
-            view.image(art) {
+            val last = i == tiles - 1
+            val tile = when {
+                entrance != null && (i == 0 || last) -> entrance
+                else -> art
+            }
+            clip.image(tile) {
                 scale = 1.0 / Assets.ROOM_ART_SCALE * 2
                 x = Metrics.x(i * tileSegments)
+                if (entrance != null && last) {
+                    // mirrored and pushed against the right end of the lobby
+                    scaleX = -scaleX
+                    x = Metrics.x(room.width)
+                }
                 if (dimmed) colorMul = RGBA(120, 124, 165)
             }
         }
         return view
     }
+
+    /** The entrance art matching a lobby art key (day, night or run-down), if the atlas has it. */
+    private fun entranceArt(lobbyKey: String) =
+        listOf("_night", "_rundown").firstOrNull { lobbyKey.endsWith(it) }.orEmpty()
+            .let { suffix -> "lobby_entrance$suffix" }
+            .takeIf { assets.hasRoom(it) }
+            ?.let { assets.room(it) }
 
     private fun syncPeople() {
         val seen = HashSet<Int>()
@@ -250,7 +318,9 @@ class TowerView(
             view.y = Metrics.floorBottom(pos.floor) - Metrics.FEET
             view.scaleX = if (pos.facingLeft) -2.0 else 2.0
             view.scaleY = 2.0
-            view.visible = PeopleVisibility.isVisible(sim, entity)
+            // with a thinner crowd only every second or fourth person is drawn, but never the selected one
+            val shown = (entity.id % 4) < Options.current.crowd * 4 || (game.selection as? Selection.PersonSel)?.entity == entity
+            view.visible = shown && PeopleVisibility.isVisible(sim, entity)
         }
         personViews.keys.filter { it !in seen }.forEach { personViews.remove(it)?.removeFromParent() }
     }
@@ -283,48 +353,100 @@ class TowerView(
         val h = hover
         val tool = game.tool
         ghostInfo = null
-        if (h == null || tool == null) {
-            ghost.visible = false
-            return
-        }
+        ghost.visible = false
+        if (h == null || tool == null) return
         when (tool) {
-            is Tool.Build -> {
-                val x = BuildRules.snapX(h.segment, tool.type.width, sim.tower.width)
-                val check = sim.checkPlace(tool.type, h.floor, x)
-                val color = if (check.ok) Theme.SELECT else Theme.ALARM
-                ghost.xy(Metrics.x(x), Metrics.floorTop(h.floor))
-                ghostFill.size(Metrics.x(tool.type.width), Metrics.FLOOR)
-                ghostFill.color = Theme.alpha(color, 0.2)
-                frame(ghostFrame, Metrics.x(tool.type.width), Metrics.FLOOR, color)
-                ghost.visible = true
-                ghostInfo = if (check.ok) {
-                    "${tool.type.name} · ${crazytower.game.ui.formatMoney(tool.type.cost)} · Klicken zum Bauen" to true
-                } else {
-                    check.reason to false
+            is Tool.Build -> when {
+                grabbedEnd != null -> {
+                    val modules = sim.planRetract(grabbedEnd!!, h.floor)
+                    val end = grabbedEnd!!
+                    if (modules.isEmpty()) {
+                        showGhost(listOf(Ghost(end.floor, end.x, end.width)), Theme.SELECT, 0.1)
+                        ghostInfo = "Ende gegriffen · ziehen zum Verlängern oder Kürzen" to true
+                    } else {
+                        showGhost(modules.map { Ghost(it.floor, it.x, it.width) }, Theme.ALARM, 0.25)
+                        val refund = modules.sumOf { sim.refundFor(it) }
+                        ghostInfo = "${modules.size} ${if (modules.size == 1) "Etage" else "Etagen"} abbauen · ${formatMoney(refund)} zurück" to true
+                    }
+                }
+                tool.type.stretchable || tool.type.role.isWay -> {
+                    val plan = planFor(tool.type, h)
+                    val color = if (plan.check.ok) Theme.SELECT else Theme.ALARM
+                    val pieces = plan.pieces.ifEmpty { listOf(BuildPlan.Piece(h.floor, BuildRules.snapX(h.segment, tool.type.width, sim.tower.width), tool.type.width)) }
+                    showGhost(pieces.map { Ghost(it.floor, it.x, it.width) }, color, 0.2)
+                    ghostInfo = if (plan.check.ok) planText(plan) to true else plan.check.reason to false
+                }
+                else -> {
+                    val x = BuildRules.snapX(h.segment, tool.type.width, sim.tower.width)
+                    val check = sim.checkPlace(tool.type, h.floor, x)
+                    showGhost(listOf(Ghost(h.floor, x, tool.type.width)), if (check.ok) Theme.SELECT else Theme.ALARM, 0.2)
+                    ghostInfo = if (check.ok) {
+                        "${tool.type.name} · ${formatMoney(tool.type.cost)} · Klicken zum Bauen" to true
+                    } else {
+                        check.reason to false
+                    }
                 }
             }
             Tool.Demolish -> {
-                val room = sim.tower.roomAt(h.floor, floor(h.segment).toInt())
-                val blocked = room?.let { sim.checkDemolish(it) }
-                if (room == null) {
-                    ghost.visible = false
-                } else if (blocked != null && !blocked.ok) {
-                    ghost.xy(Metrics.x(room.x), Metrics.floorTop(room.floor))
-                    ghostFill.size(Metrics.x(room.width), Metrics.FLOOR)
-                    ghostFill.color = Theme.alpha(Theme.ALARM, 0.1)
-                    frame(ghostFrame, Metrics.x(room.width), Metrics.FLOOR, Theme.ALARM)
-                    ghost.visible = true
+                val room = sim.tower.topAt(h.floor, floor(h.segment).toInt()) ?: return
+                val blocked = sim.checkDemolish(room)
+                if (!blocked.ok) {
+                    showGhost(listOf(Ghost(room.floor, room.x, room.width)), Theme.ALARM, 0.1)
                     ghostInfo = blocked.reason to false
                 } else {
-                    ghost.xy(Metrics.x(room.x), Metrics.floorTop(room.floor))
-                    ghostFill.size(Metrics.x(room.width), Metrics.FLOOR)
-                    ghostFill.color = Theme.alpha(Theme.ALARM, 0.25)
-                    frame(ghostFrame, Metrics.x(room.width), Metrics.FLOOR, Theme.ALARM)
-                    ghost.visible = true
-                    ghostInfo = "${room.type.name} abreißen · ${crazytower.game.ui.formatMoney(sim.refundFor(room))} zurück" to true
+                    showGhost(listOf(Ghost(room.floor, room.x, room.width)), Theme.ALARM, 0.25)
+                    ghostInfo = "${room.type.name} abreißen · ${formatMoney(sim.refundFor(room))} zurück" to true
                 }
             }
         }
+    }
+
+    private data class Ghost(val floor: Int, val x: Int, val width: Int)
+
+    private var drawnGhost: Pair<List<Ghost>, RGBA>? = null
+
+    private fun showGhost(parts: List<Ghost>, color: RGBA, fill: Double) {
+        ghost.visible = true
+        if (drawnGhost == parts to color) return
+        drawnGhost = parts to color
+        ghost.removeChildren()
+        for (part in parts) {
+            val box = ghost.container { xy(Metrics.x(part.x), Metrics.floorTop(part.floor)) }
+            box.solidRect(Metrics.x(part.width), Metrics.FLOOR, Theme.alpha(color, fill))
+            frame(box.container(), Metrics.x(part.width), Metrics.FLOOR, color)
+        }
+    }
+
+    /**
+     * What the build tool would place for the current mouse position. Lobbies stretch along
+     * the ground floor and stairs and elevators along a column, from where the button went down.
+     */
+    private fun planFor(type: RoomType, h: Hover): BuildPlan {
+        val anchor = pressHover ?: h
+        return if (type.stretchable) {
+            if (h.floor != GROUND_FLOOR) return BuildPlan(type, emptyList(), 0, PlaceCheck.no("Lobby nur im Erdgeschoss"))
+            val from = floor(anchor.segment).toInt()
+            val to = floor(h.segment).toInt()
+            if (pressHover == null || from == to) {
+                val x = BuildRules.snapX(h.segment, type.width, sim.tower.width)
+                sim.planLobby(x, x + type.width - 1)
+            } else {
+                sim.planLobby(from, to)
+            }
+        } else {
+            val x = BuildRules.snapX(anchor.segment, type.width, sim.tower.width)
+            sim.planColumn(type, x, anchor.floor, h.floor)
+        }
+    }
+
+    private fun planText(plan: BuildPlan): String {
+        val size = if (plan.type.stretchable) {
+            "${plan.pieces.sumOf { it.width }} Felder"
+        } else {
+            "${plan.pieces.size} ${if (plan.pieces.size == 1) "Etage" else "Etagen"}"
+        }
+        val hint = if (pressHover == null) "Ziehen zum Bauen" else "Loslassen zum Bauen"
+        return "${plan.type.name} · $size · ${formatMoney(plan.cost)} · $hint"
     }
 
     private fun frame(target: Container, w: Double, h: Double, color: RGBA, t: Double = 2.0) {
@@ -338,8 +460,6 @@ class TowerView(
     // ---------------------------------------------------------------- camera and input
 
     private fun setupInput() {
-        // an invisible full-screen hit area so clicks in empty sky still reach us
-        val hit = SolidRect(screenWidth, screenHeight, RGBA(0, 0, 0, 0)).also { addChildAt(it, 0) }
         hit.onMove { updateHover() }
         world.onMove { updateHover() }
         hit.onScroll { e -> zoomAt(e.currentPosGlobal, if (e.scrollDeltaYPixels > 0) 1 / 1.12 else 1.12) }
@@ -350,6 +470,7 @@ class TowerView(
                 dragOrigin = Point(world.x, world.y)
                 dragging = false
                 dragButton = e.button
+                if (e.button == MouseButton.LEFT) pressBuildTool()
             }
         }
         onMove { e ->
@@ -371,6 +492,8 @@ class TowerView(
             dragging = false
             if (!wasDrag && e.button == MouseButton.LEFT) clicked()
             if (!wasDrag && e.button == MouseButton.RIGHT) game.cancel()
+            pressHover = null
+            grabbedEnd = null
         }
         keys {
             downFrame(Key.LEFT) { pan(14.0, 0.0) }
@@ -413,6 +536,16 @@ class TowerView(
         world.y = world.y.coerceIn(screenHeight * 0.4, 110 * Metrics.FLOOR * zoom)
     }
 
+    /** The window changed size: keep the middle of the view in the middle and the ground at the same distance from the bottom. */
+    fun resize(width: Double, height: Double) {
+        world.x += (width - screenWidth) / 2
+        world.y += height - screenHeight
+        screenWidth = width
+        screenHeight = height
+        hit.size(width, height)
+        clampCamera()
+    }
+
     /** Moves the camera so that [loc] is in the middle of the screen. */
     fun lookAt(loc: Loc) {
         world.x = screenWidth / 2 - Metrics.x(loc.x) * zoom
@@ -428,26 +561,84 @@ class TowerView(
         hover = Hover(floorIndex, (local.x / Metrics.SEG).toFloat(), global)
     }
 
+    /**
+     * The left button went down with a build tool: remember the anchor of the drag, and
+     * whether the player grabbed the end of a shaft or staircase (to shorten it).
+     */
+    private fun pressBuildTool() {
+        updateHover()
+        val tool = game.tool as? Tool.Build ?: return
+        val h = hover ?: return
+        pressHover = h
+        if (tool.type.role.isWay) {
+            val module = sim.tower.wayAt(h.floor, floor(h.segment).toInt())?.takeIf { it.type == tool.type }
+            val isEnd = module != null && listOf(module.floor + 1, module.floor - 1).any { f ->
+                sim.tower.wayAt(f, module.x)?.let { it.type == module.type && it.x == module.x } != true
+            }
+            grabbedEnd = if (isEnd) module else null
+        }
+    }
+
     private fun clicked() {
         updateHover()
         val h = hover ?: return
         when (val tool = game.tool) {
-            is Tool.Build -> {
-                val x = BuildRules.snapX(h.segment, tool.type.width, sim.tower.width)
-                val result = sim.build(tool.type, h.floor, x)
-                if (!result.ok) game.say(result.reason)
+            is Tool.Build -> when {
+                grabbedEnd != null -> {
+                    val modules = sim.planRetract(grabbedEnd!!, h.floor)
+                    if (modules.isNotEmpty()) {
+                        val refund = sim.demolishAll(modules)
+                        Sfx.play(Sfx.DEMOLISH)
+                        game.say("${tool.type.name} um ${modules.size} ${if (modules.size == 1) "Etage" else "Etagen"} gekürzt, ${formatMoney(refund)} zurück")
+                    } else {
+                        val plan = planFor(tool.type, h)
+                        if (plan.pieces.isNotEmpty()) build(plan)
+                    }
+                }
+                tool.type.stretchable || tool.type.role.isWay -> build(planFor(tool.type, h))
+                else -> {
+                    val x = BuildRules.snapX(h.segment, tool.type.width, sim.tower.width)
+                    val result = sim.build(tool.type, h.floor, x)
+                    feedback(result.ok, result.reason)
+                }
             }
             Tool.Demolish -> {
-                val room = sim.tower.roomAt(h.floor, floor(h.segment).toInt())
+                val room = sim.tower.topAt(h.floor, floor(h.segment).toInt())
                 val blocked = room?.let { sim.checkDemolish(it) }
                 if (room != null && blocked != null && !blocked.ok) {
                     game.say(blocked.reason)
+                    Sfx.play(Sfx.ERROR)
                 } else if (room != null) {
                     val refund = sim.demolish(room.id)
-                    game.say("${room.type.name} abgerissen, ${crazytower.game.ui.formatMoney(refund)} zurück")
+                    Sfx.play(Sfx.DEMOLISH)
+                    game.say("${room.type.name} abgerissen, ${formatMoney(refund)} zurück")
                 }
             }
             null -> select(h)
+        }
+    }
+
+    private fun build(plan: BuildPlan) {
+        val result = sim.build(plan)
+        feedback(result.ok, result.reason)
+    }
+
+    private fun feedback(ok: Boolean, reason: String) {
+        if (ok) {
+            Sfx.play(Sfx.BUILD)
+        } else {
+            game.say(reason)
+            Sfx.play(Sfx.ERROR)
+        }
+    }
+
+    /** Every tenant sounds different when clicked; ways ding, empty rooms sound hollow. */
+    private fun roomSound(room: Room): String {
+        val tenant = room.tenant?.id
+        return when {
+            tenant != null && Sfx.has(tenant) -> tenant
+            room.type.role.isWay || room.type.role == RoomRole.LOBBY -> Sfx.DING
+            else -> Sfx.EMPTY
         }
     }
 
@@ -466,11 +657,15 @@ class TowerView(
                 bestDistance = dx
             }
         }
-        val room = sim.tower.roomAt(h.floor, floor(h.segment).toInt())
+        val room = sim.tower.topAt(h.floor, floor(h.segment).toInt())
         game.selection = when {
             best != null -> Selection.PersonSel(best!!)
             room != null -> Selection.RoomSel(room.id)
             else -> null
+        }
+        when {
+            best != null -> Sfx.play(Sfx.CLICK)
+            room != null -> Sfx.play(roomSound(room))
         }
     }
 }
@@ -478,6 +673,7 @@ class TowerView(
 /** Daylight over the day: 1 at noon, 0 at night, with dawn and dusk in between. */
 object DayLight {
     fun light(minuteOfDay: Int): Double {
+        if (!Options.current.dayNight) return 1.0
         val h = minuteOfDay / 60.0
         return when {
             h < 5 || h >= 21.5 -> 0.0

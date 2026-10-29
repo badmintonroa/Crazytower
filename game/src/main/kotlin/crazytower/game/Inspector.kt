@@ -134,7 +134,12 @@ object RoomInfo {
             tenant != null -> {
                 lines += "Raum" to room.type.name
                 sim.moodOf(room)?.let { lines += "Laune" to "${it.toInt()} %" }
-                lines += "Schicht" to tenant.shift.label
+                lines += (if (room.type.role == RoomRole.HOME) "Außer Haus" else "Zeiten") to tenant.plan.label
+                lines += if (room.type.role == RoomRole.HOME) {
+                    "Kaufpreis" to if (room.salePaid > 0) crazytower.game.ui.formatMoney(room.salePaid) else "geschenkt"
+                } else {
+                    "Miete" to "${crazytower.game.ui.formatMoney((tenant.rentPerDay * sim.starBonus).toLong())} nach Feierabend"
+                }
                 lines += if (room.type.role == RoomRole.HOME) "Bewohner" to "${room.type.capacity}" else "Leute" to "${room.type.capacity}"
                 RoomCard(tenant.name, where, lines, tenant.quirk)
             }
@@ -185,7 +190,7 @@ object PersonInfo {
         val room = sim.tower.room(member.roomId)
         listOfNotNull(
             room?.tenant?.let { (if (member.resident) "Bei" else "Firma") to it.name.take(24) },
-            "Schicht" to schedule.shift.label,
+            "Zeiten" to schedule.plan.label.take(26),
             "Laune" to "${schedule.mood.toInt()} %",
         )
     }

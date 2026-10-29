@@ -38,6 +38,10 @@ data class SavedRoom(
     val since: Double,
     val tenant: String? = null,
     val mood: Float? = null,
+    /** Only for rooms the player stretched (the lobby). */
+    val width: Int? = null,
+    val paidUntil: Double? = null,
+    val salePaid: Long = 0,
 )
 
 @Serializable

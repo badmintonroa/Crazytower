@@ -1,9 +1,13 @@
 package crazytower.game.ui
 
 import crazytower.core.Category
+import crazytower.game.Theme
 import korlibs.image.color.RGBA
 import korlibs.korge.view.*
 import korlibs.math.geom.Point
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
 /** Faceted icons from the UI design, drawn on a 24x24 grid. */
 object Icons {
@@ -67,6 +71,28 @@ object Icons {
                     lineTo(Point(16.5 * s, 13.5 * s)); lineTo(Point(18.5 * s, 21 * s)); lineTo(Point(12 * s, 16.5 * s)); close()
                 }
             }
+        }
+    }
+
+    /** Low-poly cog for the options button, centred in a 40 x 37 button face. */
+    fun gear(parent: Container, color: RGBA): Graphics = parent.graphics {
+        val teeth = 8
+        fill(color) {
+            for (i in 0 until teeth * 4) {
+                val angle = i * PI * 2 / (teeth * 4) - PI / (teeth * 4)
+                val r = if ((i / 2) % 2 == 0) 11.0 else 8.0
+                val pt = Point(20.0 + r * cos(angle), 18.5 + r * sin(angle))
+                if (i == 0) moveTo(pt) else lineTo(pt)
+            }
+            close()
+        }
+        fill(Theme.INK) {
+            for (i in 0 until 6) {
+                val angle = i * PI / 3
+                val pt = Point(20.0 + 3.5 * cos(angle), 18.5 + 3.5 * sin(angle))
+                if (i == 0) moveTo(pt) else lineTo(pt)
+            }
+            close()
         }
     }
 }

@@ -32,6 +32,11 @@ import crazytower.core.ecs.EventSystem
 import crazytower.core.ecs.Vip
 import kotlin.random.Random
 
+/** What a drag would build: the pieces, their total price and whether it is allowed. */
+data class BuildPlan(val type: RoomType, val pieces: List<Piece>, val cost: Long, val check: PlaceCheck) {
+    data class Piece(val floor: Int, val x: Int, val width: Int)
+}
+
 /** Outcome of a build command, shown to the player when it fails. */
 data class BuildResult(val room: Room?, val reason: String = "") {
     val ok: Boolean get() = room != null
@@ -50,6 +55,21 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     val news = NewsFeed()
     var money: Long = startMoney
         private set
+
+    val finance = Finance()
+
+    /** Absurd events every hour; tests that count money switch them off. */
+    var eventsEnabled: Boolean = true
+
+    /** Changes the money and writes it into the books. */
+    fun book(amount: Long, kind: MoneyKind, label: String, where: Loc? = null) {
+        if (amount == 0L) return
+        money += amount
+        finance.record(Payment(clock.totalMinutes, amount, kind, label, where))
+    }
+
+    /** Rent and prices grow with the star rating: 20 % per star above the first. */
+    val starBonus: Double get() = 1.0 + 0.2 * (stars - 1)
 
     val world: World = configureWorld(entityCapacity = 2048) {
         injectables { add(this@Simulation) }
@@ -84,28 +104,122 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     var looksVersion: Int = 0
         private set
 
-    fun checkPlace(type: RoomType, floor: Int, x: Int): PlaceCheck {
+    fun checkPlace(type: RoomType, floor: Int, x: Int, width: Int = type.width): PlaceCheck {
         if (type.minStage > stage) return PlaceCheck.no("Erst ab Stufe ${type.minStage}")
         val maxFloor = Stages.info(stage).maxFloor
         if (floor >= maxFloor) return PlaceCheck.no("Stufe $stage erlaubt nur $maxFloor Etagen")
-        if (money < type.cost) return PlaceCheck.no("Zu wenig Geld")
-        return tower.canPlace(type, floor, x)
+        if (money < type.price(width)) return PlaceCheck.no("Zu wenig Geld")
+        return tower.canPlace(type, floor, x, width)
     }
 
-    fun build(type: RoomType, floor: Int, x: Int): BuildResult {
-        val check = checkPlace(type, floor, x)
+    fun build(type: RoomType, floor: Int, x: Int, width: Int = type.width): BuildResult {
+        val check = checkPlace(type, floor, x, width)
         if (!check.ok) return BuildResult(null, check.reason)
-        money -= type.cost
-        val room = tower.place(type, floor, x)
+        val firstLobby = type.role == RoomRole.LOBBY && tower.allRooms.none { it.type.role == RoomRole.LOBBY }
+        var room = tower.place(type, floor, x, width)
+        book(-type.price(width), MoneyKind.BUILD, type.name, Loc(floor, x + width / 2f))
         room.since = clock.totalMinutes
-        if (type.role == RoomRole.LOBBY && tower.allRooms.count { it.type.role == RoomRole.LOBBY } == 1) {
+        if (type.role == RoomRole.LOBBY) room = tower.mergeLobbies() ?: room
+        if (firstLobby) {
             news.post("Die erste Lobby ist offen. Ein Mann fragt, ob es hier zum Bahnhof geht.", Loc(floor, room.centerX))
         }
         return BuildResult(room)
     }
 
+    /**
+     * The lobby pieces a drag along the ground floor from segment [from] to [to] would add.
+     * Segments that already belong to a lobby are skipped, so dragging over the old lobby is free.
+     */
+    fun planLobby(from: Int, to: Int): BuildPlan {
+        val lo = minOf(from, to).coerceIn(0, tower.width - 1)
+        val hi = maxOf(from, to).coerceIn(0, tower.width - 1)
+        val pieces = ArrayList<IntRange>()
+        var start = -1
+        for (s in lo..hi + 1) {
+            val free = s <= hi && tower.roomAt(GROUND_FLOOR, s)?.type?.role != RoomRole.LOBBY
+            if (free && start < 0) start = s
+            if (!free && start >= 0) {
+                pieces += start until s
+                start = -1
+            }
+        }
+        val cost = pieces.sumOf { Catalog.LOBBY.price(it.last - it.first + 1) }
+        var check = PlaceCheck.OK
+        for (piece in pieces) {
+            val c = tower.canPlace(Catalog.LOBBY, GROUND_FLOOR, piece.first, piece.last - piece.first + 1)
+            if (!c.ok) { check = c; break }
+        }
+        if (check.ok && cost > money) check = PlaceCheck.no("Zu wenig Geld")
+        if (check.ok && pieces.isEmpty()) check = PlaceCheck.no("Hier ist schon Lobby")
+        return BuildPlan(Catalog.LOBBY, pieces.map { BuildPlan.Piece(GROUND_FLOOR, it.first, it.last - it.first + 1) }, cost, check)
+    }
+
+    /**
+     * The stairs or elevator modules a vertical drag at [x] from floor [from] to floor [to]
+     * would add. Floors that already have a module of this type at [x] are skipped, so grabbing
+     * the end of a shaft and dragging on extends it. Stairs lead up to the upper floor, so they
+     * stop one floor below it.
+     */
+    fun planColumn(type: RoomType, x: Int, from: Int, to: Int): BuildPlan {
+        require(type.role.isWay)
+        var floors = if (from <= to) (from..to).toList() else (from downTo to).toList()
+        if (type.role == RoomRole.STAIRS && floors.size > 1) floors = floors.map { minOf(it, maxOf(from, to) - 1) }.distinct()
+        // build outward from the floor that is carried: up from below, down from the ground in the basement
+        floors = floors.sortedBy { if (it >= GROUND_FLOOR) it else -it }
+        val fresh = floors.filter { f -> tower.wayAt(f, x)?.let { it.type == type && it.x == x } != true }
+        val cost = type.price() * fresh.size
+        var check = if (type.minStage > stage) PlaceCheck.no("Erst ab Stufe ${type.minStage}") else PlaceCheck.OK
+        val maxFloor = Stages.info(stage).maxFloor
+        val assumed = HashSet<Int>()
+        for (f in fresh) {
+            if (!check.ok) break
+            check = if (f >= maxFloor) PlaceCheck.no("Stufe $stage erlaubt nur $maxFloor Etagen")
+            else tower.canPlace(type, f, x, assumed = assumed)
+            assumed += f
+        }
+        if (check.ok && cost > money) check = PlaceCheck.no("Zu wenig Geld")
+        if (check.ok && fresh.isEmpty()) check = PlaceCheck.no("Hier ist schon ${type.name}")
+        return BuildPlan(type, fresh.map { BuildPlan.Piece(it, x, type.width) }, cost, check)
+    }
+
+    /** Builds everything in [plan] if it is still valid. */
+    fun build(plan: BuildPlan): BuildResult {
+        if (!plan.check.ok) return BuildResult(null, plan.check.reason)
+        var last: Room? = null
+        for (piece in plan.pieces) {
+            val result = build(plan.type, piece.floor, piece.x, piece.width)
+            if (!result.ok) return BuildResult(last, result.reason)
+            last = result.room
+        }
+        return BuildResult(last)
+    }
+
+    /**
+     * The modules of the shaft or staircase whose end is [end] that a drag from [end] towards
+     * floor [to] would remove: only from that end inwards, and at least one module stays.
+     */
+    fun planRetract(end: Room, to: Int): List<Room> {
+        if (!end.type.role.isWay) return emptyList()
+        fun module(f: Int) = tower.wayAt(f, end.x)?.takeIf { it.type == end.type && it.x == end.x }
+        val removed = ArrayList<Room>()
+        when {
+            module(end.floor + 1) == null && to < end.floor -> {
+                var f = end.floor
+                while (f > to && module(f - 1) != null) removed += module(f--)!!
+            }
+            module(end.floor - 1) == null && to > end.floor -> {
+                var f = end.floor
+                while (f < to && module(f + 1) != null) removed += module(f++)!!
+            }
+        }
+        return removed
+    }
+
+    /** Tears down [modules] in order (from the end of their column), returns the refund. */
+    fun demolishAll(modules: List<Room>): Long = modules.sumOf { demolish(it.id) }
+
     /** Money back when a room is torn down. */
-    fun refundFor(room: Room): Long = room.type.cost / 4
+    fun refundFor(room: Room): Long = room.type.price(room.width) / 4
 
     fun checkDemolish(room: Room): PlaceCheck = tower.canRemove(room)
 
@@ -117,22 +231,33 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         removeMembers(roomId)
         tower.remove(roomId)
         val refund = refundFor(room)
-        money += refund
+        book(refund, MoneyKind.BUILD, "Abriss ${room.type.name}", room.center)
+        if (room.salePaid > 0) book(-room.salePaid / 2, MoneyKind.REFUND, "Kaufpreis zurück", room.center)
         return refund
     }
 
+    /**
+     * A tenant moves in. New residents buy their flat right away; offices and restaurants pay
+     * at the end of each working day from now on. [announce] is false when loading a save.
+     */
     fun moveIn(room: Room, tenant: TenantKind, announce: Boolean = true) {
         removeMembers(room.id)
         room.tenant = tenant
         room.since = clock.totalMinutes
+        room.paidUntil = clock.totalMinutes
+        room.salePaid = 0
         looksVersion++
+        if (announce && room.type.role == RoomRole.HOME && tenant.salePrice > 0) {
+            room.salePaid = (tenant.salePrice * starBonus).toLong()
+            book(room.salePaid, MoneyKind.SALE, tenant.name, room.center)
+        }
         val resident = room.type.role == RoomRole.HOME
-        repeat(room.type.capacity) {
+        repeat(room.type.capacity) { i ->
             world.entity {
                 it += Position(GROUND_FLOOR, 0f)
                 it += Person(Names.random(random), tenant.look)
                 it += Member(room.id, resident)
-                it += Schedule(tenant.shift, offset = random.nextInt(-40, 41))
+                it += Schedule(tenant.plan, offset = random.nextInt(-40, 41), crew = i % tenant.plan.crews, seed = random.nextInt(1_000_000))
                 it += Away(clock.totalMinutes)
             }
         }
@@ -141,6 +266,8 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
 
     fun moveOut(room: Room) {
         removeMembers(room.id)
+        if (room.salePaid > 0) book(-room.salePaid / 2, MoneyKind.REFUND, "Kaufpreis zurück", room.center)
+        room.salePaid = 0
         room.tenant = null
         room.since = clock.totalMinutes
         looksVersion++
@@ -199,33 +326,77 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         .minByOrNull { kotlin.math.abs(it.floor - floor) * 10 + kotlin.math.abs(it.centerX - x) }
 
     /** Money earned since the last midnight, for the daily report. */
-    var earnedToday: Long = 0
-        private set
+    val earnedToday: Long get() = finance.income(clock.day)
 
-    fun earn(amount: Long) {
-        money += amount
-        earnedToday += amount
-    }
+    fun earn(amount: Long) = book(amount, MoneyKind.GUESTS, "Gäste")
 
-    /** Midnight: rent, maintenance, unhappy tenants move out, new star rating. */
-    fun closeDay() {
-        var rent = 0L
-        val leaving = ArrayList<Room>()
+    /**
+     * Offices and restaurants pay at the end of every working day of their tenant, the
+     * vampires in the morning. Unhappy tenants pay half. Called every game minute.
+     */
+    fun collectRent() {
+        val now = clock.totalMinutes
         for (room in tower.allRooms) {
             val tenant = room.tenant ?: continue
+            if (room.type.role == RoomRole.HOME || tenant.rentPerDay <= 0) continue
+            val end = tenant.plan.lastEnd(now) ?: continue
+            if (end <= room.paidUntil) continue
+            room.paidUntil = end.toDouble()
+            book(rentFor(room, tenant), if (room.type.role == RoomRole.FOOD) MoneyKind.FOOD else MoneyKind.RENT, tenant.name, room.center)
+        }
+    }
+
+    private fun rentFor(room: Room, tenant: TenantKind): Long {
+        val mood = moodOf(room) ?: 70f
+        val full = (tenant.rentPerDay * starBonus).toLong()
+        return if (mood < UNHAPPY) full / 2 else full
+    }
+
+    /** Payments expected in the next [hours] game hours, soonest first. Upkeep is negative. */
+    fun upcoming(hours: Int = 36): List<Upcoming> {
+        val now = clock.totalMinutes
+        val horizon = now + hours * 60
+        val list = ArrayList<Upcoming>()
+        for (room in tower.allRooms) {
+            val tenant = room.tenant ?: continue
+            if (room.type.role == RoomRole.HOME || tenant.rentPerDay <= 0) continue
+            val end = tenant.plan.nextEnd(now) ?: continue
+            if (end <= horizon) list += Upcoming(end, rentFor(room, tenant), tenant.name, room.center)
+        }
+        var midnight = (clock.day + 1) * GameClock.MINUTES_PER_DAY
+        while (midnight <= horizon) {
+            val day = midnight / GameClock.MINUTES_PER_DAY
+            if (day % FEE_EVERY_DAYS == 0) {
+                val fees = homeFees()
+                if (fees > 0) list += Upcoming(midnight, fees, "Hausgeld")
+            }
+            list += Upcoming(midnight, -upkeep(), "Unterhalt")
+            midnight += GameClock.MINUTES_PER_DAY
+        }
+        return list.sortedBy { it.minute }
+    }
+
+    private fun homeFees(): Long = tower.allRooms.count { it.type.role == RoomRole.HOME && it.tenant != null && it.tenant!!.salePrice > 0 } * HOME_FEE
+
+    private fun upkeep(): Long = tower.allRooms.sumOf { (UPKEEP[it.type.role] ?: 0L) * (if (it.type.stretchable) it.width else 6) / 6 }
+
+    /** Midnight: maintenance, every few days the home fees, unhappy tenants move out, new star rating. */
+    fun closeDay() {
+        val leaving = ArrayList<Room>()
+        for (room in tower.allRooms) {
+            if (room.tenant == null) continue
             val mood = moodOf(room) ?: 70f
-            rent += if (mood < UNHAPPY) tenant.rentPerDay / 2 else tenant.rentPerDay
             if (mood < MOVE_OUT && clock.totalMinutes - room.since > MIN_STAY_MINUTES) leaving += room
         }
-        val upkeep = tower.allRooms.sumOf { UPKEEP[it.type.role] ?: 0L }
         // special rooms cheer everybody up a bit, every day
         val specials = tower.allRooms.count { it.type.role == RoomRole.SPECIAL }
         if (specials > 0) members.forEach { it[Schedule].mood = (it[Schedule].mood + 2f * specials).coerceAtMost(100f) }
-        money += rent - upkeep
-        val total = rent - upkeep + earnedToday
-        news.post("Tagesabschluss: Miete ${rent.fmt()} $, Unterhalt ${upkeep.fmt()} $, Umsatz ${earnedToday.fmt()} $. " +
-            if (total >= 0) "Der Turm lebt." else "Der Steuerberater weint leise.")
-        earnedToday = 0
+        val yesterday = clock.day - 1
+        book(-upkeep(), MoneyKind.UPKEEP, "Unterhalt", tower.allRooms.firstOrNull { it.type.role == RoomRole.LOBBY }?.center)
+        if (clock.day % FEE_EVERY_DAYS == 0) book(homeFees(), MoneyKind.FEES, "Hausgeld")
+        val income = finance.income(yesterday)
+        news.post("Tagesabschluss: Einnahmen ${income.fmt()} $, Unterhalt ${upkeep().fmt()} $. " +
+            if (income >= upkeep()) "Der Turm lebt." else "Der Steuerberater weint leise.")
         for (room in leaving) {
             val name = room.tenant?.name ?: continue
             moveOut(room)
@@ -268,10 +439,6 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         news.post("STUFE $stage: Der Turm ist jetzt ein ${info.name}! Bis zur ${info.maxFloor}. Etage darf gebaut werden. ${info.unlocks}", important = true)
     }
 
-    fun spend(amount: Long) {
-        money -= amount
-    }
-
     fun toSave(): SaveGame = SaveGame(
         minutes = clock.totalMinutes,
         money = money,
@@ -280,7 +447,10 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         vipSurvived = vipSurvived,
         earnedToday = earnedToday,
         rooms = tower.allRooms.map {
-            SavedRoom(it.id, it.type.id, it.floor, it.x, it.since, it.tenant?.id, moodOf(it))
+            SavedRoom(
+                it.id, it.type.id, it.floor, it.x, it.since, it.tenant?.id, moodOf(it),
+                it.width.takeIf { w -> w != it.type.width }, it.paidUntil, it.salePaid,
+            )
         },
         news = news.latest.map { SavedNews(it.text, it.where?.floor, it.where?.x, it.important) },
     )
@@ -291,15 +461,16 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         stage = save.stage
         stars = save.stars
         vipSurvived = save.vipSurvived
-        earnedToday = save.earnedToday
         for (saved in save.rooms) {
-            val room = tower.placeUnchecked(Catalog.type(saved.type), saved.floor, saved.x, saved.id)
+            val room = tower.placeUnchecked(Catalog.type(saved.type), saved.floor, saved.x, saved.id, saved.width ?: Catalog.type(saved.type).width)
             val tenant = saved.tenant?.let { Tenants.byId(it) }
             if (tenant != null) {
                 moveIn(room, tenant, announce = false)
                 saved.mood?.let { mood -> with(world) { membersOf(room.id).forEach { it[Schedule].mood = mood } } }
             }
             room.since = saved.since
+            room.paidUntil = saved.paidUntil ?: save.minutes
+            room.salePaid = saved.salePaid
         }
         for (item in save.news.asReversed()) {
             news.post(item.text, item.floor?.let { Loc(it, item.x ?: 0f) }, item.important)
@@ -390,13 +561,17 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             else -> "$floor. Etage"
         }
 
-        const val START_MONEY = 250_000L
+        const val START_MONEY = 120_000L
 
         /** Waiting longer than this many minutes for an elevator makes people grumpy. */
         const val PATIENCE_MINUTES = 3.0
         const val MEAL_MOOD = 8f
         const val STUCK_MOOD = 15f
         const val MEAL_PRICE = 12L
+
+        /** Every this many days each sold flat pays its fees. */
+        const val FEE_EVERY_DAYS = 3
+        const val HOME_FEE = 600L
         const val UNHAPPY = 40f
         const val MOVE_OUT = 25f
         const val MIN_STAY_MINUTES = 2 * 1440.0

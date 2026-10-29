@@ -10,7 +10,7 @@ class TenantTest {
     @Test
     fun reachableRoomsGetRented() {
         val sim = Simulation(seed = 11, startMoney = 10_000_000)
-        val office = sim.build(Catalog.OFFICE, 0, 10).room!!
+        val office = sim.buildReachable(Catalog.OFFICE, 10)
         sim.build(Catalog.LOBBY, 0, 20)
         val unreachable = sim.build(Catalog.HOME, 1, 20).room!!
         sim.step(8 * 60.0)

@@ -15,7 +15,7 @@ class SimulationTest {
         val sim = Simulation()
         val before = sim.money
         assertTrue(sim.build(Catalog.LOBBY, 0, 10).ok)
-        assertEquals(before - Catalog.LOBBY.cost, sim.money)
+        assertEquals(before - Catalog.LOBBY.price(), sim.money)
     }
 
     @Test
