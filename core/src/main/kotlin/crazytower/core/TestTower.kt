@@ -27,6 +27,11 @@ object TestTower {
         sim.build(sim.planLobby(0, width - 1))
         val floors = FLOORS[stage.coerceIn(0, FLOORS.lastIndex)].coerceAtMost(Stages.info(stage).maxFloor - 1)
         for (floor in 1..floors) {
+            // every 25th floor is a sky lobby, the floors above need it
+            if (floor > GROUND_FLOOR && Tower.isLobbyFloor(floor)) {
+                sim.build(sim.planLobby(0, width - 1, floor))
+                continue
+            }
             var x = 0
             var i = 0
             while (x + 6 <= width) {

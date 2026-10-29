@@ -91,7 +91,7 @@ object Catalog {
     val LOBBY = RoomType(
         id = "lobby", name = "Lobby", category = Category.WAYS, role = RoomRole.LOBBY,
         width = 6, cost = 800, art = "lobby_stage1_bruchbude", stretchable = true,
-        description = "Eingang zum Turm. Im Erdgeschoss und als Sky-Lobby alle 10 Etagen. Zum Verlängern ziehen.",
+        description = "Eingang zum Turm. Im Erdgeschoss und als Sky-Lobby auf Etage 25, 50 und 75: Pflicht, bevor es darüber weitergeht. Zum Verlängern ziehen.",
     )
     val CORRIDOR = RoomType(
         id = "corridor", name = "Flur", category = Category.WAYS, role = RoomRole.CORRIDOR,

@@ -109,18 +109,30 @@ class TransportTest {
     }
 
     @Test
-    fun skyLobbiesOnEveryTenthFloor() {
-        val sim = Simulation(startMoney = 10_000_000)
-        sim.stage = 2
-        tallCorridor(sim, 9)
+    fun skyLobbyEvery25FloorsBeforeBuildingHigher() {
+        val sim = Simulation(startMoney = 100_000_000)
+        sim.stage = 3
+        tallCorridor(sim, 24)
         sim.build(Catalog.LOBBY, 0, 16)
-        for (f in 1..9) assertTrue(sim.build(Catalog.CORRIDOR, f, 16).ok)
-        assertFalse(sim.checkPlace(Catalog.LOBBY, 7, 10).ok)
-        assertTrue(sim.build(sim.planLobby(10, 15, 10)).ok)
-        assertTrue(sim.build(sim.planLobby(16, 21, 10)).ok)
-        val sky = sim.tower.allRooms.filter { it.type.role == RoomRole.LOBBY && it.floor == 10 }
+        for (f in 1..24) assertTrue(sim.build(Catalog.CORRIDOR, f, 16).ok)
+        assertFalse(sim.checkPlace(Catalog.LOBBY, 10, 10).ok, "no sky lobby on floor 10")
+        assertTrue(sim.build(Catalog.CORRIDOR, 25, 10).ok, "floor 25 itself may be built on")
+        sim.demolish(sim.tower.roomAt(25, 10)!!.id)
+        assertTrue(sim.build(sim.planLobby(10, 15, 25)).ok)
+        assertTrue(sim.build(sim.planLobby(16, 21, 25)).ok)
+        val sky = sim.tower.allRooms.filter { it.type.role == RoomRole.LOBBY && it.floor == 25 }
         assertEquals(1, sky.size, "touching sky lobby pieces are joined")
         assertEquals(12, sky.single().width)
+        assertTrue(sim.build(Catalog.CORRIDOR, 26, 10).ok)
+    }
+
+    @Test
+    fun nothingAboveAMissingSkyLobby() {
+        val sim = Simulation(startMoney = 100_000_000)
+        sim.stage = 3
+        tallCorridor(sim, 25)
+        assertEquals("Erst eine Sky-Lobby auf der 25. Etage bauen", sim.checkPlace(Catalog.CORRIDOR, 26, 10).reason)
+        assertFalse(sim.planColumn(Catalog.ELEVATOR, 16, 20, 27).check.ok)
     }
 
     @Test
