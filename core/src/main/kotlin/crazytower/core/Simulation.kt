@@ -131,6 +131,14 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         if (floor >= maxFloor) return PlaceCheck.no("Stufe $stage erlaubt nur $maxFloor Etagen")
         if (floor < GROUND_FLOOR && !basementOpen) return PlaceCheck.no("Keller erst ab ${Lot.BASEMENT_STARS} Sternen")
         if (type.basementOnly && floor >= GROUND_FLOOR) return PlaceCheck.no("${type.name} nur im Keller")
+        val max = type.maxCount
+        if (max != null && tower.allRooms.count { it.type == type } >= max) {
+            return PlaceCheck.no(if (max == 1) "${type.name} gibt es schon, nur einmal pro Turm" else "Schon $max ${type.name}, mehr gehen nicht")
+        }
+        if (type.role == RoomRole.PARKING) {
+            val missing = parkingSpaces + MIN_BOOKINGS - carsWanted
+            if (missing > 0) return PlaceCheck.no("Noch $missing Autos zu wenig für ein weiteres Parkhaus. Mehr Büros und Wohnungen!")
+        }
         if (x >= 0 && x + width > lotWidth) {
             val next = Lot.next(bestStars)
             return PlaceCheck.no(if (next != null) "Grundstück wird erst ab ${next.stars} Sternen breiter" else "Außerhalb des Grundstücks")
@@ -489,7 +497,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     private fun homeFees(): Long = tower.allRooms.count { it.type.role == RoomRole.HOME && it.tenant != null && it.tenant!!.salePrice > 0 } * (HOME_FEE * starBonus).toLong()
 
     private fun upkeep(): Long = tower.allRooms.sumOf { (UPKEEP[it.type.role] ?: 0L) * (if (it.type.perSegment) it.width else 6) / 6 } +
-        shaftSurcharge()
+        elevators.cars.values.sumOf { it.cabins.size } * CABIN_UPKEEP + shaftSurcharge()
 
     /** Each elevator shaft beyond the first makes every shaft's upkeep dearer. */
     private fun shaftSurcharge(): Long {
@@ -511,9 +519,16 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             val mood = moodOf(room) ?: 70f
             if (mood < MOVE_OUT && clock.totalMinutes - room.since > MIN_STAY_MINUTES) leaving += room
         }
-        // special rooms cheer everybody up a bit, every day
-        val specials = tower.allRooms.count { it.type.role == RoomRole.SPECIAL }
-        if (specials > 0) members.forEach { it[Schedule].mood = (it[Schedule].mood + 2f * specials).coerceAtMost(100f) }
+        // the special rooms do their bit every night
+        val hasCopyroom = tower.allRooms.any { it.type == Catalog.COPYROOM }
+        val ufoPad = tower.allRooms.firstOrNull { it.type == Catalog.UFO_PAD }
+        if (hasCopyroom || ufoPad != null) members.forEach {
+            val schedule = it[Schedule]
+            var lift = if (ufoPad != null) UFO_MOOD else 0f
+            if (hasCopyroom && !it[Member].resident) lift += COPYROOM_MOOD
+            schedule.mood = (schedule.mood + lift).coerceAtMost(100f)
+        }
+        if (ufoPad != null) book(UFO_FEE, MoneyKind.GUESTS, "Ufo-Landegebühr", ufoPad.center)
         val yesterday = clock.day - 1
         book(-upkeep(), MoneyKind.UPKEEP, "Unterhalt", tower.allRooms.firstOrNull { it.type.role == RoomRole.LOBBY }?.center)
         if (clock.day % FEE_EVERY_DAYS == 0) book(homeFees(), MoneyKind.FEES, "Hausgeld")
@@ -560,11 +575,21 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         }
     }
 
-    /** Cars parked in the tower's car parks: one for every few people, as many as there are spaces. */
-    val parkedCars: Int get() {
-        val spaces = tower.allRooms.count { it.type.role == RoomRole.PARKING } * CARS_PER_PARKING
-        return minOf(spaces, population / PEOPLE_PER_CAR)
+    /** Parking spaces the rented offices and occupied flats want to book. */
+    val carsWanted: Int get() = tower.allRooms.sumOf {
+        when {
+            it.tenant == null -> 0
+            it.type.role == RoomRole.OFFICE -> CARS_PER_OFFICE
+            it.type.role == RoomRole.HOME -> CARS_PER_HOME
+            else -> 0
+        }
     }
+
+    /** Spaces in all car parks. */
+    val parkingSpaces: Int get() = tower.allRooms.count { it.type.role == RoomRole.PARKING } * CARS_PER_PARKING
+
+    /** Booked spaces: as many as are wanted, as long as there are spaces. */
+    val parkedCars: Int get() = minOf(parkingSpaces, carsWanted)
 
     /** Daily parking fees for [parkedCars]. */
     fun parkingFees(): Long = (parkedCars * PARKING_FEE * starBonus).toLong()
@@ -781,7 +806,19 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
 
         /** The widest gap the gap filler closes; anything wider takes a room. */
         const val MAX_GAP = 5
-        const val PEOPLE_PER_CAR = 4
+        const val CARS_PER_OFFICE = 3
+        const val CARS_PER_HOME = 1
+
+        /** A new car park needs at least this many cars that find no space yet. */
+        const val MIN_BOOKINGS = CARS_PER_PARKING / 2
+
+        /** What the special rooms do every night. */
+        const val COPYROOM_MOOD = 5f
+        const val UFO_MOOD = 3f
+        const val UFO_FEE = 15_000L
+
+        /** Daily maintenance of one elevator cabin, on top of the shaft's per-floor upkeep. */
+        const val CABIN_UPKEEP = 200L
         const val PARKING_FEE = 60L
 
         val MOVE_OUT_REASONS = listOf(

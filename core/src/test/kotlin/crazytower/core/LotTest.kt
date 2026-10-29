@@ -38,11 +38,34 @@ class LotTest {
         val sim = Simulation(startMoney = 10_000_000)
         assertEquals("Erst ab 4 Sternen", sim.checkPlace(Catalog.PARKING, -1, 10).reason)
         sim.stars = 4
-        sim.build(Catalog.LOBBY, GROUND_FLOOR, 10)
         assertEquals("Parkhaus nur im Keller", sim.checkPlace(Catalog.PARKING, 1, 10).reason)
+        assertEquals("Noch 20 Autos zu wenig für ein weiteres Parkhaus. Mehr Büros und Wohnungen!", sim.checkPlace(Catalog.PARKING, -1, 10).reason)
+        rentOffices(sim, 7) // 21 cars
         assertTrue(sim.build(Catalog.PARKING, -1, 10).ok)
-        assertEquals(0, sim.parkedCars, "nobody lives here yet")
-        assertEquals(0L, sim.parkingFees())
+        assertEquals(21, sim.parkedCars)
+        assertEquals((21 * Simulation.PARKING_FEE * sim.starBonus).toLong(), sim.parkingFees())
+        assertFalse(sim.checkPlace(Catalog.PARKING, -1, 16).ok, "the first car park is far from full")
+    }
+
+    private fun rentOffices(sim: Simulation, count: Int) {
+        sim.build(sim.planLobby(0, 6 * count))
+        repeat(count) { i ->
+            val office = sim.build(Catalog.OFFICE, 1, i * 6).room!!
+            sim.moveIn(office, Tenants.candidates(RoomRole.OFFICE, sim.stars, sim.stage).first(), announce = false)
+        }
+    }
+
+    @Test
+    fun specialRoomsExistOnlyOnce() {
+        val sim = Simulation(startMoney = 100_000_000)
+        sim.stage = 5
+        sim.build(sim.planLobby(0, 40))
+        assertTrue(sim.build(Catalog.COPYROOM, 1, 0).ok)
+        assertEquals("Kopierraum der Ewigkeit gibt es schon, nur einmal pro Turm", sim.checkPlace(Catalog.COPYROOM, 1, 6).reason)
+        assertTrue(sim.build(Catalog.TELEPORTER, 1, 12).ok)
+        assertTrue(sim.build(Catalog.TELEPORTER, 1, 20).ok)
+        assertFalse(sim.checkPlace(Catalog.TELEPORTER, 1, 30).ok, "teleporters come as one pair")
+        assertTrue(Catalog.roomTypes.filter { it.category == Category.SPECIAL }.all { it.effects.isNotEmpty() }, "every special says what it does")
     }
 
     @Test

@@ -223,7 +223,8 @@ class Hud(
                 y += 30.0
             }
             for (type in types) {
-                val card = ItemCard(type, sim.stage >= type.minStage && sim.bestStars >= type.minStars)
+                val built = type.maxCount?.let { max -> sim.tower.allRooms.count { it.type == type } >= max } == true
+                val card = ItemCard(type, sim.stage >= type.minStage && sim.bestStars >= type.minStars && !built, built)
                 card.xy(14.0, y)
                 flyout.addChild(card)
                 y += card.cardHeight + 6
@@ -249,7 +250,7 @@ class Hud(
      * below that who lives or works there and what the room earns.
      */
     private inner class ItemCard(
-        val type: RoomType, unlocked: Boolean, val info: List<String> = roomInfo(type),
+        val type: RoomType, unlocked: Boolean, built: Boolean = false, val info: List<String> = roomInfo(type),
         val cardHeight: Double = if (info.isEmpty()) 62.0 else 66.0 + info.size * 17.0,
     ) : Button(242.0, cardHeight, { game.tool = Tool.Build(type) }) {
         init {
@@ -261,7 +262,7 @@ class Hud(
             }
             val name = content.label(type.name, 15.0, Theme.TEXT, Theme.bodyBold).also { it.xy(92.0, 12.0) }
             val sub = content.label(
-                if (!unlocked) (if (sim.stage < type.minStage) "AB STUFE ${type.minStage}" else "AB ${type.minStars} STERNEN") else if (type.perSegment) "${formatMoney(type.cost)}/FELD" else formatMoney(type.cost), 13.0, Theme.TEXT, Theme.bodyBold,
+                if (built) "SCHON GEBAUT" else if (!unlocked) (if (sim.stage < type.minStage) "AB STUFE ${type.minStage}" else "AB ${type.minStars} STERNEN") else if (type.perSegment) "${formatMoney(type.cost)}/FELD" else formatMoney(type.cost), 13.0, Theme.TEXT, Theme.bodyBold,
             ).also { it.xy(92.0, 33.0) }
             val lines = info.mapIndexed { i, line -> content.label(line, 12.0, Theme.TEXT_DIM).also { it.xy(12.0, 60.0 + i * 17.0) } }
             onRestyle = { b ->
@@ -298,12 +299,13 @@ class Hud(
                 "Miete pro Tag: ${range(tenants.map { it.rentPerDay })}",
                 "plus ${formatMoney(Simulation.MEAL_PRICE)}–${formatMoney(Simulation.VISITOR_MEAL_PRICE)} pro Essen",
             )
-            RoomRole.PARKING -> listOf(
-                "${Simulation.CARS_PER_PARKING} Autos, eins pro ${Simulation.PEOPLE_PER_CAR} Leute im Turm",
-                "${formatMoney((Simulation.PARKING_FEE * sim.starBonus).toLong())} pro Auto und Tag",
-                "nur im Keller",
+            RoomRole.PARKING -> type.effects + "gebucht: ${sim.parkedCars} von ${sim.carsWanted} Autos, ${sim.parkingSpaces} Plätze"
+            RoomRole.ELEVATOR -> listOf(
+                "Unterhalt pro Tag: ${formatMoney(Simulation.UPKEEP.getValue(RoomRole.ELEVATOR))} pro Etage",
+                "plus ${formatMoney(Simulation.CABIN_UPKEEP)} pro Kabine",
+                "je Schacht mehr: +${(Simulation.SHAFT_SURCHARGE * 100).toInt()} % Bau, +${(Simulation.UPKEEP_SURCHARGE * 100).toInt()} % Unterhalt",
             )
-            else -> emptyList()
+            else -> type.effects
         }
     }
 

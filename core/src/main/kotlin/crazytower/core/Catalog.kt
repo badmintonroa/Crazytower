@@ -75,6 +75,10 @@ data class RoomType(
     /** Fills the whole gap it is clicked into, see [Simulation.planGap]. */
     val fillsGap: Boolean = false,
     val express: Boolean = false,
+    /** How many a tower may have; null for no limit. */
+    val maxCount: Int? = null,
+    /** What the room does for the tower, one short line each, for the build menu. */
+    val effects: List<String> = emptyList(),
 ) {
     /** Priced per segment rather than per room. */
     val perSegment: Boolean get() = stretchable || fillsGap
@@ -132,29 +136,38 @@ object Catalog {
 
     val COPYROOM = RoomType(
         id = "copyroom", name = "Kopierraum der Ewigkeit", category = Category.SPECIAL, role = RoomRole.SPECIAL,
-        width = 6, cost = 40_000, minStage = 2, art = "extra_copyroom",
-        description = "Hebt die Laune im ganzen Turm. Niemand weiß, wer den Toner bezahlt.",
+        width = 6, cost = 40_000, minStage = 2, art = "extra_copyroom", maxCount = 1,
+        description = "Niemand weiß, wer den Toner bezahlt.",
+        effects = listOf("Büroleute: jede Nacht +${Simulation.COPYROOM_MOOD.toInt()} Laune", "Sehenswürdigkeit für Besucher", "nur einmal pro Turm"),
     )
     val SECURITY = RoomType(
         id = "security", name = "Sicherheitsdienst", category = Category.SPECIAL, role = RoomRole.SECURITY,
-        width = 6, cost = 80_000, minStage = 3, art = "special_security",
-        description = "Weniger Chaos bei Ereignissen. Pflicht für Stufe 4.",
+        width = 6, cost = 80_000, minStage = 3, art = "special_security", maxCount = 1,
+        description = "Die Herren tragen Sonnenbrillen. Auch nachts.",
+        effects = listOf("halb so viel Ärger, verhindert manchen ganz", "Pflicht für Stufe 4", "nur einmal pro Turm"),
     )
     val TELEPORTER = RoomType(
         id = "teleporter", name = "Teleporter", category = Category.SPECIAL, role = RoomRole.TELEPORTER,
-        width = 2, cost = 150_000, minStage = 4, art = "special_teleporter",
-        description = "Verbindet alle Teleporter miteinander. Meistens.",
+        width = 2, cost = 150_000, minStage = 4, art = "special_teleporter", maxCount = 2,
+        description = "Kommt meistens dort an, wo man hinwollte.",
+        effects = listOf("Leute springen sofort zum anderen Teleporter", "spart lange Aufzugfahrten", "genau ein Paar pro Turm"),
     )
     val UFO_PAD = RoomType(
         id = "ufo", name = "Ufo-Landeplatz", category = Category.SPECIAL, role = RoomRole.SPECIAL,
-        width = 6, cost = 500_000, minStage = 5, art = "special_ufo",
+        width = 6, cost = 500_000, minStage = 5, art = "special_ufo", maxCount = 1,
         description = "Für Besuch von ganz weit weg.",
+        effects = listOf("Landegebühr ${"%,d".format(Simulation.UFO_FEE).replace(',', '.')} \$ jeden Tag", "alle: jede Nacht +${Simulation.UFO_MOOD.toInt()} Laune (Aussicht!)", "nur einmal pro Turm"),
     )
 
     val PARKING = RoomType(
         id = "parking", name = "Parkhaus", category = Category.SPECIAL, role = RoomRole.PARKING,
         width = 6, cost = 60_000, minStars = Lot.BASEMENT_STARS, basementOnly = true, art = "special_parking",
-        description = "Nur im Keller. Parkgebühren für die Autos der Leute im Turm. Ein Auto parkt seit 1987 quer.",
+        description = "Ein Auto parkt seit 1987 quer.",
+        effects = listOf(
+            "${Simulation.CARS_PER_PARKING} Plätze, gebucht von Büros (${Simulation.CARS_PER_OFFICE} Autos) und Wohnungen (${Simulation.CARS_PER_HOME})",
+            "${Simulation.PARKING_FEE} \$ pro gebuchtem Platz und Tag",
+            "nur im Keller, nur so viele wie gebraucht",
+        ),
     )
 
     val roomTypes: List<RoomType> =
