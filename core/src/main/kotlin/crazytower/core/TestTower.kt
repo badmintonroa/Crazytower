@@ -36,7 +36,6 @@ object TestTower {
             }
             if (x < width) sim.build(Catalog.CORRIDOR, floor, x, width - x)
         }
-        if (sim.basementOpen) sim.build(Catalog.PARKING, -1, 8)
         // elevators: each shaft covers SHAFT_FLOORS floors, the next one starts where it ends
         for (column in COLUMNS) {
             column.forEachIndexed { k, x ->
@@ -56,6 +55,9 @@ object TestTower {
             sim.moveIn(room, tenant, announce = false)
             if (room.type.role == RoomRole.HOME) room.sold = true
         }
+        // car parks once the tenants are in and want spaces
+        var x = 8
+        while (sim.basementOpen && sim.build(Catalog.PARKING, -1, x).ok) x += 6
         if (stage >= 5) sim.vipSurvived = true
         sim.money = MONEY
         sim.eventsEnabled = true
