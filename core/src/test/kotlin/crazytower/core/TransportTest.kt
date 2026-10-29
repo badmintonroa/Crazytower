@@ -124,6 +124,20 @@ class TransportTest {
     }
 
     @Test
+    fun everyFurtherShaftCostsMore() {
+        val sim = Simulation(startMoney = 10_000_000)
+        assertTrue(sim.build(sim.planLobby(0, 59)).ok)
+        assertEquals(6_000, sim.priceAt(Catalog.ELEVATOR, GROUND_FLOOR, 10))
+        assertTrue(sim.build(Catalog.ELEVATOR, GROUND_FLOOR, 10).ok)
+        assertEquals(6_000, sim.priceAt(Catalog.ELEVATOR, 1, 10), "growing a shaft stays at the normal price")
+        assertEquals(9_000, sim.priceAt(Catalog.ELEVATOR, GROUND_FLOOR, 30))
+        val before = sim.money
+        assertTrue(sim.build(Catalog.ELEVATOR, GROUND_FLOOR, 30).ok)
+        assertEquals(9_000, before - sim.money)
+        assertEquals(12_000, sim.priceAt(Catalog.ELEVATOR, GROUND_FLOOR, 50))
+    }
+
+    @Test
     fun peopleRideTheElevatorToTheTop() {
         val sim = Simulation(seed = 5, startMoney = 10_000_000)
         sim.stage = 1

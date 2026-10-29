@@ -107,12 +107,12 @@ object Catalog {
     val ELEVATOR = RoomType(
         id = "elevator", name = "Aufzug", category = Category.WAYS, role = RoomRole.ELEVATOR,
         width = 2, cost = 6_000, art = "elevator_shaft",
-        description = "Senkrecht ziehen. Enden greifen zum Verlängern. Darf durch Räume laufen.",
+        description = "Bis 25 Etagen. Jeder weitere Schacht kostet mehr. Senkrecht ziehen, Enden greifen zum Verlängern.",
     )
     val EXPRESS = RoomType(
         id = "express", name = "Schnellaufzug", category = Category.WAYS, role = RoomRole.ELEVATOR,
         width = 2, cost = 15_000, minStage = 2, art = "elevator_shaft", express = true,
-        description = "Dreimal so schnell, 40 Plätze pro Kabine. Hält nur in der Lobby und auf jeder 5. Etage.",
+        description = "Bis 100 Etagen, dreimal so schnell, 40 Plätze pro Kabine. Hält nur im EG und auf jeder 5. Etage.",
     )
     val OFFICE = RoomType(
         id = "office", name = "Büro", category = Category.OFFICES, role = RoomRole.OFFICE,
