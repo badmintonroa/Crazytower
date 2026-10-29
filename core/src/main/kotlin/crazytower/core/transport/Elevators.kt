@@ -24,7 +24,7 @@ class Cabin(var position: Float) {
  * One elevator shaft with its cabins. A shaft is a stack of elevator modules at the same x;
  * it keeps its [id] while it grows or shrinks, so routes stay valid.
  */
-class Car(val id: Int, val x: Int, var bottom: Int, var top: Int) {
+class Car(val id: Int, val x: Int, var bottom: Int, var top: Int, val express: Boolean = false) {
     val cabins = arrayListOf(Cabin(bottom.toFloat()))
 
     /** Height of the first cabin, for news and events. */
@@ -44,6 +44,15 @@ class Car(val id: Int, val x: Int, var bottom: Int, var top: Int) {
 
     val centerX: Float get() = x + 1f
     val floors: IntRange get() = bottom..top
+
+    /** Floors the doors open on. An express shaft skips everything but every fifth floor. */
+    val stops: List<Int> get() = if (express) floors.filter { it % Elevators.EXPRESS_EVERY == 0 } else floors.toList()
+
+    /** Minutes a cabin needs per floor. */
+    val minutesPerFloor: Float get() = if (express) NavCosts.ELEVATOR_PER_FLOOR / 3 else NavCosts.ELEVATOR_PER_FLOOR
+
+    /** People per cabin. */
+    val capacity: Int get() = if (express) Elevators.EXPRESS_CAPACITY else Elevators.CAPACITY
     val waitingCount: Int get() = waiting.values.sumOf { it.size }
 
     /** Rough minutes until a new passenger is picked up, used as path cost. */
@@ -92,18 +101,18 @@ class Elevators(private val tower: Tower) : LinkProvider {
     fun sync() {
         if (syncedVersion == tower.version) return
         syncedVersion = tower.version
-        val shafts = ArrayList<Pair<Int, IntRange>>()
+        val shafts = ArrayList<Triple<Int, IntRange, Boolean>>()
         val seen = HashSet<Int>()
         for (room in tower.allRooms) {
             if (room.type.role != RoomRole.ELEVATOR || room.id in seen) continue
-            val range = tower.shaftRange(room.floor, room.x)
+            val range = tower.shaftRange(room.floor, room.x, room.type)
             for (f in range) tower.wayAt(f, room.x)?.let { seen += it.id }
-            shafts += room.x to range
+            shafts += Triple(room.x, range, room.type.express)
         }
         val old = byId.values.toMutableList()
         byId.clear()
-        for ((x, range) in shafts.sortedBy { it.first }) {
-            val match = old.firstOrNull { it.x == x && it.bottom <= range.last && it.top >= range.first }
+        for ((x, range, express) in shafts.sortedBy { it.first }) {
+            val match = old.firstOrNull { it.x == x && it.express == express && it.bottom <= range.last && it.top >= range.first }
             val car = if (match != null) {
                 old.remove(match)
                 match.bottom = range.first
@@ -111,7 +120,7 @@ class Elevators(private val tower: Tower) : LinkProvider {
                 for (cabin in match.cabins) cabin.position = cabin.position.coerceIn(range.first.toFloat(), range.last.toFloat())
                 match
             } else {
-                Car(nextId++, x, range.first, range.last)
+                Car(nextId++, x, range.first, range.last, express)
             }
             car.setCabins(range.maxOf { tower.wayAt(it, x)?.cabins ?: 1 })
             byId[car.id] = car
@@ -123,10 +132,10 @@ class Elevators(private val tower: Tower) : LinkProvider {
         sync()
         val links = ArrayList<Link>()
         for (car in byId.values) {
-            if (car.bottom == car.top) continue
-            for (a in car.floors) for (b in car.floors) {
+            val stops = car.stops
+            for (a in stops) for (b in stops) {
                 if (a == b) continue
-                val ride = abs(a - b) * NavCosts.ELEVATOR_PER_FLOOR
+                val ride = abs(a - b) * car.minutesPerFloor
                 links += Link(Loc(a, car.centerX), Loc(b, car.centerX), Leg.Ride(car.id, a, b, car.centerX)) {
                     car.waitEstimate() + ride
                 }
@@ -139,6 +148,12 @@ class Elevators(private val tower: Tower) : LinkProvider {
         const val WAIT_BASE = 1.5f
         /** People per cabin. Cabins are big and slow, like in the original. */
         const val CAPACITY = 16
+
+        /** Express cabins are packed tight. */
+        const val EXPRESS_CAPACITY = 40
+
+        /** An express elevator stops on floors divisible by this. */
+        const val EXPRESS_EVERY = 5
         const val DOOR_MINUTES = 0.5f
         const val MAX_CABINS = 12
         const val CABIN_COST = 4_000L

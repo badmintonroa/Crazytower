@@ -133,16 +133,17 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     }
 
     /**
-     * The lobby pieces a drag along the ground floor from segment [from] to [to] would add.
-     * Segments that already belong to a lobby are skipped, so dragging over the old lobby is free.
+     * The lobby pieces a drag along [floor] (the ground floor or a sky lobby floor) from segment
+     * [from] to [to] would add. Segments that already belong to a lobby are skipped, so dragging
+     * over the old lobby is free.
      */
-    fun planLobby(from: Int, to: Int): BuildPlan {
+    fun planLobby(from: Int, to: Int, floor: Int = GROUND_FLOOR): BuildPlan {
         val lo = minOf(from, to).coerceIn(0, tower.width - 1)
         val hi = maxOf(from, to).coerceIn(0, tower.width - 1)
         val pieces = ArrayList<IntRange>()
         var start = -1
         for (s in lo..hi + 1) {
-            val free = s <= hi && tower.roomAt(GROUND_FLOOR, s)?.type?.role != RoomRole.LOBBY
+            val free = s <= hi && tower.roomAt(floor, s)?.type?.role != RoomRole.LOBBY
             if (free && start < 0) start = s
             if (!free && start >= 0) {
                 pieces += start until s
@@ -150,14 +151,16 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             }
         }
         val cost = pieces.sumOf { Catalog.LOBBY.price(it.last - it.first + 1) }
-        var check = PlaceCheck.OK
+        val maxFloor = Stages.info(stage).maxFloor
+        var check = if (floor >= maxFloor) PlaceCheck.no("Stufe $stage erlaubt nur $maxFloor Etagen") else PlaceCheck.OK
         for (piece in pieces) {
-            val c = tower.canPlace(Catalog.LOBBY, GROUND_FLOOR, piece.first, piece.last - piece.first + 1)
+            if (!check.ok) break
+            val c = tower.canPlace(Catalog.LOBBY, floor, piece.first, piece.last - piece.first + 1)
             if (!c.ok) { check = c; break }
         }
         if (check.ok && cost > money) check = PlaceCheck.no("Zu wenig Geld")
         if (check.ok && pieces.isEmpty()) check = PlaceCheck.no("Hier ist schon Lobby")
-        return BuildPlan(Catalog.LOBBY, pieces.map { BuildPlan.Piece(GROUND_FLOOR, it.first, it.last - it.first + 1) }, cost, check)
+        return BuildPlan(Catalog.LOBBY, pieces.map { BuildPlan.Piece(floor, it.first, it.last - it.first + 1) }, cost, check)
     }
 
     /**

@@ -51,6 +51,7 @@ enum class RoomRole {
  * @param stretchable the player drags it to any width (the lobby)
  * @param art key of the room art (without size suffix)
  * @param capacity workers (office, food) or residents (home) once a tenant moved in
+ * @param express an elevator that is fast and big but only stops on every fifth floor
  */
 data class RoomType(
     val id: String,
@@ -64,6 +65,7 @@ data class RoomType(
     val capacity: Int = 0,
     val description: String = "",
     val stretchable: Boolean = false,
+    val express: Boolean = false,
 ) {
     /** What a room of this type with [width] segments costs. */
     fun price(width: Int = this.width): Long = if (stretchable) cost * width else cost
@@ -73,7 +75,7 @@ object Catalog {
     val LOBBY = RoomType(
         id = "lobby", name = "Lobby", category = Category.WAYS, role = RoomRole.LOBBY,
         width = 6, cost = 800, art = "lobby_stage1_bruchbude", stretchable = true,
-        description = "Eingang zum Turm. Nur im Erdgeschoss. Zum Verlängern ziehen.",
+        description = "Eingang zum Turm. Im Erdgeschoss und als Sky-Lobby alle 10 Etagen. Zum Verlängern ziehen.",
     )
     val CORRIDOR = RoomType(
         id = "corridor", name = "Flur", category = Category.WAYS, role = RoomRole.CORRIDOR,
@@ -82,13 +84,18 @@ object Catalog {
     )
     val STAIRS = RoomType(
         id = "stairs", name = "Treppe", category = Category.WAYS, role = RoomRole.STAIRS,
-        width = 2, cost = 2_000, art = "stairs",
-        description = "Führt eine Etage nach oben. Langsam, aber ehrlich. Senkrecht ziehen für mehrere Etagen.",
+        width = 2, cost = 1_000, art = "stairs",
+        description = "Führt eine Etage nach oben. Günstig, aber mehr als 5 Etagen läuft keiner. Senkrecht ziehen für mehrere Etagen.",
     )
     val ELEVATOR = RoomType(
         id = "elevator", name = "Aufzug", category = Category.WAYS, role = RoomRole.ELEVATOR,
         width = 2, cost = 6_000, art = "elevator_shaft",
         description = "Senkrecht ziehen. Enden greifen zum Verlängern. Darf durch Räume laufen.",
+    )
+    val EXPRESS = RoomType(
+        id = "express", name = "Schnellaufzug", category = Category.WAYS, role = RoomRole.ELEVATOR,
+        width = 2, cost = 15_000, minStage = 2, art = "elevator_shaft", express = true,
+        description = "Dreimal so schnell, 40 Plätze pro Kabine. Hält nur in der Lobby und auf jeder 5. Etage.",
     )
     val OFFICE = RoomType(
         id = "office", name = "Büro", category = Category.OFFICES, role = RoomRole.OFFICE,
@@ -128,7 +135,7 @@ object Catalog {
     )
 
     val roomTypes: List<RoomType> =
-        listOf(LOBBY, CORRIDOR, STAIRS, ELEVATOR, OFFICE, HOME, FOOD, COPYROOM, SECURITY, TELEPORTER, UFO_PAD)
+        listOf(LOBBY, CORRIDOR, STAIRS, ELEVATOR, EXPRESS, OFFICE, HOME, FOOD, COPYROOM, SECURITY, TELEPORTER, UFO_PAD)
 
     fun type(id: String): RoomType = roomTypes.first { it.id == id }
 }
