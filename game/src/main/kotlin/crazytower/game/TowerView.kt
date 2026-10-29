@@ -317,6 +317,8 @@ class TowerView(
             view.x = Metrics.x(pos.x) + if (queueing) ((entity.id % 7) - 3) * 5.0 else 0.0
             view.y = Metrics.floorBottom(pos.floor) - Metrics.FEET
             val scale = assets.personScale(person.look, 2.0)
+            // native 12x24 pixel art stays crisp, the 4x art is shrunk smoothly
+            view.smoothing = scale < 1.0
             view.scaleX = if (pos.facingLeft) -scale else scale
             view.scaleY = scale
             // with a thinner crowd only every second or fourth person is drawn, but never the selected one

@@ -152,7 +152,7 @@ object Tenants {
             salePrice = 20_000, plan = plan("täglich 13–20 Uhr (Uni)", WorkPlan.DAILY, 13, 20), quirk = "Der Abwasch ist ein Kunstprojekt."),
         TenantKind("retirees", "Ehepaar Ömmel", RoomRole.HOME, "home_retirees", "npc_retiree",
             minStars = 2, salePrice = 28_000, plan = plan("Mo–Sa 10–12 Uhr (Einkauf)", WorkPlan.MON_TO_SAT, 10, 12), quirk = "Beobachtet den Aufzug. Den ganzen Tag."),
-        TenantKind("influencer", "Influencerin Lara Like", RoomRole.HOME, "home_influencer", "influencer",
+        TenantKind("influencer", "Influencerin Lara Like", RoomRole.HOME, "home_influencer", "npc_student_gamer",
             minStars = 3, salePrice = 40_000, plan = plan("täglich 14–22 Uhr (Shooting)", WorkPlan.DAILY, 14, 22), quirk = "Filmt ihr Frühstück in 4K."),
         TenantKind("penguins", "Pinguin-Kolonie", RoomRole.HOME, "home_penguins", "npc_penguin",
             minStars = 4, salePrice = 36_000, minStage = 3, plan = plan("täglich 6–9 Uhr (Fischmarkt)", WorkPlan.DAILY, 6, 9), quirk = "Dreht die Heizung auf minus zehn."),
@@ -160,11 +160,11 @@ object Tenants {
             salePrice = 0, eventOnly = true, plan = plan("täglich 23–4 Uhr (Spuken)", WorkPlan.DAILY, 23, 4), quirk = "Zahlt keine Miete. Ist ja tot."),
 
         // Food: opening hours
-        TenantKind("imbiss", "Imbiss Zum Schiefen Turm", RoomRole.FOOD, "food_imbiss", "casual",
+        TenantKind("imbiss", "Imbiss Zum Schiefen Turm", RoomRole.FOOD, "food_imbiss", "npc_family_dad",
             rentPerDay = 900, plan = plan("täglich 11–23 Uhr", WorkPlan.DAILY, 11, 23), quirk = "Die Currywurst ist laut Gutachten essbar."),
-        TenantKind("sushi", "Sushi am Band (das Band ist kaputt)", RoomRole.FOOD, "food_sushi", "startup",
+        TenantKind("sushi", "Sushi am Band (das Band ist kaputt)", RoomRole.FOOD, "food_sushi", "npc_startup",
             minStars = 2, rentPerDay = 1_400, plan = plan("täglich 12–22 Uhr", WorkPlan.DAILY, 12, 22), quirk = "Man muss zum Sushi laufen."),
-        TenantKind("cafe", "Café Koffeinschock", RoomRole.FOOD, "food_cafe", "casual2",
+        TenantKind("cafe", "Café Koffeinschock", RoomRole.FOOD, "food_cafe", "npc_office_intern",
             rentPerDay = 1_000, plan = plan("täglich 7–18 Uhr", WorkPlan.DAILY, 7, 18), quirk = "Der Espresso hat eine eigene Steuernummer."),
     )
 
