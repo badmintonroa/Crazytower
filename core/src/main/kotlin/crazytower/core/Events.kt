@@ -49,7 +49,7 @@ object Events {
             val top = tower.builtFloors.maxOrNull() ?: return@TowerEvent false
             if (top < 2) return@TowerEvent false
             changeMood(-10f) { it.floor == top }
-            news.post("Tauben haben die ${Simulation.floorLabel(top)} besetzt. Sie wollen Mitspracherecht.", Loc(top, tower.width / 2f), important = true)
+            news.post("Tauben haben die ${Simulation.floorLabel(top)} besetzt. Sie wollen Mitspracherecht.", Loc(top, lotWidth / 2f), important = true)
             true
         },
         TowerEvent("pizza", 3) {
