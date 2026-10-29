@@ -39,6 +39,7 @@ class GameScene(private val assets: Assets, private val loaded: Simulation? = nu
         onStageResized(firstTrigger = false) { _, _ -> relayout(views, sim, game) }
         Options.onChange = { old, new ->
             applyWindow(views, old, new)
+            if (old.borderless != new.borderless) game.say("Fenster-Vollbild gilt ab dem nächsten Start", 4.0)
             game.fastNights = new.fastNights
             if (old.uiScale != new.uiScale) relayout(views, sim, game)
         }
@@ -108,9 +109,13 @@ class GameScene(private val assets: Assets, private val loaded: Simulation? = nu
         fun applyWindow(views: Views, old: Settings, new: Settings) {
             val window = views.gameWindow
             if (old.vsync != new.vsync) window.vsync = new.vsync
-            if (old.fullscreen != new.fullscreen) window.fullscreen = new.fullscreen
+            // leave the old mode first, then enter the new one
+            if (old.fullscreen && !new.fullscreen) window.fullscreen = false
+            if (!old.fullscreen && new.fullscreen) window.fullscreen = true
             val sized = old.windowWidth != new.windowWidth || old.windowHeight != new.windowHeight
-            if (!new.fullscreen && (sized || old.fullscreen != new.fullscreen)) window.setSize(new.windowWidth, new.windowHeight)
+            val windowed = !new.fullscreen && !new.borderless
+            val wasWindowed = !old.fullscreen && !old.borderless
+            if (windowed && (sized || !wasWindowed)) window.setSize(new.windowWidth, new.windowHeight)
         }
     }
 }

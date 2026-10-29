@@ -18,7 +18,7 @@ class OptionsWindow(private val onClose: () -> Unit) : Container() {
     private class Row(val title: String, val value: (Settings) -> String, val next: (Settings) -> Settings)
 
     private val rows = listOf(
-        Row("Anzeige", { if (it.fullscreen) "Vollbild" else "Fenster" }) { it.copy(fullscreen = !it.fullscreen) },
+        Row("Anzeige", { it.displayMode }) { it.nextDisplayMode() },
         Row("Fenstergröße", { "${it.windowWidth} × ${it.windowHeight}" }) {
             val sizes = Settings.WINDOW_SIZES
             val (w, h) = sizes[(sizes.indexOf(it.windowWidth to it.windowHeight) + 1) % sizes.size]
