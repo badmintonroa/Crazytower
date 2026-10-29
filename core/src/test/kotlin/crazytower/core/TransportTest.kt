@@ -168,6 +168,36 @@ class TransportTest {
     }
 
     @Test
+    fun buildingKeepsRoutesAndRemovingReplansAFewAtATime() {
+        // with thousands of people, planning everybody again in one tick froze the game
+        val sim = Simulation(seed = 5, startMoney = 100_000_000)
+        sim.stage = 1
+        tallCorridor(sim, 8)
+        assertTrue(sim.build(sim.planColumn(Catalog.ELEVATOR, 16, GROUND_FLOOR, 8)).ok)
+        assertTrue(sim.build(sim.planLobby(30, 35)).ok)
+        assertTrue(sim.build(Catalog.CORRIDOR, 1, 30).ok)
+        val people = (0 until 900).map { walker(sim, Loc(8, 12f)) }
+        sim.step(0.3)
+        fun routes() = with(sim.world) { people.filter { it has crazytower.core.ecs.Route && it hasNo Riding }.associateWith { it[crazytower.core.ecs.Route] } }
+        fun replanned(before: Map<com.github.quillraven.fleks.Entity, crazytower.core.ecs.Route>) =
+            with(sim.world) { before.count { (e, r) -> e has crazytower.core.ecs.Route && e[crazytower.core.ecs.Route] !== r } }
+
+        val before = routes()
+        assertTrue(before.size > 500)
+        assertTrue(sim.build(sim.planLobby(40, 45)).ok)
+        sim.step(0.1)
+        assertEquals(0, replanned(before), "a new room leaves the routes alone")
+
+        val beforeRemoval = routes()
+        sim.demolish(sim.tower.roomAt(1, 30)!!.id)
+        sim.step(0.1)
+        val firstTick = replanned(beforeRemoval)
+        assertTrue(firstTick in 1..crazytower.core.ecs.RouteRefreshSystem.REPLAN_PER_TICK, "$firstTick replanned in the first tick")
+        repeat(10) { sim.step(0.1) }
+        assertTrue(replanned(beforeRemoval) > crazytower.core.ecs.RouteRefreshSystem.REPLAN_PER_TICK, "the rest follow over the next ticks")
+    }
+
+    @Test
     fun peopleRideTheElevatorToTheTop() {
         val sim = Simulation(seed = 5, startMoney = 10_000_000)
         sim.stage = 1

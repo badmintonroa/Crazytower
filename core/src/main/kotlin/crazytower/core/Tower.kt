@@ -53,6 +53,13 @@ class Tower(val width: Int = DEFAULT_WIDTH) {
     var version: Int = 0
         private set
 
+    /**
+     * Increases only when something is taken away, so routes may lead through rooms that are
+     * gone. Building only adds ways, and the old routes stay good.
+     */
+    var removedVersion: Int = 0
+        private set
+
     val allRooms: Collection<Room> get() = rooms.values
 
     fun room(id: Int): Room? = rooms[id]
@@ -193,11 +200,15 @@ class Tower(val width: Int = DEFAULT_WIDTH) {
         return room
     }
 
-    fun remove(id: Int): Room? {
+    fun remove(id: Int): Room? = remove(id, replaced = false)
+
+    /** Takes a room away; a [replaced] room comes straight back bigger, so no route breaks. */
+    private fun remove(id: Int, replaced: Boolean): Room? {
         val room = rooms.remove(id) ?: return null
         val row = layer(room.type).getValue(room.floor)
         for (s in room.x until room.right) row[s] = 0
         version++
+        if (!replaced) removedVersion++
         return room
     }
 
@@ -212,7 +223,7 @@ class Tower(val width: Int = DEFAULT_WIDTH) {
         fun flush() {
             if (run.size > 1) {
                 val first = run.first()
-                run.forEach { remove(it.id) }
+                run.forEach { remove(it.id, replaced = true) }
                 joined = placeUnchecked(first.type, first.floor, first.x, first.id, run.last().right - first.x)
                     .also { it.since = first.since }
             }
