@@ -92,7 +92,7 @@ object Catalog {
     )
     val OFFICE = RoomType(
         id = "office", name = "Büro", category = Category.OFFICES, role = RoomRole.OFFICE,
-        width = 6, cost = 20_000, art = "office_empty", capacity = 6,
+        width = 6, cost = 12_000, art = "office_empty", capacity = 6,
         description = "Wird vermietet. Wer einzieht, entscheidet der Turm.",
     )
     val HOME = RoomType(

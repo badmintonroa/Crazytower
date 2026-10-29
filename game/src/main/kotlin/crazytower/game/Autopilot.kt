@@ -25,7 +25,7 @@ object Autopilot {
     fun attachIfRequested(root: SContainer, sim: Simulation, game: GameController, tower: TowerView, hud: Hud) {
         val target = System.getenv("CRAZYTOWER_SCREENSHOT") ?: return
         val minutes = System.getenv("CRAZYTOWER_MINUTES")?.toDoubleOrNull() ?: 90.0
-        DemoTower.build(sim)
+        if (sim.tower.allRooms.isEmpty()) DemoTower.build(sim)
         sim.step(minutes)
         game.selection = sim.tower.allRooms.firstOrNull()?.let { Selection.RoomSel(it.id) }
         tower.lookAt(Loc(2, sim.tower.width / 2f))

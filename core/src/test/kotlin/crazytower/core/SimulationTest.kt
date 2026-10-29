@@ -2,6 +2,7 @@ package crazytower.core
 
 import crazytower.core.ecs.Person
 import crazytower.core.ecs.Position
+import crazytower.core.ecs.Schedule
 import crazytower.core.ecs.Stuck
 import crazytower.core.ecs.Visitor
 import kotlin.test.Test
@@ -60,6 +61,39 @@ class SimulationTest {
         }
         assertEquals(crazytower.core.ecs.VisitorSpawnSystem.BASE_VISITORS + 3 * crazytower.core.ecs.VisitorSpawnSystem.VISITORS_PER_TENANT,
             crazytower.core.ecs.VisitorSpawnSystem.maxVisitors(sim, 4))
+    }
+
+    @Test
+    fun aGloomyTowerKeepsItsStarsButLosesItsUnhappiestTenant() {
+        val sim = Simulation(seed = 3, startMoney = 1_000_000).apply { eventsEnabled = false }
+        sim.build(sim.planLobby(20, 37))
+        val rooms = listOf(sim.buildReachable(Catalog.OFFICE, 20)) + listOf(26, 32).map { sim.build(Catalog.OFFICE, 1, it).room!! }
+        rooms.forEach { sim.moveIn(it, Tenants.byId("accountant")) }
+        sim.stars = 2
+        rooms.forEachIndexed { i, room ->
+            room.since = sim.clock.totalMinutes - Simulation.MIN_STAY_MINUTES - 1
+            with(sim.world) { sim.membersOf(room.id).forEach { it[Schedule].mood = 30f + i * 5 } }
+        }
+        sim.closeDay()
+        assertEquals(2, sim.stars, "stars are never taken away")
+        assertEquals(null, rooms[0].tenant, "the unhappiest tenant gives up the room")
+        assertTrue(rooms[1].tenant != null && rooms[2].tenant != null)
+    }
+
+    @Test
+    fun flatsPayOffAtOnceAndOfficesOvertakeThemWithinAWeek() {
+        val flats = Tenants.candidates(RoomRole.HOME, 0, 0)
+        val offices = Tenants.candidates(RoomRole.OFFICE, 0, 0)
+        assertTrue(flats.all { it.salePrice <= Catalog.HOME.cost }, "a flat never sells for more than it costs")
+        fun flat(days: Int, tenant: TenantKind) = tenant.salePrice - Catalog.HOME.cost + Simulation.HOME_FEE * days
+        fun office(days: Int, tenant: TenantKind) = tenant.rentPerDay * days - Catalog.OFFICE.cost
+        for (f in flats) {
+            assertTrue(flat(1, f) >= 0, "${f.name} pays off after a day")
+            for (o in offices) {
+                val overtakes = (1..30).first { office(it, o) > flat(it, f) }
+                assertTrue(overtakes in 5..7, "${o.name} overtakes ${f.name} on day $overtakes")
+            }
+        }
     }
 
     @Test

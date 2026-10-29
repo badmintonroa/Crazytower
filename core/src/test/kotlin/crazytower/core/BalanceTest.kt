@@ -60,9 +60,10 @@ class BalanceTest {
         val games = listOf(42L, 7L, 11L).map { seed -> play(30, seed).also { println("Seed $seed\n" + it.second.joinToString("\n")) }.first }
         for (player in games) {
             val firstDay = player.built.count { it == 0 }
-            assertTrue(firstDay in 3..6, "the start money buys a handful of rooms, built $firstDay")
+            assertTrue(firstDay in 3..10, "the start money buys a handful of rooms, built $firstDay")
             val full = player.built.size == 36
-            assertTrue(full && player.built.last() <= 15, "the first ten floors are full within 15 days, last room on day ${player.built.lastOrNull()}")
+            // flats pay for themselves when sold, offices after about a week
+            assertTrue(full && player.built.last() in 7..15, "the first ten floors fill up in one to two weeks, last room on day ${player.built.lastOrNull()}")
         }
         val firstWeek = games.map { p -> p.built.count { it in 1..7 } }
         assertTrue(firstWeek.average() >= 10, "then the rent pays for more than a room a day, built $firstWeek in days 1 to 7")

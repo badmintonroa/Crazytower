@@ -8,6 +8,8 @@ import kotlin.math.roundToInt
 @Serializable
 data class Settings(
     val fullscreen: Boolean = false,
+    /** A window without frame that covers the whole screen; only when not [fullscreen]. */
+    val borderless: Boolean = false,
     val windowWidth: Int = 1280,
     val windowHeight: Int = 800,
     /** Size of the interface: 1.0 lays it out for 800 pixels of height, 1.25 makes it a quarter bigger. */
@@ -25,6 +27,20 @@ data class Settings(
     /** Saves the game every this many game days at midnight; 0 is off. */
     val autosaveDays: Int = 1,
 ) {
+    /** "Fenster", "Fenster-Vollbild" or "Vollbild". */
+    val displayMode: String get() = when {
+        fullscreen -> "Vollbild"
+        borderless -> "Fenster-Vollbild"
+        else -> "Fenster"
+    }
+
+    /** The next display mode: window, borderless window, fullscreen, window again. */
+    fun nextDisplayMode(): Settings = when {
+        fullscreen -> copy(fullscreen = false, borderless = false)
+        borderless -> copy(fullscreen = true, borderless = false)
+        else -> copy(borderless = true)
+    }
+
     fun toJson(): String = json.encodeToString(serializer(), this)
 
     /**

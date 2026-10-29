@@ -4,12 +4,14 @@ import com.github.quillraven.fleks.IntervalSystem
 import com.github.quillraven.fleks.World.Companion.inject
 import crazytower.core.GROUND_FLOOR
 import crazytower.core.Loc
+import crazytower.core.RoomRole
 import crazytower.core.Simulation
 import crazytower.core.Tenants
 
 /**
  * Lets tenants move into empty offices, homes and restaurants. A room only gets rented once
  * people can actually reach it from the street, so upper floors need stairs or an elevator.
+ * New flats find only a few buyers a day.
  */
 class TenantSystem(
     private val sim: Simulation = inject(),
@@ -25,6 +27,8 @@ class TenantSystem(
         for (room in sim.tower.allRooms) {
             if (!room.type.role.rentable || room.tenant != null) continue
             if (now - room.since < VACANCY_MINUTES || sim.random.nextFloat() > MOVE_IN_CHANCE) continue
+            // only a few buyers a day for flats that were never sold
+            if (room.type.role == RoomRole.HOME && !room.sold && sim.flatsSoldToday >= sim.flatBuyersPerDay) continue
             if (sim.nav.findPath(street, room.center) == null) continue
             val candidates = Tenants.candidates(room.type.role, sim.stars, sim.stage)
             if (candidates.isEmpty()) continue

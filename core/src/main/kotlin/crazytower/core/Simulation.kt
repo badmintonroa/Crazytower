@@ -55,7 +55,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     val nav = NavGraph(tower, listOf(StairsLinks, TeleporterLinks, elevators))
     val news = NewsFeed()
     var money: Long = startMoney
-        private set
+        internal set // test towers
 
     val finance = Finance()
 
@@ -288,7 +288,9 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         looksVersion++
         if (announce && room.type.role == RoomRole.HOME && tenant.salePrice > 0 && !room.sold) {
             room.sold = true
-            room.salePaid = (tenant.salePrice * starBonus).toLong()
+            // the price is fixed, no star bonus: a flat sells for what it cost to build, never more
+            room.salePaid = tenant.salePrice
+            flatsSoldToday++
             book(room.salePaid, MoneyKind.SALE, tenant.name, room.center)
         }
         val resident = room.type.role == RoomRole.HOME
@@ -423,12 +425,16 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             .sortedBy { it.minute }
     }
 
-    private fun homeFees(): Long = tower.allRooms.count { it.type.role == RoomRole.HOME && it.tenant != null && it.tenant!!.salePrice > 0 } * HOME_FEE
+    private fun homeFees(): Long = tower.allRooms.count { it.type.role == RoomRole.HOME && it.tenant != null && it.tenant!!.salePrice > 0 } * (HOME_FEE * starBonus).toLong()
 
     private fun upkeep(): Long = tower.allRooms.sumOf { (UPKEEP[it.type.role] ?: 0L) * (if (it.type.stretchable) it.width else 6) / 6 }
 
-    /** Midnight: maintenance, every few days the home fees, unhappy tenants move out, new star rating. */
+    /**
+     * Midnight: maintenance, every few days the home fees, unhappy tenants move out, new star
+     * rating. Stars only go up; a gloomy tower loses tenants instead.
+     */
     fun closeDay() {
+        flatsSoldToday = 0
         val leaving = ArrayList<Room>()
         for (room in tower.allRooms) {
             if (room.tenant == null) continue
@@ -450,15 +456,43 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             news.post("$name zieht aus. Grund: ${MOVE_OUT_REASONS[random.nextInt(MOVE_OUT_REASONS.size)]}", room.center, important = true)
         }
         val newStars = Rating.stars(population, satisfaction, hasFood)
-        if (newStars != stars) {
-            news.post(if (newStars > stars) "Der Turm hat jetzt $newStars Sterne! Neue Mieter werden neugierig." else "Ein Stern ist weg. Jemand hat ihn im Aufzug verloren.", important = true)
+        if (newStars > stars) {
+            news.post("Der Turm hat jetzt $newStars Sterne! Neue Mieter werden neugierig.", important = true)
             stars = newStars
+        }
+        moveOutUnhappiest(leaving)
+    }
+
+    /**
+     * Stars are never taken away. Instead, while the mood is below what the current stars ask
+     * for, the unhappiest tenants give up their rooms: one in twenty rooms each night, at least one.
+     */
+    private fun moveOutUnhappiest(alreadyLeaving: List<Room>) {
+        val needed = Rating.steps.firstOrNull { it.stars == stars }?.satisfaction ?: return
+        if (satisfaction >= needed) return
+        val rented = tower.allRooms.filter { it.tenant != null && it !in alreadyLeaving && clock.totalMinutes - it.since > MIN_STAY_MINUTES }
+        // those who left tonight anyway count towards it
+        val count = maxOf(1, (rented.size + alreadyLeaving.size) / 20) - alreadyLeaving.size
+        for (room in rented.sortedBy { moodOf(it) ?: 70f }.take(count.coerceAtLeast(0))) {
+            val name = room.tenant?.name ?: continue
+            moveOut(room)
+            news.post("$name zieht aus: zu schlechte Laune im Turm. ${MOVE_OUT_REASONS[random.nextInt(MOVE_OUT_REASONS.size)]}", room.center, important = true)
         }
     }
 
     private fun Long.fmt(): String = "%,d".format(this).replace(',', '.')
 
-    /** Tower rating, 0 to 5 stars. Updated every midnight. */
+    /** Flats sold since midnight; buyers are scarce, see [flatBuyersPerDay]. */
+    var flatsSoldToday: Int = 0
+        private set
+
+    /**
+     * How many flats can be sold in one day. A flat pays back its building cost when it is
+     * sold, so without this limit flats could be built and sold endlessly in one go.
+     */
+    val flatBuyersPerDay: Int get() = FLAT_BUYERS_BASE + stars
+
+    /** Tower rating, 0 to 5 stars. Updated every midnight; it only goes up. */
     var stars: Int = 0
         set(value) {
             field = value
@@ -483,7 +517,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
 
     /** Set when a VIP made it to her goal; needed for stage 5. */
     var vipSurvived: Boolean = false
-        private set
+        internal set
 
     val vipOnTheWay: Boolean get() = world.family { all(Vip) }.numEntities > 0
 
@@ -633,8 +667,9 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         const val VISITOR_MEAL_PRICE = 40L
 
         /** Every this many days each sold flat pays its fees. */
-        const val FEE_EVERY_DAYS = 3
-        const val HOME_FEE = 600L
+        const val FEE_EVERY_DAYS = 1
+        const val HOME_FEE = 300L
+        const val FLAT_BUYERS_BASE = 2
         const val UNHAPPY = 40f
         const val MOVE_OUT = 25f
         const val MIN_STAY_MINUTES = 2 * 1440.0
