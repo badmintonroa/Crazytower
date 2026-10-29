@@ -163,7 +163,7 @@ private fun Simulation.spawnVip(): Boolean {
     val target = tower.allRooms.filter { it.tenant != null }.maxByOrNull { it.floor } ?: return false
     world.entity {
         it += Position(GROUND_FLOOR, 0f)
-        it += Person("Frau Dr. Wichtig", "official")
+        it += Person("Frau Dr. Wichtig", "npc_vip")
         it += Visitor(stopsLeft = 0)
         it += Vip(since = clock.totalMinutes)
         it += Goal(spotIn(target))

@@ -11,7 +11,10 @@ import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
-/** Room art from the 4x atlas (576x192 per 6 segments) and people sprite sheets (three 12x24 frames). */
+/**
+ * Room art from the 4x atlas (576x192 per 6 segments) and people sprite sheets: three
+ * frames side by side, 12x24 each, or any multiple of that (48x96 for 4x art).
+ */
 class Assets private constructor(
     private val rooms: Map<String, BmpSlice>,
     private val people: Map<String, List<BmpSlice>>,
@@ -23,10 +26,12 @@ class Assets private constructor(
     /** Frame 0 = standing, 1 and 2 = walking. */
     fun person(look: String, frame: Int): BmpSlice = (people[look] ?: people.getValue("casual"))[frame]
 
+    /** Scale that shows a person frame [times] its native 12x24 size, whatever resolution the sheet has. */
+    fun personScale(look: String, times: Double): Double = times * PERSON_H / person(look, 0).height
+
     companion object {
         const val FALLBACK_ROOM = "office_empty"
         const val ROOM_ART_SCALE = 4
-        const val PERSON_W = 12
         const val PERSON_H = 24
 
         private suspend fun index(folder: String): List<String> =
@@ -49,7 +54,8 @@ class Assets private constructor(
             val rooms = loadAtlas("rooms/atlas") + loadAtlas("rooms/extra") + loadAtlas("rooms/night")
             val people = index("people").associateWith { name ->
                 val sheet = resourcesVfs["people/$name.png"].readBitmap()
-                (0 until 3).map { sheet.slice(RectangleInt(it * PERSON_W, 0, PERSON_W, PERSON_H)) }
+                val w = sheet.width / 3
+                (0 until 3).map { sheet.slice(RectangleInt(it * w, 0, w, sheet.height)) }
             }
             return Assets(rooms, people)
         }

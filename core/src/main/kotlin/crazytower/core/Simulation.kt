@@ -252,10 +252,11 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             book(room.salePaid, MoneyKind.SALE, tenant.name, room.center)
         }
         val resident = room.type.role == RoomRole.HOME
+        val firstLook = room.id // rooms of the same tenant start their crew at different people
         repeat(room.type.capacity) { i ->
             world.entity {
                 it += Position(GROUND_FLOOR, 0f)
-                it += Person(Names.random(random), tenant.look)
+                it += Person(Names.random(random), tenant.lookFor(firstLook + i))
                 it += Member(room.id, resident)
                 it += Schedule(tenant.plan, offset = random.nextInt(-40, 41), crew = i % tenant.plan.crews, seed = random.nextInt(1_000_000))
                 it += Away(clock.totalMinutes)
@@ -590,6 +591,6 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             "Das Horoskop hat abgeraten.",
         )
         const val STEP_MINUTES = 0.1
-        val VISITOR_LOOKS = listOf("tourist", "suit", "courier", "casual")
+        val VISITOR_LOOKS = listOf("npc_tourist", "npc_tourist", "npc_courier", "npc_pizza", "npc_janitor", "npc_office_blazer", "npc_office_sleeves")
     }
 }
