@@ -2,9 +2,11 @@ package crazytower.game
 
 import crazytower.core.Settings
 import crazytower.core.Simulation
+import crazytower.core.TestTower
 import korlibs.event.Key
 import korlibs.korge.input.keys
 import korlibs.korge.scene.Scene
+import korlibs.io.async.launchImmediately
 import korlibs.korge.view.Container
 import korlibs.korge.view.SContainer
 import korlibs.korge.view.container
@@ -13,8 +15,11 @@ import korlibs.korge.view.addTo
 import korlibs.korge.view.addUpdater
 import korlibs.korge.view.onStageResized
 
-/** The game screen. [loaded] is a simulation from a save game; without one a new tower starts. */
-class GameScene(private val assets: Assets, private val loaded: Simulation? = null) : Scene() {
+/**
+ * The game screen. [loaded] is a simulation from a save game; without one a new tower starts.
+ * A [test] tower is never saved, so it cannot overwrite the real game.
+ */
+class GameScene(private val assets: Assets, private val loaded: Simulation? = null, private val test: Boolean = false) : Scene() {
     private lateinit var tower: TowerView
     private var hud: Hud? = null
 
@@ -26,14 +31,30 @@ class GameScene(private val assets: Assets, private val loaded: Simulation? = nu
     private lateinit var screenRoot: Container
 
     override suspend fun SContainer.sceneMain() {
-        val sim = loaded ?: Simulation(seed = System.currentTimeMillis())
+        // CRAZYTOWER_TEST=<stage> starts a test tower right away (for screenshots)
+        val sim = loaded ?: System.getenv("CRAZYTOWER_TEST")?.toIntOrNull()?.let { TestTower.build(it) }
+            ?: Simulation(seed = System.currentTimeMillis())
         val game = GameController(sim)
         screenRoot = container()
         val (w, h) = fitScreen(views)
         tower = TowerView(sim, game, assets, w, h).addTo(screenRoot)
         val hud = layoutHud(sim, game, w, h)
         Autopilot.attachIfRequested(this, sim, game, tower, hud)
-        game.say(if (loaded != null) "Spielstand geladen" else "F5 speichert, F9 lädt", 4.0)
+        game.say(
+            when {
+                test -> "Testturm Stufe ${sim.stage}: wird nicht gespeichert, F9 holt dein Spiel zurück"
+                loaded != null -> "Spielstand geladen"
+                else -> "F5 speichert, F9 lädt"
+            },
+            5.0,
+        )
+        game.onTestTower = { stage ->
+            // the real game is saved first, so F9 brings it back
+            if (!test) SaveSlot.save(sim)
+            launchImmediately {
+                sceneContainer.changeTo { GameScene(assets, TestTower.build(stage, seed = System.currentTimeMillis()), test = true) }
+            }
+        }
 
         // window resized or options changed: no black bars, the HUD is laid out again
         onStageResized(firstTrigger = false) { _, _ -> relayout(views, sim, game) }
@@ -45,7 +66,7 @@ class GameScene(private val assets: Assets, private val loaded: Simulation? = nu
         }
 
         keys {
-            down(Key.F5) { game.say(SaveSlot.save(sim)) }
+            down(Key.F5) { game.say(if (test) "Testtürme werden nicht gespeichert" else SaveSlot.save(sim)) }
             down(Key.F9) {
                 val (restored, message) = SaveSlot.load()
                 if (restored == null) game.say(message) else sceneContainer.changeTo { GameScene(assets, restored) }
@@ -82,7 +103,7 @@ class GameScene(private val assets: Assets, private val loaded: Simulation? = nu
 
     private fun autosave(sim: Simulation, game: GameController) {
         val every = Options.current.autosaveDays
-        if (every <= 0 || sim.clock.day % every != 0 || Autopilot.active) return
+        if (every <= 0 || sim.clock.day % every != 0 || Autopilot.active || test) return
         val message = SaveSlot.save(sim)
         game.say(if (message.startsWith("Gespeichert")) "Automatisch gespeichert" else message)
     }

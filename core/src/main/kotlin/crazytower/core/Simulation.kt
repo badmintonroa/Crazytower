@@ -55,7 +55,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     val nav = NavGraph(tower, listOf(StairsLinks, TeleporterLinks, elevators))
     val news = NewsFeed()
     var money: Long = startMoney
-        private set
+        internal set // test towers
 
     val finance = Finance()
 
@@ -483,7 +483,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
 
     /** Set when a VIP made it to her goal; needed for stage 5. */
     var vipSurvived: Boolean = false
-        private set
+        internal set
 
     val vipOnTheWay: Boolean get() = world.family { all(Vip) }.numEntities > 0
 

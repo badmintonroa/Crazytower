@@ -47,7 +47,7 @@ class Hud(
     private val finance = FinanceWindow(sim) { game.financeOpen = false }.addTo(this).also {
         it.xy((screenWidth - it.panelWidth) / 2, 96.0)
     }
-    private val options = OptionsWindow { game.optionsOpen = false }.addTo(this).also {
+    private val options = OptionsWindow(onTestTower = { game.onTestTower(it) }) { game.optionsOpen = false }.addTo(this).also {
         it.xy((screenWidth - it.panelWidth) / 2, ((screenHeight - it.panelHeight) / 2).coerceAtLeast(84.0))
     }
     private val celebration = Celebration(screenWidth, screenHeight).addTo(this)
