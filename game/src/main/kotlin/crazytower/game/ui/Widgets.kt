@@ -126,7 +126,7 @@ fun VectorBuilder.chamferPath(w: Double, h: Double, cut: Double, inset: Double) 
 }
 
 /** A button with a single centred text label. */
-class TextButton(width: Double, height: Double, title: String, size: Double = 15.0, font: Font = Theme.pixel, onPress: () -> Unit) :
+class TextButton(width: Double, height: Double, title: String, size: Double = 15.0, font: Font = Theme.bodyBold, onPress: () -> Unit) :
     Button(width, height, onPress) {
     val text: Text = content.text(title, textSize = size, color = Theme.TEXT, font = font)
 

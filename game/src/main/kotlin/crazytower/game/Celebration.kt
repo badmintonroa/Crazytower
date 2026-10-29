@@ -73,7 +73,7 @@ class Celebration(private val screenWidth: Double, private val screenHeight: Dou
         val row = card.container()
         for (i in 0 until 5) Icons.star(row, i < stars, 48.0).xy(i * 56.0, 0.0)
         row.xy((width - 5 * 56.0 + 8) / 2, 28.0)
-        val heading = card.label(title, 30.0, Theme.GOLD, Theme.pixel)
+        val heading = card.label(title, 30.0, Theme.GOLD, Theme.bodyBold)
         heading.xy((width - heading.width) / 2, 96.0)
         var y = 144.0
         for (line in text) {

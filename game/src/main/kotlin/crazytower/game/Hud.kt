@@ -111,7 +111,7 @@ class Hud(
         }
         box(200.0) {
             coin(this, 16.0, 19.0)
-            moneyText = label("", 20.0, Theme.TEXT, Theme.pixel).also { it.xy(46.0, 9.0) }
+            moneyText = label("", 20.0, Theme.TEXT, Theme.bodyBold).also { it.xy(46.0, 9.0) }
             nextText = label("", 11.0, Theme.TEXT_DIM).also { it.xy(46.0, 36.0) }
             // the money opens the finance window
             onClick { game.financeOpen = !game.financeOpen }
@@ -119,21 +119,21 @@ class Hud(
         box(160.0) {
             solidRect(8.0, 8.0, Theme.alpha(Theme.SELECT, 0.9)).xy(20.0, 18.0)
             solidRect(14.0, 12.0, Theme.alpha(Theme.SELECT, 0.6)).xy(17.0, 28.0)
-            popText = label("", 20.0, Theme.TEXT, Theme.pixel).also { it.xy(42.0, 17.0) }
+            popText = label("", 20.0, Theme.TEXT, Theme.bodyBold).also { it.xy(42.0, 17.0) }
             label("Bewohner", 12.0, Theme.TEXT_DIM).xy(95.0, 14.0)
             moodText = label("", 12.0, Theme.TEXT_DIM).also { it.xy(95.0, 30.0) }
         }
         val stageWidth = screenWidth - 24 - x - 150 - 10 - 254 - 10 - 60
         box(stageWidth) {
             stars = container { xy(16.0, 20.0) }
-            stageText = label("", 16.0, Theme.TEXT, Theme.pixel).also { it.xy(140.0, 12.0) }
+            stageText = label("", 16.0, Theme.TEXT, Theme.bodyBold).also { it.xy(140.0, 12.0) }
             stageHint = label("", 12.0, Theme.TEXT_DIM).also { it.xy(140.0, 34.0) }
             stageBarWidth = stageWidth - 156.0
             stageBar = graphics { }.also { it.xy(140.0, 50.0) }
         }
         box(150.0) {
             sun(this, 16.0, 19.0)
-            clockText = label("", 18.0, Theme.TEXT, Theme.pixel).also { it.xy(46.0, 18.0) }
+            clockText = label("", 18.0, Theme.TEXT, Theme.bodyBold).also { it.xy(46.0, 18.0) }
         }
         box(254.0) {
             val speeds = GameController.SPEEDS.map { it to if (it == 0) "II" else "$it×" }
@@ -175,7 +175,7 @@ class Hud(
             val b = Button(68.0, 68.0) { game.openCategory(category); refreshFlyout(force = true) }
             val icon = b.content.graphics { }.also { it.xy(21.0, 10.0) }
             val name = b.content.label(category.label, 11.0, Theme.TEXT, Theme.bodyBold)
-            val key = b.content.label("${i + 1}", 11.0, Theme.TEXT_DIM, Theme.pixel).also { it.xy(56.0, 3.0) }
+            val key = b.content.label("${i + 1}", 11.0, Theme.TEXT_DIM, Theme.bodyBold).also { it.xy(56.0, 3.0) }
             b.onRestyle = {
                 Icons.draw(icon, category, it.ink)
                 name.color = it.ink
@@ -205,7 +205,7 @@ class Hud(
         }
         flyout.visible = true
         val bg = Panel(270.0, 100.0).addTo(flyout)
-        flyout.label(category.label.uppercase(), 20.0, Theme.TEXT, Theme.pixel).xy(14.0, 12.0)
+        flyout.label(category.label.uppercase(), 20.0, Theme.TEXT, Theme.bodyBold).xy(14.0, 12.0)
         flyout.label("Esc schließt", 12.0, Theme.TEXT_DIM).xy(180.0, 18.0)
         var y = 44.0
         if (category == Category.DEMOLISH) {
@@ -251,7 +251,7 @@ class Hud(
             }
             val name = content.label(type.name, 15.0, Theme.TEXT, Theme.bodyBold).also { it.xy(92.0, 12.0) }
             val sub = content.label(
-                if (!unlocked) "AB STUFE ${type.minStage}" else if (type.stretchable) "${formatMoney(type.cost)}/FELD" else formatMoney(type.cost), 13.0, Theme.TEXT, Theme.pixel,
+                if (!unlocked) "AB STUFE ${type.minStage}" else if (type.stretchable) "${formatMoney(type.cost)}/FELD" else formatMoney(type.cost), 13.0, Theme.TEXT, Theme.bodyBold,
             ).also { it.xy(92.0, 33.0) }
             onRestyle = { name.color = it.ink; sub.color = it.ink }
             onRestyle(this)
@@ -264,7 +264,7 @@ class Hud(
         ticker.solidRect(screenWidth, 50.0, Theme.INK)
         ticker.solidRect(screenWidth, 2.0, Theme.SELECT)
         val badge = Panel(150.0, 28.0, Theme.ALARM, 6.0).addTo(ticker).also { it.xy(12.0, 11.0) }
-        badge.label("TOWER-TICKER", 15.0, Theme.ON_SELECT, Theme.pixel).xy(14.0, 4.0)
+        badge.label("TOWER-TICKER", 15.0, Theme.ON_SELECT, Theme.bodyBold).xy(14.0, 4.0)
         tickerClip = ticker.clipContainer(Size(screenWidth - 180.0, 50.0)) { xy(172.0, 0.0) }
         tickerText = tickerClip.label("", 15.0, Theme.TEXT).also { it.y = 15.0 }
         tickerClip.onClick { e ->

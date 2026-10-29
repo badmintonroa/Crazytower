@@ -21,7 +21,7 @@ class FinanceWindow(private val sim: Simulation, private val onClose: () -> Unit
     private var shownMinute = -1
 
     init {
-        label("FINANZEN", 20.0, Theme.TEXT, Theme.pixel).xy(18.0, 14.0)
+        label("FINANZEN", 20.0, Theme.TEXT, Theme.bodyBold).xy(18.0, 14.0)
         label("F oder Esc schließt", 12.0, Theme.TEXT_DIM).xy(panelWidth - 140.0, 20.0)
         TextButton(110.0, 36.0, "Schließen") { onClose() }.addTo(this).xy(panelWidth - 128.0, panelHeight - 50.0)
     }
@@ -46,7 +46,7 @@ class FinanceWindow(private val sim: Simulation, private val onClose: () -> Unit
             val m = item.minute % GameClock.MINUTES_PER_DAY
             val time = (if (day == today) "" else if (day == today + 1) "morgen " else "${GameClock.WEEKDAYS[day % 7]} ") +
                 "%02d:%02d".format(m / 60, m % 60)
-            body.label(time, 12.0, Theme.TEXT_DIM, Theme.pixel).xy(18.0, y)
+            body.label(time, 12.0, Theme.TEXT_DIM, Theme.bodyBold).xy(18.0, y)
             body.label(item.label.take(26), 13.0, Theme.TEXT).xy(110.0, y - 1)
             val amount = (if (item.amount > 0) "+" else "") + formatMoney(item.amount)
             val text = body.label(amount, 13.0, if (item.amount >= 0) Theme.GOOD else Theme.ALARM, Theme.bodyBold)

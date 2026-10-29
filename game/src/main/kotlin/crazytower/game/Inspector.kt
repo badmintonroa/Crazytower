@@ -87,13 +87,13 @@ class Inspector(private val sim: Simulation, private val game: GameController, p
         when {
             art != null -> {
                 image(assets.room(art)) { scale = minOf(96.0 / bitmap.width, 32.0 / bitmap.height); xy(16.0, y) }
-                label(title.uppercase(), 18.0, Theme.TEXT, Theme.pixel).xy(16.0, y + 42)
+                label(title.uppercase(), 18.0, Theme.TEXT, Theme.bodyBold).xy(16.0, y + 42)
                 label(subtitle, 12.0, Theme.TEXT_DIM).xy(16.0, y + 66)
                 y += 92.0
             }
             look != null -> {
                 image(assets.person(look, 0)) { scale = assets.personScale(look, 2.0); smoothing = scale < 1.0; xy(16.0, y) }
-                label(title.uppercase(), 18.0, Theme.TEXT, Theme.pixel).xy(52.0, y + 6)
+                label(title.uppercase(), 18.0, Theme.TEXT, Theme.bodyBold).xy(52.0, y + 6)
                 label(subtitle, 12.0, Theme.TEXT_DIM).xy(52.0, y + 30)
                 y += 60.0
             }

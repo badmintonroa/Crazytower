@@ -6,7 +6,7 @@ import korlibs.image.font.TtfFont
 import korlibs.image.font.readTtfFont
 import korlibs.io.file.std.resourcesVfs
 
-/** Colours and fonts from the UI design (dark panels, teal = selected, pink = alarm). */
+/** Colours and fonts from the UI design (dark panels, teal = selected, pink = alarm). All text uses Space Grotesk: the pixel font was hard to read. */
 object Theme {
     val SKY = Colors["#2B3A67"]
     val SKY_FAR = Colors["#24325A"]
@@ -34,12 +34,10 @@ object Theme {
 
     fun alpha(color: RGBA, a: Double): RGBA = color.withAd(a)
 
-    lateinit var pixel: TtfFont
     lateinit var body: TtfFont
     lateinit var bodyBold: TtfFont
 
     suspend fun loadFonts() {
-        pixel = resourcesVfs["fonts/PixelifySans-Bold.ttf"].readTtfFont()
         body = resourcesVfs["fonts/SpaceGrotesk-Medium.ttf"].readTtfFont()
         bodyBold = resourcesVfs["fonts/SpaceGrotesk-Bold.ttf"].readTtfFont()
     }
