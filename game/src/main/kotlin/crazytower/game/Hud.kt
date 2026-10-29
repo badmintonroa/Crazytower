@@ -223,7 +223,7 @@ class Hud(
                 y += 30.0
             }
             for (type in types) {
-                val card = ItemCard(type, sim.stage >= type.minStage)
+                val card = ItemCard(type, sim.stage >= type.minStage && sim.bestStars >= type.minStars)
                 card.xy(14.0, y)
                 flyout.addChild(card)
                 y += card.cardHeight + 6
@@ -261,7 +261,7 @@ class Hud(
             }
             val name = content.label(type.name, 15.0, Theme.TEXT, Theme.bodyBold).also { it.xy(92.0, 12.0) }
             val sub = content.label(
-                if (!unlocked) "AB STUFE ${type.minStage}" else if (type.stretchable) "${formatMoney(type.cost)}/FELD" else formatMoney(type.cost), 13.0, Theme.TEXT, Theme.bodyBold,
+                if (!unlocked) (if (sim.stage < type.minStage) "AB STUFE ${type.minStage}" else "AB ${type.minStars} STERNEN") else if (type.perSegment) "${formatMoney(type.cost)}/FELD" else formatMoney(type.cost), 13.0, Theme.TEXT, Theme.bodyBold,
             ).also { it.xy(92.0, 33.0) }
             val lines = info.mapIndexed { i, line -> content.label(line, 12.0, Theme.TEXT_DIM).also { it.xy(12.0, 60.0 + i * 17.0) } }
             onRestyle = { b ->
@@ -297,6 +297,11 @@ class Hud(
                 "${type.capacity} Angestellte, Pflicht für Stern 3",
                 "Miete pro Tag: ${range(tenants.map { it.rentPerDay })}",
                 "plus ${formatMoney(Simulation.MEAL_PRICE)}–${formatMoney(Simulation.VISITOR_MEAL_PRICE)} pro Essen",
+            )
+            RoomRole.PARKING -> listOf(
+                "${Simulation.CARS_PER_PARKING} Autos, eins pro ${Simulation.PEOPLE_PER_CAR} Leute im Turm",
+                "${formatMoney((Simulation.PARKING_FEE * sim.starBonus).toLong())} pro Auto und Tag",
+                "nur im Keller",
             )
             else -> emptyList()
         }

@@ -22,7 +22,8 @@ object TestTower {
         sim.eventsEnabled = false
         sim.stage = stage
         sim.stars = stage.coerceIn(0, 5)
-        val width = sim.tower.width
+        // only the first lot is filled, so the tower stays smooth and the plots bought later are free to try out
+        val width = Lot.steps.first().width
         sim.build(sim.planLobby(0, width - 1))
         val floors = FLOORS[stage.coerceIn(0, FLOORS.lastIndex)].coerceAtMost(Stages.info(stage).maxFloor - 1)
         for (floor in 1..floors) {
@@ -35,6 +36,7 @@ object TestTower {
             }
             if (x < width) sim.build(Catalog.CORRIDOR, floor, x, width - x)
         }
+        if (sim.basementOpen) sim.build(Catalog.PARKING, -1, 8)
         // elevators: each shaft covers SHAFT_FLOORS floors, the next one starts where it ends
         for (column in COLUMNS) {
             column.forEachIndexed { k, x ->

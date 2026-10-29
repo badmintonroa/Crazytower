@@ -15,6 +15,7 @@ class BuildDragTest {
         assertTrue(sim.checkPlace(Catalog.LOBBY, GROUND_FLOOR, 10).ok)
         assertTrue(sim.checkPlace(Catalog.ELEVATOR, GROUND_FLOOR, 10).ok)
         assertTrue(sim.checkPlace(Catalog.STAIRS, GROUND_FLOOR, 10).ok)
+        sim.stars = Lot.BASEMENT_STARS
         assertTrue(sim.checkPlace(Catalog.OFFICE, -1, 10).ok, "the basement is free for anything")
     }
 

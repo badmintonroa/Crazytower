@@ -34,6 +34,9 @@ enum class RoomRole {
 
     /** Teleporters connect to each other, wherever they are. */
     TELEPORTER,
+
+    /** Underground car park; earns parking fees for the cars of the people in the tower. */
+    PARKING,
     ;
 
     /** Rooms that get a tenant. */
@@ -60,13 +63,22 @@ data class RoomType(
     val width: Int,
     val cost: Long,
     val minStage: Int = 0,
+    /** The tower needs to have reached this many stars. */
+    val minStars: Int = 0,
+    /** Only in the basement. */
+    val basementOnly: Boolean = false,
     val art: String,
     val capacity: Int = 0,
     val description: String = "",
     val stretchable: Boolean = false,
+    /** Fills the whole gap it is clicked into, see [Simulation.planGap]. */
+    val fillsGap: Boolean = false,
 ) {
+    /** Priced per segment rather than per room. */
+    val perSegment: Boolean get() = stretchable || fillsGap
+
     /** What a room of this type with [width] segments costs. */
-    fun price(width: Int = this.width): Long = if (stretchable) cost * width else cost
+    fun price(width: Int = this.width): Long = if (perSegment) cost * width else cost
 }
 
 object Catalog {
@@ -79,6 +91,11 @@ object Catalog {
         id = "corridor", name = "Flur", category = Category.WAYS, role = RoomRole.CORRIDOR,
         width = 6, cost = 500, art = "corridor",
         description = "Begehbarer Boden für die oberen Etagen.",
+    )
+    val FILLER = RoomType(
+        id = "filler", name = "Lückenfüller", category = Category.WAYS, role = RoomRole.CORRIDOR,
+        width = 1, cost = 300, art = "corridor", fillsGap = true,
+        description = "Klick in eine Lücke füllt sie ganz mit Flur, bis ${Simulation.MAX_GAP} Felder. Für Bauherren mit Augenmaß.",
     )
     val STAIRS = RoomType(
         id = "stairs", name = "Treppe", category = Category.WAYS, role = RoomRole.STAIRS,
@@ -127,8 +144,14 @@ object Catalog {
         description = "Für Besuch von ganz weit weg.",
     )
 
+    val PARKING = RoomType(
+        id = "parking", name = "Parkhaus", category = Category.SPECIAL, role = RoomRole.PARKING,
+        width = 6, cost = 60_000, minStars = Lot.BASEMENT_STARS, basementOnly = true, art = "special_parking",
+        description = "Nur im Keller. Parkgebühren für die Autos der Leute im Turm. Ein Auto parkt seit 1987 quer.",
+    )
+
     val roomTypes: List<RoomType> =
-        listOf(LOBBY, CORRIDOR, STAIRS, ELEVATOR, OFFICE, HOME, FOOD, COPYROOM, SECURITY, TELEPORTER, UFO_PAD)
+        listOf(LOBBY, CORRIDOR, FILLER, STAIRS, ELEVATOR, OFFICE, HOME, FOOD, COPYROOM, SECURITY, TELEPORTER, UFO_PAD, PARKING)
 
     fun type(id: String): RoomType = roomTypes.first { it.id == id }
 }

@@ -34,7 +34,7 @@ class ScheduleSystem(
             if (!inside) return
             val fromLeft = sim.random.nextBoolean()
             pos.floor = GROUND_FLOOR
-            pos.x = if (fromLeft) 0f else sim.tower.width - 0.01f
+            pos.x = if (fromLeft) 0f else sim.lotWidth - 0.01f
             entity.configure { it -= Away }
             sim.goTo(entity, sim.spotIn(room), Activity.ARRIVING)
             return
