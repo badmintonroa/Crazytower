@@ -6,7 +6,7 @@ import kotlin.test.assertTrue
 /**
  * Plays 30 days like a sensible player: a lobby, an elevator through the middle, then every
  * hour the next room as soon as there is money for it, and more cabins when the stars allow. Checks that the start money runs out
- * quickly but the tower keeps paying for new rooms.
+ * quickly but the tower keeps paying for new rooms, slowly at first.
  */
 class BalanceTest {
     private class Player(val sim: Simulation) {
@@ -62,10 +62,11 @@ class BalanceTest {
             val firstDay = player.built.count { it == 0 }
             assertTrue(firstDay in 3..6, "the start money buys a handful of rooms, built $firstDay")
             val full = player.built.size == 36
-            assertTrue(full && player.built.last() <= 15, "the first ten floors are full within 15 days, last room on day ${player.built.lastOrNull()}")
+            // flats sell below their building cost, so growth is paid by rents over time, not by quick sales
+            assertTrue(full && player.built.last() in 12..25, "the first ten floors fill up in two to four weeks, last room on day ${player.built.lastOrNull()}")
         }
         val firstWeek = games.map { p -> p.built.count { it in 1..7 } }
-        assertTrue(firstWeek.average() >= 10, "then the rent pays for more than a room a day, built $firstWeek in days 1 to 7")
+        assertTrue(firstWeek.average() >= 4, "then the rent pays for a new room every day or two, built $firstWeek in days 1 to 7")
     }
 
     companion object {

@@ -2,6 +2,7 @@ package crazytower.core
 
 import crazytower.core.ecs.Person
 import crazytower.core.ecs.Position
+import crazytower.core.ecs.Schedule
 import crazytower.core.ecs.Stuck
 import crazytower.core.ecs.Visitor
 import kotlin.test.Test
@@ -60,6 +61,29 @@ class SimulationTest {
         }
         assertEquals(crazytower.core.ecs.VisitorSpawnSystem.BASE_VISITORS + 3 * crazytower.core.ecs.VisitorSpawnSystem.VISITORS_PER_TENANT,
             crazytower.core.ecs.VisitorSpawnSystem.maxVisitors(sim, 4))
+    }
+
+    @Test
+    fun aGloomyTowerKeepsItsStarsButLosesItsUnhappiestTenant() {
+        val sim = Simulation(seed = 3, startMoney = 1_000_000).apply { eventsEnabled = false }
+        sim.build(sim.planLobby(20, 37))
+        val rooms = listOf(sim.buildReachable(Catalog.OFFICE, 20)) + listOf(26, 32).map { sim.build(Catalog.OFFICE, 1, it).room!! }
+        rooms.forEach { sim.moveIn(it, Tenants.byId("accountant")) }
+        sim.stars = 2
+        rooms.forEachIndexed { i, room ->
+            room.since = sim.clock.totalMinutes - Simulation.MIN_STAY_MINUTES - 1
+            with(sim.world) { sim.membersOf(room.id).forEach { it[Schedule].mood = 30f + i * 5 } }
+        }
+        sim.closeDay()
+        assertEquals(2, sim.stars, "stars are never taken away")
+        assertEquals(null, rooms[0].tenant, "the unhappiest tenant gives up the room")
+        assertTrue(rooms[1].tenant != null && rooms[2].tenant != null)
+    }
+
+    @Test
+    fun aFlatSellsForLessThanItCosts() {
+        val dearest = Tenants.all.filter { it.role == RoomRole.HOME }.maxOf { it.salePrice }
+        assertTrue(dearest < Catalog.HOME.cost, "flats earn through the fees, not the sale")
     }
 
     @Test

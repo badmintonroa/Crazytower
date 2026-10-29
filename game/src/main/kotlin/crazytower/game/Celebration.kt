@@ -41,7 +41,7 @@ class Celebration(private val screenWidth: Double, private val screenHeight: Dou
             title = if (stars == 1) "1 STERN" else "$stars STERNE",
             lines = listOf(
                 "Der Turm spricht sich herum.",
-                if (bonus > 0) "Alle Mieten und Kaufpreise jetzt +$bonus %." else "",
+                if (bonus > 0) "Alle Mieten und Nebenkosten jetzt +$bonus %." else "",
             ),
             stars = stars,
             seconds = 4.5,

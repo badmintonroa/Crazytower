@@ -276,17 +276,17 @@ class Hud(
     /** Who a room of [type] brings into the tower and how it pays, for the tenants that would come now. */
     private fun roomInfo(type: RoomType): List<String> {
         val tenants = Tenants.candidates(type.role, sim.stars, sim.stage)
-        fun range(values: List<Long>): String {
+        fun range(values: List<Long>, bonus: Double = sim.starBonus): String {
             if (values.isEmpty()) return "–"
-            val low = (values.min() * sim.starBonus).toLong()
-            val high = (values.max() * sim.starBonus).toLong()
+            val low = (values.min() * bonus).toLong()
+            val high = (values.max() * bonus).toLong()
             return if (low == high) formatMoney(low) else "${formatNumber(low)}–${formatMoney(high)}"
         }
         return when (type.role) {
             RoomRole.HOME -> listOf(
                 "${type.capacity} Bewohner ziehen ein",
-                "Verkauf einmalig: ${range(tenants.map { it.salePrice })}",
-                "dann ${formatMoney(Simulation.HOME_FEE)} Nebenkosten alle ${Simulation.FEE_EVERY_DAYS} Tage",
+                "Verkauf einmalig: ${range(tenants.map { it.salePrice }, bonus = 1.0)}",
+                "dann ${formatMoney((Simulation.HOME_FEE * sim.starBonus).toLong())} alle ${Simulation.FEE_EVERY_DAYS} Tage",
             )
             RoomRole.OFFICE -> listOf(
                 "${type.capacity} Angestellte, kommen zur Arbeit",
