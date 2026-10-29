@@ -5,6 +5,8 @@ import korlibs.korge.scene.sceneContainer
 import korlibs.math.geom.Size
 
 suspend fun main() {
+    // CRAZYTOWER_SOUNDS=<folder> writes all sounds as WAV files and quits
+    System.getenv("CRAZYTOWER_SOUNDS")?.let { Sfx.exportWav(java.io.File(it)); return }
     val settings = Options.current
     val (vw, vh) = settings.virtualSize(settings.windowWidth, settings.windowHeight)
     Korge(

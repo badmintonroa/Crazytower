@@ -188,6 +188,7 @@ class TowerView(
         while (fresh.isNotEmpty()) {
             val payment = fresh.removeFirst()
             val where = payment.where ?: continue
+            if (payment.amount > 0) Sfx.play(Sfx.CASH, gapMillis = 400)
             if (!Options.current.moneyPopups) continue
             val text = (if (payment.amount > 0) "+" else "") + formatMoney(payment.amount)
             val view = overlay.text(text, textSize = 22.0, color = if (payment.amount > 0) Theme.GOOD else Theme.ALARM, font = Theme.pixel)
@@ -587,6 +588,7 @@ class TowerView(
                     val modules = sim.planRetract(grabbedEnd!!, h.floor)
                     if (modules.isNotEmpty()) {
                         val refund = sim.demolishAll(modules)
+                        Sfx.play(Sfx.DEMOLISH)
                         game.say("${tool.type.name} um ${modules.size} ${if (modules.size == 1) "Etage" else "Etagen"} gekürzt, ${formatMoney(refund)} zurück")
                     } else {
                         val plan = planFor(tool.type, h)
@@ -597,7 +599,7 @@ class TowerView(
                 else -> {
                     val x = BuildRules.snapX(h.segment, tool.type.width, sim.tower.width)
                     val result = sim.build(tool.type, h.floor, x)
-                    if (!result.ok) game.say(result.reason)
+                    feedback(result.ok, result.reason)
                 }
             }
             Tool.Demolish -> {
@@ -605,8 +607,10 @@ class TowerView(
                 val blocked = room?.let { sim.checkDemolish(it) }
                 if (room != null && blocked != null && !blocked.ok) {
                     game.say(blocked.reason)
+                    Sfx.play(Sfx.ERROR)
                 } else if (room != null) {
                     val refund = sim.demolish(room.id)
+                    Sfx.play(Sfx.DEMOLISH)
                     game.say("${room.type.name} abgerissen, ${formatMoney(refund)} zurück")
                 }
             }
@@ -616,7 +620,26 @@ class TowerView(
 
     private fun build(plan: BuildPlan) {
         val result = sim.build(plan)
-        if (!result.ok) game.say(result.reason)
+        feedback(result.ok, result.reason)
+    }
+
+    private fun feedback(ok: Boolean, reason: String) {
+        if (ok) {
+            Sfx.play(Sfx.BUILD)
+        } else {
+            game.say(reason)
+            Sfx.play(Sfx.ERROR)
+        }
+    }
+
+    /** Every tenant sounds different when clicked; ways ding, empty rooms sound hollow. */
+    private fun roomSound(room: Room): String {
+        val tenant = room.tenant?.id
+        return when {
+            tenant != null && Sfx.has(tenant) -> tenant
+            room.type.role.isWay || room.type.role == RoomRole.LOBBY -> Sfx.DING
+            else -> Sfx.EMPTY
+        }
     }
 
     private fun select(h: Hover) {
@@ -639,6 +662,10 @@ class TowerView(
             best != null -> Selection.PersonSel(best!!)
             room != null -> Selection.RoomSel(room.id)
             else -> null
+        }
+        when {
+            best != null -> Sfx.play(Sfx.CLICK)
+            room != null -> Sfx.play(roomSound(room))
         }
     }
 }

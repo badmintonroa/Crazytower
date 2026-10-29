@@ -1,5 +1,6 @@
 package crazytower.game.ui
 
+import crazytower.game.Sfx
 import crazytower.game.Theme
 import korlibs.image.color.RGBA
 import korlibs.image.font.Font
@@ -75,7 +76,7 @@ open class Button(val buttonWidth: Double, val buttonHeight: Double, private val
         onOut { hovered = false; pressed = false; redraw() }
         onDown { if (enabled) { pressed = true; redraw() } }
         onUpAnywhere { pressed = false; redraw() }
-        onClick { if (enabled) onPress() }
+        onClick { if (enabled) { Sfx.play(Sfx.CLICK); onPress() } }
         redraw()
     }
 

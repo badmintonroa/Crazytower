@@ -14,7 +14,7 @@ import kotlin.system.exitProcess
 
 /**
  * Development helper: with CRAZYTOWER_SCREENSHOT=<file.png> the game builds a demo tower,
- * lets it run for a while, saves a screenshot and quits (CRAZYTOWER_FINANCE=1 opens the finance window, CRAZYTOWER_OPTIONS=1 the options). Used to check the rendering
+ * lets it run for a while, saves a screenshot and quits (CRAZYTOWER_FINANCE=1 opens the finance window, CRAZYTOWER_OPTIONS=1 the options, CRAZYTOWER_CELEBRATE=star or stage the celebration). Used to check the rendering
  * on machines without a screen.
  */
 object Autopilot {
@@ -30,6 +30,7 @@ object Autopilot {
         tower.lookAt(Loc(2, sim.tower.width / 2f))
         if (System.getenv("CRAZYTOWER_FINANCE") != null) game.financeOpen = true
         if (System.getenv("CRAZYTOWER_OPTIONS") != null) game.optionsOpen = true
+        System.getenv("CRAZYTOWER_CELEBRATE")?.let { hud.celebrate(stage = it == "stage") }
         var frames = 0
         root.addUpdater {
             frames++

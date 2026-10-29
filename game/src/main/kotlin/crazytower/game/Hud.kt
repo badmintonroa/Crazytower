@@ -47,6 +47,7 @@ class Hud(
     private val options = OptionsWindow { game.optionsOpen = false }.addTo(this).also {
         it.xy((screenWidth - it.panelWidth) / 2, ((screenHeight - it.panelHeight) / 2).coerceAtLeast(84.0))
     }
+    private val celebration = Celebration(screenWidth, screenHeight).addTo(this)
     private val tooltip = container { visible = false }
     private val toast = container { visible = false }
 
@@ -86,13 +87,15 @@ class Hud(
             if (inspector.visible) add(Rectangle(inspector.x, inspector.y, inspector.panelWidth, inspector.panelHeight))
             if (finance.visible) add(Rectangle(finance.x, finance.y, finance.panelWidth, finance.panelHeight))
             if (options.visible) add(Rectangle(options.x, options.y, options.panelWidth, options.panelHeight))
+            if (celebration.isShowing) add(Rectangle(0.0, 0.0, screenWidth, screenHeight))
             add(Rectangle(0.0, screenHeight - 50.0, screenWidth, 50.0))
         }
         return rects.any { it.contains(point) }
     }
 
-    fun showFinance() {
-        game.financeOpen = true
+    /** Shows the star (or stage) celebration right away; for screenshots. */
+    fun celebrate(stage: Boolean) {
+        if (stage) celebration.showStage(sim.stage, sim.stars) else celebration.showStar(sim.stars)
     }
 
     // ---------------------------------------------------------------- top bar
@@ -312,6 +315,7 @@ class Hud(
         moodText.text = "Laune $mood %"
         moodText.color = if (mood < 40) Theme.ALARM else Theme.TEXT_DIM
         syncStage()
+        celebration.update(dtSeconds)
         clockText.text = sim.clock.format() + if (game.speed > 0 && game.nightBoost > 1) " »" else ""
         clockText.color = if (game.speed == 0) Theme.ALARM else Theme.TEXT
         speedButtons.forEach { (speed, b) -> b.selected = game.speed == speed }
@@ -330,6 +334,9 @@ class Hud(
 
     private fun syncStage() {
         val stage = sim.stage
+        // a celebration only for real gains, not when the HUD is first drawn
+        if (shownStage > 0 && stage > shownStage) celebration.showStage(stage, sim.stars)
+        else if (shownStars > 0 && sim.stars > shownStars) celebration.showStar(sim.stars)
         if (sim.stars != shownStars) {
             shownStars = sim.stars
             stars.removeChildren()
