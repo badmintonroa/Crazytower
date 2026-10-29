@@ -7,6 +7,7 @@ import crazytower.core.ecs.Activity
 import crazytower.core.ecs.Away
 import crazytower.core.ecs.EconomySystem
 import crazytower.core.ecs.ElevatorSystem
+import crazytower.core.ecs.drop
 import crazytower.core.ecs.Goal
 import crazytower.core.ecs.Member
 import crazytower.core.ecs.Riding
@@ -731,7 +732,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         if (entity has Vip) {
             vipSurvived = true
             news.post("Frau Dr. Wichtig ist angekommen und nickt anerkennend. Der Turm ist bereit für Größeres.", Loc(entity[Position].floor, entity[Position].x), important = true)
-            entity.configure { it -= Vip }
+            entity.configure { drop(it, Vip) }
         }
         if (visitor != null && !visitor.leaving) {
             val room = tower.roomAt(entity[Position].floor, entity[Position].x.toInt())
@@ -754,7 +755,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         }
         if (entity has Vip) {
             news.post("Frau Dr. Wichtig hat den Weg nicht gefunden und reist beleidigt ab. Vielleicht ein Aufzug mehr?", important = true)
-            entity.configure { it -= Vip }
+            entity.configure { drop(it, Vip) }
         }
         val visitor = entity.getOrNull(Visitor) ?: return@with
         if (visitor.leaving) entity.remove() else visitor.stopsLeft = 0

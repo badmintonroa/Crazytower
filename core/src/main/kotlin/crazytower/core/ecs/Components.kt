@@ -2,9 +2,20 @@ package crazytower.core.ecs
 
 import com.github.quillraven.fleks.Component
 import com.github.quillraven.fleks.ComponentType
+import com.github.quillraven.fleks.Entity
+import com.github.quillraven.fleks.EntityUpdateContext
 import crazytower.core.Loc
 import crazytower.core.WorkPlan
 import crazytower.core.nav.Leg
+
+/**
+ * Takes [type] away from [entity] if it has it. Fleks keeps room for 2048 people per component
+ * type and throws when a component somebody beyond that never had is removed, so every removal
+ * goes through here.
+ */
+inline fun <reified T : Component<*>> EntityUpdateContext.drop(entity: Entity, type: ComponentType<T>) {
+    if (entity has type) entity -= type
+}
 
 /** Where a person currently is. [x] is measured in segments. */
 data class Position(var floor: Int, var x: Float, var facingLeft: Boolean = false) : Component<Position> {

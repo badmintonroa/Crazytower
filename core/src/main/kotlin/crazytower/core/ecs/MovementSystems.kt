@@ -46,7 +46,7 @@ class MovementSystem(
             }
             if (budget < 0f) {
                 // teleporter misfire: the rest of the route is useless, plan again from here
-                entity.configure { it -= Route }
+                entity.configure { drop(it, Route) }
                 return
             }
             if (legDone(pos, route, leg)) {
@@ -58,8 +58,8 @@ class MovementSystem(
         }
         if (route.legs.isEmpty()) {
             entity.configure {
-                it -= Route
-                it -= Goal
+                drop(it, Route)
+                drop(it, Goal)
             }
             sim.onArrived(entity)
         }
@@ -129,8 +129,8 @@ class StuckSystem(
     override fun onTickEntity(entity: Entity) {
         if (sim.clock.totalMinutes - entity[Stuck].since > RETRY_MINUTES) {
             entity.configure {
-                it -= Stuck
-                it -= Goal
+                drop(it, Stuck)
+                drop(it, Goal)
             }
             sim.onGaveUp(entity)
         }
