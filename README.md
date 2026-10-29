@@ -11,6 +11,12 @@ Voraussetzung: JDK 21.
 ./gradlew :core:test         # Simulations-Tests
 ```
 
+## Startbildschirm
+
+Das Spiel startet im Hauptmenü: Spiel laden, Neues Spiel, Optionen, Testtürme und Beenden. Im Hintergrund läuft der zuletzt gespeicherte Turm weiter, und die Kamera fährt langsam vom Erdgeschoss bis zum Dach und zurück. Ohne Spielstand steht dort ein Testturm. Im Spiel führt Optionen → „Zum Hauptmenü“ zurück (das Spiel wird vorher gespeichert).
+
+`CRAZYTOWER_TITLE=<stufe>` zeigt für Screenshots das Hauptmenü mit einem Testturm, jeder andere Wert mit dem Spielstand.
+
 ## Steuerung
 
 | Eingabe | Aktion |

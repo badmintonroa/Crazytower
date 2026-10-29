@@ -10,8 +10,13 @@ import korlibs.korge.view.*
 /**
  * The options window: display, interface size and what the tower shows. Every row is a
  * button that steps to the next choice; changes apply at once and are saved.
+ * In the game [onMainMenu] adds a row that goes back to the title screen.
  */
-class OptionsWindow(private val onTestTower: (Int) -> Unit, private val onClose: () -> Unit) : Container() {
+class OptionsWindow(
+    private val onTestTower: (Int) -> Unit,
+    private val onMainMenu: (() -> Unit)? = null,
+    private val onClose: () -> Unit,
+) : Container() {
     val panelWidth = 520.0
     val panelHeight: Double
     private val buttons = ArrayList<Pair<TextButton, (Settings) -> String>>()
@@ -40,7 +45,7 @@ class OptionsWindow(private val onTestTower: (Int) -> Unit, private val onClose:
     )
 
     init {
-        panelHeight = 72.0 + rows.size * 40.0 + 40.0 + 70.0
+        panelHeight = 72.0 + rows.size * 40.0 + 40.0 + (if (onMainMenu != null) 40.0 else 0.0) + 70.0
         Panel(panelWidth, panelHeight).addTo(this)
         label("OPTIONEN", 20.0, Theme.TEXT, Theme.bodyBold).xy(18.0, 14.0)
         label("O oder Esc schließt", 12.0, Theme.TEXT_DIM).xy(panelWidth - 140.0, 20.0)
@@ -61,6 +66,11 @@ class OptionsWindow(private val onTestTower: (Int) -> Unit, private val onClose:
             val max = stage == TestTower.MAXIMUM
             TextButton(if (max) 50.0 else 30.0, 34.0, if (max) "Max" else "$stage", 14.0) { onTestTower(stage) }
                 .addTo(this).xy(panelWidth - 240.0 + (stage - 1) * 34.0, y)
+        }
+        if (onMainMenu != null) {
+            y += 40.0
+            label("Spiel", 15.0, Theme.TEXT, Theme.bodyBold).xy(22.0, y + 9)
+            TextButton(220.0, 34.0, "Zum Hauptmenü", 14.0) { onMainMenu.invoke() }.addTo(this).xy(panelWidth - 240.0, y)
         }
         label("Gespeichert in ${Options.file.path.replace(System.getProperty("user.home"), "~")}", 11.0, Theme.TEXT_DIM)
             .xy(22.0, panelHeight - 40.0)

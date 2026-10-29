@@ -35,6 +35,11 @@ class GameScene(private val assets: Assets, private val loaded: Simulation? = nu
         val sim = loaded ?: System.getenv("CRAZYTOWER_TEST")?.toIntOrNull()?.let { TestTower.create(it) }
             ?: Simulation(seed = System.currentTimeMillis())
         val game = GameController(sim)
+        // the real game is saved first, so the title screen shows it behind the menu
+        game.onMainMenu = {
+            if (!test) SaveSlot.save(sim)
+            launchImmediately { sceneContainer.changeTo { TitleScene(assets) } }
+        }
         screenRoot = container()
         val (w, h) = fitScreen(views)
         tower = TowerView(sim, game, assets, w, h).addTo(screenRoot)
@@ -111,22 +116,26 @@ class GameScene(private val assets: Assets, private val loaded: Simulation? = nu
     /** The layout size the HUD was built for. */
     private var layout = 0 to 0
 
-    /**
-     * Makes one virtual pixel one window pixel (no black bars, no upscaling) and scales [screenRoot]
-     * so the layout fits the window. Returns the layout size in layout units.
-     */
     private fun fitScreen(views: Views): Pair<Double, Double> {
-        val window = views.gameWindow
-        val width = window.width.coerceAtLeast(1)
-        val height = window.height.coerceAtLeast(1)
-        if (views.virtualWidth != width || views.virtualHeight != height) views.setVirtualSize(width, height)
-        val (w, h) = Options.current.virtualSize(width, height)
-        screenRoot.scale = height.toDouble() / h
-        layout = w to h
-        return w.toDouble() to h.toDouble()
+        layout = fitScreen(views, screenRoot)
+        return layout.first.toDouble() to layout.second.toDouble()
     }
 
     companion object {
+        /**
+         * Makes one virtual pixel one window pixel (no black bars, no upscaling) and scales [root]
+         * so the layout fits the window. Returns the layout size in layout units.
+         */
+        fun fitScreen(views: Views, root: Container): Pair<Int, Int> {
+            val window = views.gameWindow
+            val width = window.width.coerceAtLeast(1)
+            val height = window.height.coerceAtLeast(1)
+            if (views.virtualWidth != width || views.virtualHeight != height) views.setVirtualSize(width, height)
+            val (w, h) = Options.current.virtualSize(width, height)
+            root.scale = height.toDouble() / h
+            return w to h
+        }
+
         fun applyWindow(views: Views, old: Settings, new: Settings) {
             val window = views.gameWindow
             if (old.vsync != new.vsync) window.vsync = new.vsync

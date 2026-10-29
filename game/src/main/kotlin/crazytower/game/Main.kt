@@ -24,6 +24,8 @@ suspend fun main() {
         if (borderless) Borderless.cover(views.gameWindow)
         Theme.loadFonts()
         val assets = Assets.load()
-        sceneContainer().changeTo { GameScene(assets) }
+        // screenshots and CRAZYTOWER_TEST go straight into the game, CRAZYTOWER_TITLE shows the title screen
+        val title = System.getenv("CRAZYTOWER_TITLE") != null || (!Autopilot.active && System.getenv("CRAZYTOWER_TEST") == null)
+        sceneContainer().changeTo { if (title) TitleScene(assets) else GameScene(assets) }
     }
 }
