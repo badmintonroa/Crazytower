@@ -233,10 +233,16 @@ class Tower(val width: Int = DEFAULT_WIDTH) {
         const val MAX_SHAFT_FLOORS = 25
         const val MAX_EXPRESS_FLOORS = 100
 
-        /** Besides the ground floor, a sky lobby fits on every tenth floor, like in SimTower. */
-        const val SKY_LOBBY_EVERY = 10
+        /**
+         * Besides the ground floor, a sky lobby goes on every 25th floor, and it must stand
+         * before anything is built above it.
+         */
+        const val SKY_LOBBY_EVERY = 25
 
         fun isLobbyFloor(floor: Int) = floor == GROUND_FLOOR || (floor > GROUND_FLOOR && floor % SKY_LOBBY_EVERY == 0)
+
+        /** The sky lobby floors below [floor]: each needs a lobby before [floor] may be built on. */
+        fun skyLobbiesBelow(floor: Int): IntProgression = SKY_LOBBY_EVERY until floor step SKY_LOBBY_EVERY
 
         /** Free segments needed between two elevator shafts. */
         const val ELEVATOR_GAP = 12

@@ -130,6 +130,9 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         val maxFloor = Stages.info(stage).maxFloor
         if (floor >= maxFloor) return PlaceCheck.no("Stufe $stage erlaubt nur $maxFloor Etagen")
         if (floor < GROUND_FLOOR && !basementOpen) return PlaceCheck.no("Keller erst ab ${Lot.BASEMENT_STARS} Sternen")
+        Tower.skyLobbiesBelow(floor).firstOrNull { sky -> tower.allRooms.none { it.floor == sky && it.type.role == RoomRole.LOBBY } }?.let {
+            return PlaceCheck.no("Erst eine Sky-Lobby auf der $it. Etage bauen")
+        }
         if (type.basementOnly && floor >= GROUND_FLOOR) return PlaceCheck.no("${type.name} nur im Keller")
         val max = type.maxCount
         if (max != null && tower.allRooms.count { it.type == type } >= max) {
