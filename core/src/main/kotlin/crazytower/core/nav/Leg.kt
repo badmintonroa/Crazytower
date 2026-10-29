@@ -24,7 +24,7 @@ object NavCosts {
     const val STAIRS_PER_FLOOR = 2.5f
 
     /** Minutes an elevator car needs per floor. */
-    const val ELEVATOR_PER_FLOOR = 0.4f
+    const val ELEVATOR_PER_FLOOR = 0.6f
 
     /** Minutes a teleport takes, no matter how far. */
     const val TELEPORT = 0.5f

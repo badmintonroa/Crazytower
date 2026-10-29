@@ -239,26 +239,29 @@ class TowerView(
         }
     }
 
-    /** Elevator cars glide over their shafts; the number shows how many people ride along. */
+    /** Elevator cabins glide over their shafts; the number shows how many people ride along. */
     private fun syncCars() {
-        val cars = sim.elevators.cars
-        carViews.keys.filter { it !in cars }.forEach {
+        val alive = HashSet<Int>()
+        for (car in sim.elevators.cars.values) {
+            car.cabins.forEachIndexed { i, cabin ->
+                val key = car.id * 16 + i
+                alive += key
+                val view = carViews.getOrPut(key) {
+                    carsLayer.container {
+                        graphics {
+                            fill(Theme.INK) { chamferPath(64.0, 82.0, 6.0, 0.0) }
+                            fill(Theme.GOLD) { chamferPath(64.0, 82.0, 6.0, 3.0) }
+                            fill(Theme.alpha(Theme.INK, 0.85)) { rect(10.0, 12.0, 44.0, 54.0) }
+                        }
+                    }.also { carLabels[key] = it.label("", 14.0, Theme.GOLD, Theme.pixel).xy(20.0, 30.0) }
+                }
+                view.xy(Metrics.x(car.x) + 16.0, Metrics.floorTop(0) - cabin.position * Metrics.FLOOR + 6.0)
+                carLabels.getValue(key).text = if (cabin.riders.isEmpty()) "" else cabin.riders.size.toString()
+            }
+        }
+        carViews.keys.filter { it !in alive }.forEach {
             carViews.remove(it)?.removeFromParent()
             carLabels.remove(it)
-        }
-        for (car in cars.values) {
-            val view = carViews.getOrPut(car.id) {
-                carsLayer.container {
-                    graphics {
-                        fill(Theme.INK) { chamferPath(64.0, 82.0, 6.0, 0.0) }
-                        fill(Theme.GOLD) { chamferPath(64.0, 82.0, 6.0, 3.0) }
-                        fill(Theme.alpha(Theme.INK, 0.85)) { rect(10.0, 12.0, 44.0, 54.0) }
-                    }
-                }.also { carLabels[car.id] = it.label("", 14.0, Theme.GOLD, Theme.pixel).xy(24.0, 30.0) }
-            }
-            view.xy(Metrics.x(car.x) + 16.0, Metrics.floorTop(0) - car.position * Metrics.FLOOR + 6.0)
-            carLabels.getValue(car.id).text =
-                if (car.riders.isEmpty()) "" else car.riders.size.toString()
         }
     }
 

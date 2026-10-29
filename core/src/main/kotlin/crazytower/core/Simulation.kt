@@ -25,6 +25,7 @@ import crazytower.core.ecs.Visitor
 import crazytower.core.ecs.VisitorSpawnSystem
 import crazytower.core.ecs.VisitorSystem
 import crazytower.core.nav.NavGraph
+import crazytower.core.transport.Car
 import crazytower.core.transport.Elevators
 import crazytower.core.transport.StairsLinks
 import crazytower.core.transport.TeleporterLinks
@@ -217,6 +218,35 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
 
     /** Tears down [modules] in order (from the end of their column), returns the refund. */
     fun demolishAll(modules: List<Room>): Long = modules.sumOf { demolish(it.id) }
+
+    /** Whether the shaft [car] may get another cabin now, and why not. */
+    fun checkCabin(car: Car): PlaceCheck = when {
+        car.cabins.size >= Elevators.MAX_CABINS -> PlaceCheck(false, "Mehr Kabinen passen nicht in den Schacht")
+        car.cabins.size >= Elevators.maxCabins(stars) -> PlaceCheck(false, "Mehr Kabinen ab ${stars + 1} Sternen")
+        money < Elevators.CABIN_COST -> PlaceCheck(false, "Zu wenig Geld")
+        else -> PlaceCheck(true)
+    }
+
+    /** Buys one more cabin for [car]; the shaft's modules remember it for the save game. */
+    fun addCabin(car: Car): PlaceCheck {
+        val check = checkCabin(car)
+        if (!check.ok) return check
+        book(-Elevators.CABIN_COST, MoneyKind.BUILD, "Aufzugkabine", Loc(car.bottom, car.centerX))
+        setCabins(car, car.cabins.size + 1)
+        return check
+    }
+
+    /** Takes the last empty cabin out of [car] (no refund, the old cabin goes to scrap). */
+    fun removeCabin(car: Car): Boolean {
+        if (car.cabins.size <= 1) return false
+        setCabins(car, car.cabins.size - 1)
+        return true
+    }
+
+    private fun setCabins(car: Car, count: Int) {
+        for (f in car.floors) tower.wayAt(f, car.x)?.cabins = count
+        car.setCabins(count)
+    }
 
     /** Money back when a room is torn down. */
     fun refundFor(room: Room): Long = room.type.price(room.width) / 4
@@ -450,7 +480,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         rooms = tower.allRooms.map {
             SavedRoom(
                 it.id, it.type.id, it.floor, it.x, it.since, it.tenant?.id, moodOf(it),
-                it.width.takeIf { w -> w != it.type.width }, it.paidUntil, it.salePaid,
+                it.width.takeIf { w -> w != it.type.width }, it.paidUntil, it.salePaid, it.cabins,
             )
         },
         news = news.latest.map { SavedNews(it.text, it.where?.floor, it.where?.x, it.important) },
@@ -472,6 +502,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             room.since = saved.since
             room.paidUntil = saved.paidUntil ?: save.minutes
             room.salePaid = saved.salePaid
+            room.cabins = saved.cabins
         }
         for (item in save.news.asReversed()) {
             news.post(item.text, item.floor?.let { Loc(it, item.x ?: 0f) }, item.important)

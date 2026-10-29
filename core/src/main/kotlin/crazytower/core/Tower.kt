@@ -18,6 +18,9 @@ class Room(val id: Int, val type: RoomType, val floor: Int, val x: Int, val widt
 
     /** Homes: what the residents paid for the flat; half of it goes back when they leave unhappy. */
     var salePaid: Long = 0
+
+    /** Elevators: cabins in the shaft (every module of a shaft carries the same number). */
+    var cabins: Int = 1
 }
 
 /** Result of a placement check. [reason] is shown to the player when the spot is invalid. */

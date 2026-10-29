@@ -42,6 +42,7 @@ data class SavedRoom(
     val width: Int? = null,
     val paidUntil: Double? = null,
     val salePaid: Long = 0,
+    val cabins: Int = 1,
 )
 
 @Serializable
