@@ -17,26 +17,48 @@ import kotlin.math.roundToInt
 import kotlin.math.sign
 
 /**
- * When the tower changes, routes may lead through rooms that are gone or miss new shortcuts.
- * Everybody who is not inside an elevator plans again.
+ * When the tower changes, people who found no way try again. When something was taken away,
+ * routes may lead through rooms that are gone, so everybody who is not inside an elevator
+ * plans again, a few hundred per tick, so a big tower doesn't freeze. New rooms only add ways:
+ * people on the way keep their route and find new shortcuts on their next trip.
  */
 class RouteRefreshSystem(
     private val sim: Simulation = inject(),
 ) : IteratingSystem(family { all(Position, Goal).any(Route, Stuck).none(Riding) }) {
     private var seenVersion = -1
-    private var changed = false
+    private var seenRemoved = -1
+    private var removed = false
+
+    /** People still to plan again after something was taken away. */
+    private val pending = ArrayDeque<Entity>()
 
     override fun onTick() {
-        changed = seenVersion != sim.tower.version
+        val changed = seenVersion != sim.tower.version
+        removed = seenRemoved != sim.tower.removedVersion
         seenVersion = sim.tower.version
+        seenRemoved = sim.tower.removedVersion
+        if (removed) pending.clear()
         if (changed) super.onTick()
+        var budget = REPLAN_PER_TICK
+        while (budget > 0 && pending.isNotEmpty()) {
+            val entity = pending.removeFirst()
+            if (entity !in world || entity hasNo Route || entity has Riding) continue
+            entity.configure { drop(it, Route) }
+            budget--
+        }
     }
 
     override fun onTickEntity(entity: Entity) {
-        entity.configure {
-            drop(it, Route)
-            drop(it, Stuck)
+        if (entity has Stuck) {
+            entity.configure { drop(it, Stuck) }
+        } else if (removed) {
+            pending += entity
         }
+    }
+
+    companion object {
+        /** Routes planned again per tick after something was taken away. */
+        const val REPLAN_PER_TICK = 200
     }
 }
 
@@ -55,7 +77,10 @@ class ElevatorSystem(
         elevators.removed.clear()
         for (car in elevators.cars.values) car.waiting.clear()
         super.onTick() // collects the waiting people
-        for (car in elevators.cars.values) runCar(car)
+        for (car in elevators.cars.values) {
+            runCar(car)
+            car.refreshEstimate()
+        }
     }
 
     override fun onTickEntity(entity: Entity) {

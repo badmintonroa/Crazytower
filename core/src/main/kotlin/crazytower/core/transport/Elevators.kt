@@ -56,8 +56,18 @@ class Car(val id: Int, val x: Int, var bottom: Int, var top: Int, val express: B
     val waitingCount: Int get() = waiting.values.sumOf { it.size }
 
     /** Rough minutes until a new passenger is picked up, used as path cost. */
-    fun waitEstimate(): Float =
-        (Elevators.WAIT_BASE + waitingCount * 0.15f / cabins.size + riders.size * 0.1f / cabins.size) / cabins.size.coerceAtMost(3)
+    fun waitEstimate(): Float = estimate
+
+    /**
+     * The path search asks for the wait on every elevator link it looks at, so it is worked
+     * out once per tick by the elevator system instead of counting the queues each time.
+     */
+    private var estimate: Float = Elevators.WAIT_BASE
+
+    fun refreshEstimate() {
+        val riding = cabins.sumOf { it.riders.size }
+        estimate = (Elevators.WAIT_BASE + waitingCount * 0.15f / cabins.size + riding * 0.1f / cabins.size) / cabins.size.coerceAtMost(3)
+    }
 
     /**
      * Adds or removes cabins until there are [count]. New cabins start spread over the shaft;
