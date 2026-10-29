@@ -76,7 +76,9 @@ class NavGraph(private val tower: Tower, private val providers: List<LinkProvide
 
     /**
      * Finds the cheapest route from [from] to [to], or null if there is none.
-     * The result never contains a zero-length walk.
+     * The result never contains a zero-length walk. Nobody climbs more than
+     * [NavCosts.MAX_STAIRS_FLOORS] floors on foot in a row; an elevator or teleporter ride in
+     * between lets them catch their breath.
      */
     fun findPath(from: Loc, to: Loc): List<Leg>? {
         ensureBuilt()
@@ -84,45 +86,55 @@ class NavGraph(private val tower: Tower, private val providers: List<LinkProvide
         val goalKey = spanKey(to) ?: return null
         if (startKey == goalKey) return listOfNotNull(walk(from, to.x))
 
+        // A search state is a node plus the floors climbed on foot since the last ride.
         // Node ids >= 0 are graph nodes; GOAL is a virtual node standing for `to`.
+        val climbs = NavCosts.MAX_STAIRS_FLOORS + 1
+        fun state(node: Int, climbed: Int) = node * climbs + climbed
+        fun nodeOf(state: Int) = state / climbs
+        fun climbedOf(state: Int) = state % climbs
         val goal = -1
-        val best = HashMap<Int, Float>()
-        val cameFrom = HashMap<Int, Pair<Int, Link?>>() // node -> (previous node or START, link used)
         val start = -2
+        val best = HashMap<Int, Float>()
+        val cameFrom = HashMap<Int, Pair<Int, Link?>>() // state -> (previous state or START, link used)
         val open = PriorityQueue<Pair<Int, Float>>(compareBy { it.second })
 
         fun h(loc: Loc) = abs(loc.floor - to.floor) * NavCosts.FASTEST_PER_FLOOR
-        fun relax(node: Int, previous: Int, link: Link?, cost: Float, loc: Loc) {
-            if (cost < (best[node] ?: Float.MAX_VALUE)) {
-                best[node] = cost
-                cameFrom[node] = previous to link
-                open += node to cost + h(loc)
+        fun relax(state: Int, previous: Int, link: Link?, cost: Float, loc: Loc) {
+            if (cost < (best[state] ?: Float.MAX_VALUE)) {
+                best[state] = cost
+                cameFrom[state] = previous to link
+                open += state to cost + h(loc)
             }
         }
 
-        for (n in nodesBySpan[startKey].orEmpty()) relax(n.id, start, null, walkCost(from.x, n.loc.x), n.loc)
+        for (n in nodesBySpan[startKey].orEmpty()) relax(state(n.id, 0), start, null, walkCost(from.x, n.loc.x), n.loc)
 
         while (open.isNotEmpty()) {
             val (current, _) = open.poll()
             if (current == goal) break
             val cost = best.getValue(current)
-            val node = nodes[current]
+            val node = nodes[nodeOf(current)]
+            val climbed = climbedOf(current)
             if (node.spanKey == goalKey) relax(goal, current, null, cost + walkCost(node.loc.x, to.x), to)
-            for ((next, link) in outgoing[current].orEmpty()) {
+            for ((next, link) in outgoing[node.id].orEmpty()) {
+                val leg = link.leg
+                val nowClimbed = if (leg is Leg.Stairs) climbed + abs(leg.toFloor - leg.fromFloor) else 0
+                if (nowClimbed > NavCosts.MAX_STAIRS_FLOORS) continue
                 val arrival = nodes[next]
                 val afterLink = cost + link.cost()
-                relax(next, current, link, afterLink, arrival.loc)
+                val arrived = state(next, nowClimbed)
+                relax(arrived, current, link, afterLink, arrival.loc)
                 // walking from the arrival point to the other nodes of that span
                 for (other in nodesBySpan[arrival.spanKey].orEmpty()) {
-                    if (other.id != next && other.id != current) {
-                        relax(other.id, next, null, afterLink + walkCost(arrival.loc.x, other.loc.x), other.loc)
+                    if (other.id != next && other.id != node.id) {
+                        relax(state(other.id, nowClimbed), arrived, null, afterLink + walkCost(arrival.loc.x, other.loc.x), other.loc)
                     }
                 }
             }
         }
         if (goal !in cameFrom) return null
 
-        // Rebuild the chain of nodes, then turn it into legs.
+        // Rebuild the chain of states, then turn it into legs.
         val chain = ArrayList<Pair<Int, Link?>>()
         var cursor = goal
         while (cursor != start) {
@@ -133,8 +145,8 @@ class NavGraph(private val tower: Tower, private val providers: List<LinkProvide
         chain.reverse()
         val legs = ArrayList<Leg>()
         var position = from
-        for ((node, link) in chain) {
-            val loc = if (node == goal) to else nodes[node].loc
+        for ((state, link) in chain) {
+            val loc = if (state == goal) to else nodes[nodeOf(state)].loc
             if (link != null) {
                 legs += link.leg
             } else {

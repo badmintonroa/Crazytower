@@ -9,6 +9,7 @@ import crazytower.core.Room
 import crazytower.core.RoomRole
 import crazytower.core.RoomType
 import crazytower.core.Simulation
+import crazytower.core.Tower
 import crazytower.core.ecs.Person
 import crazytower.core.ecs.Position
 import crazytower.core.ecs.Riding
@@ -37,6 +38,10 @@ import kotlin.math.min
 import kotlin.random.Random
 
 /** Screen metrics of the tower at zoom 1: the native art is shown at twice its size. */
+/** Express elevators wear red so they stand out from the normal shafts. */
+private val EXPRESS_RED = RGBA(214, 64, 52)
+private val EXPRESS_TINT = RGBA(255, 150, 140)
+
 object Metrics {
     const val SEG = 48.0
     const val FLOOR = 96.0
@@ -252,7 +257,7 @@ class TowerView(
                     carsLayer.container {
                         graphics {
                             fill(Theme.INK) { chamferPath(64.0, 82.0, 6.0, 0.0) }
-                            fill(Theme.GOLD) { chamferPath(64.0, 82.0, 6.0, 3.0) }
+                            fill(if (car.express) EXPRESS_RED else Theme.GOLD) { chamferPath(64.0, 82.0, 6.0, 3.0) }
                             fill(Theme.alpha(Theme.INK, 0.85)) { rect(10.0, 12.0, 44.0, 54.0) }
                         }
                     }.also { carLabels[key] = it.label("", 14.0, Theme.GOLD, Theme.bodyBold).xy(20.0, 30.0) }
@@ -277,7 +282,7 @@ class TowerView(
         // rooms without night art are dimmed so they don't glow in the dark
         val dimmed = DayLight.isDark(sim.clock.minuteOfDay) && !key.endsWith("_night")
         // a long lobby gets a door at each end; the right one is the left one mirrored
-        val entrance = if (room.type.role == RoomRole.LOBBY && tiles >= 2) entranceArt(key) else null
+        val entrance = if (room.type.role == RoomRole.LOBBY && room.floor == GROUND_FLOOR && tiles >= 2) entranceArt(key) else null
         val clip = view.clipContainer(Size(Metrics.x(room.width), Metrics.FLOOR))
         for (i in 0 until tiles) {
             val last = i == tiles - 1
@@ -293,6 +298,7 @@ class TowerView(
                     scaleX = -scaleX
                     x = Metrics.x(room.width)
                 }
+                if (room.type.express) colorMul = EXPRESS_TINT
                 if (dimmed) colorMul = RGBA(120, 124, 165)
             }
         }
@@ -466,14 +472,16 @@ class TowerView(
     private fun planFor(type: RoomType, h: Hover): BuildPlan {
         val anchor = pressHover ?: h
         return if (type.stretchable) {
-            if (h.floor != GROUND_FLOOR) return BuildPlan(type, emptyList(), 0, PlaceCheck.no("Lobby nur im Erdgeschoss"))
+            if (!Tower.isLobbyFloor(anchor.floor)) {
+                return BuildPlan(type, emptyList(), 0, PlaceCheck.no("Lobby nur im Erdgeschoss und alle ${Tower.SKY_LOBBY_EVERY} Etagen"))
+            }
             val from = floor(anchor.segment).toInt()
             val to = floor(h.segment).toInt()
             if (pressHover == null || from == to) {
                 val x = BuildRules.snapX(h.segment, type.width, sim.tower.width)
-                sim.planLobby(x, x + type.width - 1)
+                sim.planLobby(x, x + type.width - 1, anchor.floor)
             } else {
-                sim.planLobby(from, to)
+                sim.planLobby(from, to, anchor.floor)
             }
         } else {
             val x = BuildRules.snapX(anchor.segment, type.width, sim.tower.width)
