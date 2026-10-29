@@ -83,7 +83,7 @@ class Inspector(private val sim: Simulation, private val game: GameController, p
                 y += 92.0
             }
             look != null -> {
-                image(assets.person(look, 0)) { smoothing = false; scale = 2.0; xy(16.0, y) }
+                image(assets.person(look, 0)) { scale = assets.personScale(look, 2.0); smoothing = scale < 1.0; xy(16.0, y) }
                 label(title.uppercase(), 18.0, Theme.TEXT, Theme.pixel).xy(52.0, y + 6)
                 label(subtitle, 12.0, Theme.TEXT_DIM).xy(52.0, y + 30)
                 y += 60.0

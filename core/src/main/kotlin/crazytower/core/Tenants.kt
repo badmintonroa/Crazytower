@@ -75,7 +75,7 @@ data class WorkPlan(
  * may be rented by tax accountants, clowns or a vampire insurance company.
  *
  * @param minStars the tower needs at least this many stars before the tenant shows up
- * @param look sprite set of its people
+ * @param look sprite set of its people; [crew] lists more sets when they don't all look alike
  * @param plan when its people are busy (see [WorkPlan])
  * @param rentPerDay offices and restaurants: paid at the end of every working day
  * @param salePrice homes: paid once when the tenant buys the flat
@@ -94,7 +94,11 @@ data class TenantKind(
     /** Only appears through events, never as a regular new tenant. */
     val eventOnly: Boolean = false,
     val minStage: Int = 1,
-)
+    val crew: List<String> = emptyList(),
+) {
+    /** The look of the [i]-th person of this tenant: the crew in turn, or always [look]. */
+    fun lookFor(i: Int): String = if (crew.isEmpty()) look else crew[i % crew.size]
+}
 
 private val OFFICE_HOURS = WorkPlan("Mo–Fr 8–17 Uhr", WorkPlan.WEEKDAYS, WorkPlan.h(8), WorkPlan.h(17))
 
@@ -104,53 +108,63 @@ object Tenants {
 
     val all = listOf(
         // Offices
-        TenantKind("accountant", "Steuerbüro Pfennig & Fuchs", RoomRole.OFFICE, "office_accountant", "suit",
+        TenantKind("accountant", "Steuerbüro Pfennig & Fuchs", RoomRole.OFFICE, "office_accountant", "npc_accountant",
+            crew = listOf("npc_accountant", "npc_office_blazer", "npc_office_sleeves", "npc_office_boss"),
             rentPerDay = 2_200, quirk = "Rechnet auch die Pausen ab."),
-        TenantKind("startup", "Disruptiv GmbH", RoomRole.OFFICE, "office_startup", "startup",
+        TenantKind("startup", "Disruptiv GmbH", RoomRole.OFFICE, "office_startup", "npc_startup",
+            crew = listOf("npc_startup", "npc_office_it", "npc_office_intern"),
             rentPerDay = 2_400, plan = plan("Mo–Sa 11–23 Uhr", WorkPlan.MON_TO_SAT, 11, 23), quirk = "Hat noch kein Produkt, aber ein Bällebad."),
-        TenantKind("callcenter", "Rückruf-Zentrale Hallo?", RoomRole.OFFICE, "office_callcenter", "callcenter",
+        TenantKind("callcenter", "Rückruf-Zentrale Hallo?", RoomRole.OFFICE, "office_callcenter", "npc_callcenter",
+            crew = listOf("npc_callcenter", "npc_callcenter", "npc_office_blazer"),
             rentPerDay = 1_900, plan = plan("täglich 7–22, 2 Schichten", WorkPlan.DAILY, 7, 22, crews = 2), quirk = "Ruft auch an, wenn keiner fragt."),
-        TenantKind("excuses", "Ausreden-Agentur", RoomRole.OFFICE, "office_excuses", "suit2",
+        TenantKind("excuses", "Ausreden-Agentur", RoomRole.OFFICE, "office_excuses", "npc_excuses",
+            crew = listOf("npc_excuses", "npc_office_sleeves"),
             minStars = 2, rentPerDay = 2_600, plan = plan("Mo–Fr 9–17 Uhr (ungefähr)", WorkPlan.WEEKDAYS, 9, 17, lateUpTo = 180),
             quirk = "Kommt zu spät. Hat eine sehr gute Begründung."),
-        TenantKind("socks", "Zentralarchiv für einzelne Socken", RoomRole.OFFICE, "office_socks", "official",
+        TenantKind("socks", "Zentralarchiv für einzelne Socken", RoomRole.OFFICE, "office_socks", "npc_detective",
             minStars = 2, rentPerDay = 2_400, plan = plan("Mo–Fr 14–23 Uhr", WorkPlan.WEEKDAYS, 14, 23), quirk = "Sucht seit 1987 das Gegenstück."),
-        TenantKind("ministry", "Ministerium für Zuständigkeit", RoomRole.OFFICE, "office_ministry", "official",
+        TenantKind("ministry", "Ministerium für Zuständigkeit", RoomRole.OFFICE, "office_ministry", "npc_ministry",
+            crew = listOf("npc_ministry", "npc_ministry", "npc_office_boss"),
             minStars = 3, rentPerDay = 3_500, plan = plan("Mo–Do 10–12 Uhr", WorkPlan.MON_TO_THU, 10, 12), quirk = "Ist nicht zuständig."),
-        TenantKind("vampire", "Vampir-Versicherung AG", RoomRole.OFFICE, "office_vampire", "vampire",
+        TenantKind("vampire", "Vampir-Versicherung AG", RoomRole.OFFICE, "office_vampire", "npc_vampire_count",
+            crew = listOf("npc_vampire_count", "npc_vampire_secretary", "npc_vampire_intern", "npc_vampire_old", "npc_vampire_collector"),
             minStars = 3, rentPerDay = 4_000, plan = plan("täglich 20–4 Uhr", WorkPlan.DAILY, 20, 4), quirk = "Öffnet erst nach Sonnenuntergang."),
-        TenantKind("timetravel", "Zeitreisebüro Gestern & Co.", RoomRole.OFFICE, "office_timetravel", "timetraveler",
+        TenantKind("timetravel", "Zeitreisebüro Gestern & Co.", RoomRole.OFFICE, "office_timetravel", "npc_timetraveller",
             minStars = 4, rentPerDay = 4_800, minStage = 3, plan = plan("jeden Tag andere 8 Std.", WorkPlan.DAILY, 9, 17, wandering = true),
             quirk = "Hat den Mietvertrag nächste Woche unterschrieben."),
-        TenantKind("supervillain", "Weltherrschaft Holding", RoomRole.OFFICE, "office_supervillain", "villain",
+        TenantKind("supervillain", "Weltherrschaft Holding", RoomRole.OFFICE, "office_supervillain", "npc_supervillain",
+            crew = listOf("npc_supervillain", "npc_office_it"),
             minStars = 4, rentPerDay = 6_000, minStage = 4, plan = plan("täglich 22–6 Uhr", WorkPlan.DAILY, 22, 6),
             quirk = "Zahlt pünktlich. Verdächtig pünktlich."),
-        TenantKind("alien", "Botschaft von Gliese 581", RoomRole.OFFICE, "office_alien", "alien",
+        TenantKind("alien", "Botschaft von Gliese 581", RoomRole.OFFICE, "office_alien", "npc_alien",
             minStars = 5, rentPerDay = 7_200, minStage = 5, plan = plan("rund um die Uhr, 3 Schichten", WorkPlan.DAILY, 0, 24, crews = 3),
             quirk = "Fragt nach dem Chef des Planeten."),
-        TenantKind("clown", "Clownsagentur Tröt", RoomRole.OFFICE, "office_clown", "clown",
+        TenantKind("clown", "Clownsagentur Tröt", RoomRole.OFFICE, "office_clown", "npc_clown_classic",
+            crew = listOf("npc_clown_classic", "npc_clown_boss", "npc_clown_mime", "npc_clown_sad", "npc_clown_juggler"),
             rentPerDay = 1_700, eventOnly = true, plan = plan("Mo–Fr 9–18 Uhr", WorkPlan.WEEKDAYS, 9, 18), quirk = "War vorher ein seriöses Büro."),
 
         // Homes: the plan says when the residents are out
-        TenantKind("family", "Familie Krawuttke", RoomRole.HOME, "home_family", "casual",
+        TenantKind("family", "Familie Krawuttke", RoomRole.HOME, "home_family", "npc_family_dad",
+            crew = listOf("npc_family_dad", "npc_family_mom", "npc_kid"),
             salePrice = 24_000, plan = plan("Mo–Fr 8–17 Uhr (Arbeit)", WorkPlan.WEEKDAYS, 8, 17), quirk = "Grillt auf dem Balkon. Es gibt keinen Balkon."),
-        TenantKind("students", "Studenten-WG", RoomRole.HOME, "home_students", "casual2",
+        TenantKind("students", "Studenten-WG", RoomRole.HOME, "home_students", "npc_student_hoodie",
+            crew = listOf("npc_student_hoodie", "npc_student_bookworm", "npc_student_party", "npc_student_gamer", "npc_student_artist"),
             salePrice = 20_000, plan = plan("täglich 13–20 Uhr (Uni)", WorkPlan.DAILY, 13, 20), quirk = "Der Abwasch ist ein Kunstprojekt."),
-        TenantKind("retirees", "Ehepaar Ömmel", RoomRole.HOME, "home_retirees", "retiree",
+        TenantKind("retirees", "Ehepaar Ömmel", RoomRole.HOME, "home_retirees", "npc_retiree",
             minStars = 2, salePrice = 28_000, plan = plan("Mo–Sa 10–12 Uhr (Einkauf)", WorkPlan.MON_TO_SAT, 10, 12), quirk = "Beobachtet den Aufzug. Den ganzen Tag."),
-        TenantKind("influencer", "Influencerin Lara Like", RoomRole.HOME, "home_influencer", "influencer",
+        TenantKind("influencer", "Influencerin Lara Like", RoomRole.HOME, "home_influencer", "npc_student_gamer",
             minStars = 3, salePrice = 40_000, plan = plan("täglich 14–22 Uhr (Shooting)", WorkPlan.DAILY, 14, 22), quirk = "Filmt ihr Frühstück in 4K."),
-        TenantKind("penguins", "Pinguin-Kolonie", RoomRole.HOME, "home_penguins", "penguin",
+        TenantKind("penguins", "Pinguin-Kolonie", RoomRole.HOME, "home_penguins", "npc_penguin",
             minStars = 4, salePrice = 36_000, minStage = 3, plan = plan("täglich 6–9 Uhr (Fischmarkt)", WorkPlan.DAILY, 6, 9), quirk = "Dreht die Heizung auf minus zehn."),
-        TenantKind("ghost", "Ein freundliches Gespenst", RoomRole.HOME, "home_ghost", "ghost",
+        TenantKind("ghost", "Ein freundliches Gespenst", RoomRole.HOME, "home_ghost", "npc_ghost",
             salePrice = 0, eventOnly = true, plan = plan("täglich 23–4 Uhr (Spuken)", WorkPlan.DAILY, 23, 4), quirk = "Zahlt keine Miete. Ist ja tot."),
 
         // Food: opening hours
-        TenantKind("imbiss", "Imbiss Zum Schiefen Turm", RoomRole.FOOD, "food_imbiss", "casual",
+        TenantKind("imbiss", "Imbiss Zum Schiefen Turm", RoomRole.FOOD, "food_imbiss", "npc_family_dad",
             rentPerDay = 900, plan = plan("täglich 11–23 Uhr", WorkPlan.DAILY, 11, 23), quirk = "Die Currywurst ist laut Gutachten essbar."),
-        TenantKind("sushi", "Sushi am Band (das Band ist kaputt)", RoomRole.FOOD, "food_sushi", "startup",
+        TenantKind("sushi", "Sushi am Band (das Band ist kaputt)", RoomRole.FOOD, "food_sushi", "npc_startup",
             minStars = 2, rentPerDay = 1_400, plan = plan("täglich 12–22 Uhr", WorkPlan.DAILY, 12, 22), quirk = "Man muss zum Sushi laufen."),
-        TenantKind("cafe", "Café Koffeinschock", RoomRole.FOOD, "food_cafe", "casual2",
+        TenantKind("cafe", "Café Koffeinschock", RoomRole.FOOD, "food_cafe", "npc_office_intern",
             rentPerDay = 1_000, plan = plan("täglich 7–18 Uhr", WorkPlan.DAILY, 7, 18), quirk = "Der Espresso hat eine eigene Steuernummer."),
     )
 

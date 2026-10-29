@@ -29,4 +29,19 @@ class TenantTest {
         val late = Tenants.candidates(RoomRole.OFFICE, stars = 5, stage = 5).map { it.id }
         assertTrue("alien" in late)
     }
+
+    @Test
+    fun crewsLookDifferent() {
+        val sim = Simulation(seed = 11, startMoney = 10_000_000)
+        sim.eventsEnabled = false
+        val room = sim.buildReachable(Catalog.OFFICE, 10)
+        sim.moveIn(room, Tenants.byId("clown"), announce = false)
+        val looks = HashSet<String>()
+        sim.world.family { all(crazytower.core.ecs.Member, crazytower.core.ecs.Person) }.forEach { e ->
+            if (e[crazytower.core.ecs.Member].roomId == room.id) looks += e[crazytower.core.ecs.Person].look
+        }
+        assertEquals(minOf(5, Catalog.OFFICE.capacity), looks.size, "every clown of the crew shows up: $looks")
+        assertTrue(looks.all { it.startsWith("npc_clown") })
+        assertEquals("npc_retiree", Tenants.byId("retirees").lookFor(3), "a tenant without crew always looks the same")
+    }
 }
