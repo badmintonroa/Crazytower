@@ -10,8 +10,11 @@ object TestTower {
 
     const val MONEY = 2_000_000L
 
-    /** Elevator columns: two side by side, each made of shafts that hand over to the next one up. */
-    private val COLUMNS = listOf(listOf(4, 14, 24), listOf(36, 46, 56))
+    /**
+     * Elevator columns, each made of shafts that hand over to the next one up, spaced so they
+     * keep [Tower.ELEVATOR_GAP] apart. The second column serves the lower half.
+     */
+    private val COLUMNS = listOf(listOf(2, 16, 30), listOf(44, 58))
     private const val SHAFT_FLOORS = 25
 
     fun build(stage: Int, seed: Long = 1L): Simulation {

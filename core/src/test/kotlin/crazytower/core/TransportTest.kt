@@ -104,19 +104,19 @@ class TransportTest {
         shaft(sim, 6)
         val car = sim.elevators.cars.values.single()
         assertEquals(1, car.cabins.size)
-        assertFalse(sim.addCabin(car).ok, "one star: one cabin")
+        assertTrue(sim.addCabin(car).ok)
+        assertFalse(sim.addCabin(car).ok, "no stars yet: two cabins")
         sim.stars = 3
         val before = sim.money
-        assertTrue(sim.addCabin(car).ok)
-        assertTrue(sim.addCabin(car).ok)
-        assertFalse(sim.addCabin(car).ok, "three stars: three cabins")
-        assertEquals(3, car.cabins.size)
-        assertEquals(before - 2 * crazytower.core.transport.Elevators.CABIN_COST, sim.money)
+        repeat(4) { assertTrue(sim.addCabin(car).ok) }
+        assertFalse(sim.addCabin(car).ok, "three stars: six cabins")
+        assertEquals(6, car.cabins.size)
+        assertEquals(before - 4 * crazytower.core.transport.Elevators.CABIN_COST, sim.money)
         // the shaft remembers its cabins in the save game
         val loaded = Simulation.load(SaveGame.fromJson(sim.toSave().toJson()), seed = 1)
-        assertEquals(3, loaded.elevators.cars.values.single().cabins.size)
+        assertEquals(6, loaded.elevators.cars.values.single().cabins.size)
         assertTrue(sim.removeCabin(car))
-        assertEquals(2, car.cabins.size)
+        assertEquals(5, car.cabins.size)
     }
 
     @Test

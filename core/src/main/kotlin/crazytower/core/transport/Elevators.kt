@@ -140,11 +140,11 @@ class Elevators(private val tower: Tower) : LinkProvider {
         /** People per cabin. Cabins are big and slow, like in the original. */
         const val CAPACITY = 16
         const val DOOR_MINUTES = 0.5f
-        const val MAX_CABINS = 6
+        const val MAX_CABINS = 12
         const val CABIN_COST = 4_000L
 
-        /** How many cabins a shaft may have at a star rating: one more per star, six at five stars. */
-        fun maxCabins(stars: Int): Int = if (stars >= 5) MAX_CABINS else stars.coerceIn(1, 4)
+        /** How many cabins a shaft may have at a star rating: two more per star, twelve at five stars. */
+        fun maxCabins(stars: Int): Int = if (stars >= 5) MAX_CABINS else (stars * 2).coerceIn(2, 8)
     }
 }
 

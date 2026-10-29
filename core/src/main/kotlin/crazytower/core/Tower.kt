@@ -121,7 +121,7 @@ class Tower(val width: Int = DEFAULT_WIDTH) {
             if (shaft.last - shaft.first + 1 > MAX_SHAFT_FLOORS) {
                 return PlaceCheck.no("Aufzug höchstens $MAX_SHAFT_FLOORS Etagen")
             }
-            // shafts keep at least a room's width apart, on this floor and the ones next to it
+            // shafts keep at least two rooms' width apart, on this floor and the ones next to it
             val crowded = (floor - 1..floor + 1).any { f ->
                 (x - ELEVATOR_GAP until x + width + ELEVATOR_GAP).any { s ->
                     wayAt(f, s)?.let { it.type.role == RoomRole.ELEVATOR && it.x != x } == true
@@ -231,6 +231,6 @@ class Tower(val width: Int = DEFAULT_WIDTH) {
         const val MAX_SHAFT_FLOORS = 30
 
         /** Free segments needed between two elevator shafts. */
-        const val ELEVATOR_GAP = 6
+        const val ELEVATOR_GAP = 12
     }
 }
