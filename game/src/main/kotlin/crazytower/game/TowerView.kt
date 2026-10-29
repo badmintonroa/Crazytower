@@ -69,6 +69,8 @@ class TowerView(
     private val backdrop = world.container()
     private val dusk = world.solidRect(1.0, 1.0, RGBA(0, 0, 0, 0))
     private val roomsLayer = world.container()
+    /** People busy inside rooms: behind stairs and elevator shafts that run through the room. */
+    private val insideLayer = world.container()
     private val waysLayer = world.container()
     private val carsLayer = world.container()
     private val peopleLayer = world.container()
@@ -340,6 +342,9 @@ class TowerView(
             val frame = if (moving) 1 + (floor(pos.x * 3).toInt() and 1) else 0
             view.bitmap = assets.person(person.look, frame)
             val queued = queues[entity.id]
+            // standing still in a room puts them behind a shaft; walking and queueing stays in front
+            val layer = if (!moving && queued == null && entity hasNo Riding) insideLayer else peopleLayer
+            if (view.parent !== layer) view.addTo(layer)
             val facingLeft = queued?.second ?: pos.facingLeft
             if (queued != null) {
                 view.bitmap = assets.person(person.look, 0)
