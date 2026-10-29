@@ -290,6 +290,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             room.sold = true
             // the price is fixed, no star bonus: a flat sells for what it cost to build, never more
             room.salePaid = tenant.salePrice
+            flatsSoldToday++
             book(room.salePaid, MoneyKind.SALE, tenant.name, room.center)
         }
         val resident = room.type.role == RoomRole.HOME
@@ -433,6 +434,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
      * rating. Stars only go up; a gloomy tower loses tenants instead.
      */
     fun closeDay() {
+        flatsSoldToday = 0
         val leaving = ArrayList<Room>()
         for (room in tower.allRooms) {
             if (room.tenant == null) continue
@@ -479,6 +481,16 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     }
 
     private fun Long.fmt(): String = "%,d".format(this).replace(',', '.')
+
+    /** Flats sold since midnight; buyers are scarce, see [flatBuyersPerDay]. */
+    var flatsSoldToday: Int = 0
+        private set
+
+    /**
+     * How many flats can be sold in one day. A flat pays back its building cost when it is
+     * sold, so without this limit flats could be built and sold endlessly in one go.
+     */
+    val flatBuyersPerDay: Int get() = FLAT_BUYERS_BASE + stars
 
     /** Tower rating, 0 to 5 stars. Updated every midnight; it only goes up. */
     var stars: Int = 0
@@ -657,6 +669,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         /** Every this many days each sold flat pays its fees. */
         const val FEE_EVERY_DAYS = 1
         const val HOME_FEE = 300L
+        const val FLAT_BUYERS_BASE = 2
         const val UNHAPPY = 40f
         const val MOVE_OUT = 25f
         const val MIN_STAY_MINUTES = 2 * 1440.0

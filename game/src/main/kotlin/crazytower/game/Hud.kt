@@ -284,7 +284,7 @@ class Hud(
         }
         return when (type.role) {
             RoomRole.HOME -> listOf(
-                "${type.capacity} Bewohner ziehen ein",
+                "${type.capacity} Bewohner, nur ${sim.flatBuyersPerDay} Käufer pro Tag",
                 "Verkauf einmalig: ${range(tenants.map { it.salePrice }, bonus = 1.0)}",
                 "dann ${formatMoney((Simulation.HOME_FEE * sim.starBonus).toLong())} Hausgeld pro Tag",
             )

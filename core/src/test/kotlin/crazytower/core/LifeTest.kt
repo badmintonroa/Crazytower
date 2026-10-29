@@ -98,6 +98,17 @@ class LifeTest {
     }
 
     @Test
+    fun onlyAFewFlatsFindBuyersEachDay() {
+        val sim = Simulation(seed = 4, startMoney = 1_000_000).apply { eventsEnabled = false }
+        sim.build(sim.planLobby(10, 45))
+        val flats = listOf(sim.buildReachable(Catalog.HOME, 10)) + (16..40 step 6).map { sim.build(Catalog.HOME, 1, it).room!! }
+        stepTo(sim, 23)
+        assertEquals(sim.flatBuyersPerDay, flats.count { it.tenant != null }, "two buyers on the first day")
+        stepTo(sim, 23, day = 1)
+        assertEquals(2 * sim.flatBuyersPerDay, flats.count { it.tenant != null }, "two more the next day")
+    }
+
+    @Test
     fun flatsAreSoldOnceAndPayFeesEveryDay() {
         val sim = Simulation(seed = 9, startMoney = 1_000_000).apply { eventsEnabled = false }
         val home = sim.buildReachable(Catalog.HOME, 20)
