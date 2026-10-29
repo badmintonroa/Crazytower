@@ -1,7 +1,7 @@
 package crazytower.game
 
 import crazytower.core.Settings
-import crazytower.core.Stages
+import crazytower.core.TestTower
 import crazytower.game.ui.Panel
 import crazytower.game.ui.TextButton
 import crazytower.game.ui.label
@@ -57,9 +57,10 @@ class OptionsWindow(private val onTestTower: (Int) -> Unit, private val onClose:
         }
         // test mode: jump into a finished tower of each stage
         label("Testturm", 15.0, Theme.TEXT, Theme.bodyBold).xy(22.0, y + 9)
-        for (stage in 1..Stages.last) {
-            TextButton(40.0, 34.0, "$stage", 14.0) { onTestTower(stage) }
-                .addTo(this).xy(panelWidth - 240.0 + (stage - 1) * 45.0, y)
+        for (stage in 1..TestTower.MAXIMUM) {
+            val max = stage == TestTower.MAXIMUM
+            TextButton(if (max) 50.0 else 30.0, 34.0, if (max) "Max" else "$stage", 14.0) { onTestTower(stage) }
+                .addTo(this).xy(panelWidth - 240.0 + (stage - 1) * 34.0, y)
         }
         label("Gespeichert in ${Options.file.path.replace(System.getProperty("user.home"), "~")}", 11.0, Theme.TEXT_DIM)
             .xy(22.0, panelHeight - 40.0)

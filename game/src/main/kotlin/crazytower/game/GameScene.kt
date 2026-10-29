@@ -31,8 +31,8 @@ class GameScene(private val assets: Assets, private val loaded: Simulation? = nu
     private lateinit var screenRoot: Container
 
     override suspend fun SContainer.sceneMain() {
-        // CRAZYTOWER_TEST=<stage> starts a test tower right away (for screenshots)
-        val sim = loaded ?: System.getenv("CRAZYTOWER_TEST")?.toIntOrNull()?.let { TestTower.build(it) }
+        // CRAZYTOWER_TEST=<stage> starts a test tower right away (for screenshots), 6 the maximum tower
+        val sim = loaded ?: System.getenv("CRAZYTOWER_TEST")?.toIntOrNull()?.let { TestTower.create(it) }
             ?: Simulation(seed = System.currentTimeMillis())
         val game = GameController(sim)
         screenRoot = container()
@@ -42,7 +42,7 @@ class GameScene(private val assets: Assets, private val loaded: Simulation? = nu
         Autopilot.attachIfRequested(this, sim, game, tower, hud)
         game.say(
             when {
-                test -> "Testturm Stufe ${sim.stage}: wird nicht gespeichert, F9 holt dein Spiel zurück"
+                test -> "Testturm: wird nicht gespeichert, F9 holt dein Spiel zurück"
                 loaded != null -> "Spielstand geladen"
                 else -> "F5 speichert, F9 lädt"
             },
@@ -52,7 +52,7 @@ class GameScene(private val assets: Assets, private val loaded: Simulation? = nu
             // the real game is saved first, so F9 brings it back
             if (!test) SaveSlot.save(sim)
             launchImmediately {
-                sceneContainer.changeTo { GameScene(assets, TestTower.build(stage, seed = System.currentTimeMillis()), test = true) }
+                sceneContainer.changeTo { GameScene(assets, TestTower.create(stage, seed = System.currentTimeMillis()), test = true) }
             }
         }
 
