@@ -13,7 +13,7 @@ import korlibs.korge.view.*
  * The finance window: what is paid when in the next day and a half, and a bar chart of
  * income and expenses over the last seven days. Opened by clicking the money (or F).
  */
-class FinanceWindow(private val sim: Simulation) : Container() {
+class FinanceWindow(private val sim: Simulation, private val onClose: () -> Unit) : Container() {
     val panelWidth = 620.0
     val panelHeight = 380.0
     private val bg = Panel(panelWidth, panelHeight).addTo(this)
@@ -23,7 +23,7 @@ class FinanceWindow(private val sim: Simulation) : Container() {
     init {
         label("FINANZEN", 20.0, Theme.TEXT, Theme.pixel).xy(18.0, 14.0)
         label("F oder Esc schließt", 12.0, Theme.TEXT_DIM).xy(panelWidth - 140.0, 20.0)
-        TextButton(110.0, 36.0, "Schließen") { visible = false }.addTo(this).xy(panelWidth - 128.0, panelHeight - 50.0)
+        TextButton(110.0, 36.0, "Schließen") { onClose() }.addTo(this).xy(panelWidth - 128.0, panelHeight - 50.0)
     }
 
     fun sync() {

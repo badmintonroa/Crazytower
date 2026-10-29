@@ -25,7 +25,8 @@ import korlibs.math.geom.Size
 
 /**
  * Screen-space interface: top bar, build bar with fly-out list, inspector, ticker,
- * placement tooltip and short messages. Layout follows the UI design (1280x800).
+ * placement tooltip and short messages. Laid out for the virtual screen it gets: 800 high
+ * and as wide as the window's aspect ratio needs (see [crazytower.core.Settings.virtualSize]).
  */
 class Hud(
     private val sim: Simulation,
@@ -40,9 +41,11 @@ class Hud(
     private val flyout = panel(270.0, 100.0).also { it.xy(110.0, 84.0) }
     private val inspector = Inspector(sim, game, assets).addTo(this).also { it.xy(screenWidth - 302.0, 84.0) }
     private val ticker = container { xy(0.0, screenHeight - 50.0) }
-    private val finance = FinanceWindow(sim).addTo(this).also {
+    private val finance = FinanceWindow(sim) { game.financeOpen = false }.addTo(this).also {
         it.xy((screenWidth - it.panelWidth) / 2, 96.0)
-        it.visible = false
+    }
+    private val options = OptionsWindow { game.optionsOpen = false }.addTo(this).also {
+        it.xy((screenWidth - it.panelWidth) / 2, ((screenHeight - it.panelHeight) / 2).coerceAtLeast(84.0))
     }
     private val tooltip = container { visible = false }
     private val toast = container { visible = false }
@@ -82,13 +85,14 @@ class Hud(
             if (flyout.visible) add(Rectangle(flyout.x, flyout.y, flyout.panelWidth, flyout.panelHeight))
             if (inspector.visible) add(Rectangle(inspector.x, inspector.y, inspector.panelWidth, inspector.panelHeight))
             if (finance.visible) add(Rectangle(finance.x, finance.y, finance.panelWidth, finance.panelHeight))
+            if (options.visible) add(Rectangle(options.x, options.y, options.panelWidth, options.panelHeight))
             add(Rectangle(0.0, screenHeight - 50.0, screenWidth, 50.0))
         }
         return rects.any { it.contains(point) }
     }
 
     fun showFinance() {
-        finance.visible = true
+        game.financeOpen = true
     }
 
     // ---------------------------------------------------------------- top bar
@@ -107,7 +111,7 @@ class Hud(
             moneyText = label("", 20.0, Theme.TEXT, Theme.pixel).also { it.xy(46.0, 9.0) }
             nextText = label("", 11.0, Theme.TEXT_DIM).also { it.xy(46.0, 36.0) }
             // the money opens the finance window
-            onClick { finance.visible = !finance.visible }
+            onClick { game.financeOpen = !game.financeOpen }
         }
         box(160.0) {
             solidRect(8.0, 8.0, Theme.alpha(Theme.SELECT, 0.9)).xy(20.0, 18.0)
@@ -116,7 +120,7 @@ class Hud(
             label("Bewohner", 12.0, Theme.TEXT_DIM).xy(95.0, 14.0)
             moodText = label("", 12.0, Theme.TEXT_DIM).also { it.xy(95.0, 30.0) }
         }
-        val stageWidth = screenWidth - 24 - x - 150 - 10 - 254
+        val stageWidth = screenWidth - 24 - x - 150 - 10 - 254 - 10 - 60
         box(stageWidth) {
             stars = container { xy(16.0, 20.0) }
             stageText = label("", 16.0, Theme.TEXT, Theme.pixel).also { it.xy(140.0, 12.0) }
@@ -136,6 +140,12 @@ class Hud(
                 addChild(b)
                 speedButtons += speed to b
             }
+        }
+        box(60.0) {
+            val b = TextButton(40.0, 40.0, "", onPress = { game.optionsOpen = !game.optionsOpen })
+            Icons.gear(b.content, Theme.TEXT)
+            b.xy(10.0, 10.0)
+            addChild(b)
         }
     }
 
@@ -272,11 +282,16 @@ class Hud(
                 game.fastNights = !game.fastNights
                 game.say(if (game.fastNights) "Nachts vorspulen: an" else "Nachts vorspulen: aus")
             }
-            down(Key.F) { finance.visible = !finance.visible }
+            down(Key.F) { game.financeOpen = !game.financeOpen }
+            down(Key.O) { game.optionsOpen = !game.optionsOpen }
             down(Key.ESCAPE) {
-                if (finance.visible) { finance.visible = false; return@down }
-                game.cancel()
-                if (game.category == null) game.selection = null
+                when {
+                    game.optionsOpen -> game.optionsOpen = false
+                    game.financeOpen -> game.financeOpen = false
+                    game.tool != null || game.category != null -> game.cancel()
+                    game.selection != null -> game.selection = null
+                    else -> game.optionsOpen = true
+                }
             }
         }
     }
@@ -288,7 +303,10 @@ class Hud(
         moneyText.color = if (sim.money < 0) Theme.ALARM else Theme.TEXT
         val next = sim.upcoming(24).firstOrNull { it.amount > 0 }
         nextText.text = next?.let { "nächste: +${formatMoney(it.amount)} um ${clockOf(it.minute)}" } ?: "keine Einnahmen in Sicht"
+        finance.visible = game.financeOpen
         if (finance.visible) finance.sync()
+        options.visible = game.optionsOpen
+        if (options.visible) options.sync()
         popText.text = formatNumber(sim.population.toLong())
         val mood = sim.satisfaction.toInt()
         moodText.text = "Laune $mood %"

@@ -27,6 +27,8 @@ class GameController(val sim: Simulation) {
     var category: Category? = Category.WAYS
     var tool: Tool? = null
     var selection: Selection? = null
+    var financeOpen = false
+    var optionsOpen = false
     var toast: String? = null
         private set
     private var toastLeft = 0.0
@@ -41,7 +43,7 @@ class GameController(val sim: Simulation) {
     }
 
     /** Between 23 and 6 o'clock the clock runs four times faster, if the player wants. */
-    var fastNights: Boolean = true
+    var fastNights: Boolean = Options.current.fastNights
 
     val nightBoost: Int
         get() = if (fastNights && (sim.clock.hour >= 23 || sim.clock.hour < 6)) NIGHT_BOOST else 1

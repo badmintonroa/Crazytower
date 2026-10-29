@@ -60,8 +60,8 @@ class TowerView(
     private val sim: Simulation,
     private val game: GameController,
     private val assets: Assets,
-    private val screenWidth: Double,
-    private val screenHeight: Double,
+    private var screenWidth: Double,
+    private var screenHeight: Double,
 ) : Container() {
     /** Everything that moves with the camera. */
     val world = container()
@@ -112,6 +112,9 @@ class TowerView(
     private var dragStart: Point? = null
     private var dragOrigin = Point(0.0, 0.0)
     private var dragging = false
+
+    /** An invisible full-screen hit area so clicks in empty sky still reach us. */
+    private val hit = SolidRect(screenWidth, screenHeight, RGBA(0, 0, 0, 0)).also { addChildAt(it, 0) }
 
     init {
         drawBackdrop()
@@ -185,6 +188,7 @@ class TowerView(
         while (fresh.isNotEmpty()) {
             val payment = fresh.removeFirst()
             val where = payment.where ?: continue
+            if (!Options.current.moneyPopups) continue
             val text = (if (payment.amount > 0) "+" else "") + formatMoney(payment.amount)
             val view = overlay.text(text, textSize = 22.0, color = if (payment.amount > 0) Theme.GOOD else Theme.ALARM, font = Theme.pixel)
             view.xy(Metrics.x(where.x) - view.width / 2, Metrics.floorTop(where.floor) + 18.0)
@@ -313,7 +317,9 @@ class TowerView(
             view.y = Metrics.floorBottom(pos.floor) - Metrics.FEET
             view.scaleX = if (pos.facingLeft) -2.0 else 2.0
             view.scaleY = 2.0
-            view.visible = PeopleVisibility.isVisible(sim, entity)
+            // with a thinner crowd only every second or fourth person is drawn, but never the selected one
+            val shown = (entity.id % 4) < Options.current.crowd * 4 || (game.selection as? Selection.PersonSel)?.entity == entity
+            view.visible = shown && PeopleVisibility.isVisible(sim, entity)
         }
         personViews.keys.filter { it !in seen }.forEach { personViews.remove(it)?.removeFromParent() }
     }
@@ -453,8 +459,6 @@ class TowerView(
     // ---------------------------------------------------------------- camera and input
 
     private fun setupInput() {
-        // an invisible full-screen hit area so clicks in empty sky still reach us
-        val hit = SolidRect(screenWidth, screenHeight, RGBA(0, 0, 0, 0)).also { addChildAt(it, 0) }
         hit.onMove { updateHover() }
         world.onMove { updateHover() }
         hit.onScroll { e -> zoomAt(e.currentPosGlobal, if (e.scrollDeltaYPixels > 0) 1 / 1.12 else 1.12) }
@@ -529,6 +533,16 @@ class TowerView(
         val lot = Metrics.x(sim.tower.width) * zoom
         world.x = world.x.coerceIn(-lot + 200, screenWidth - 200)
         world.y = world.y.coerceIn(screenHeight * 0.4, 110 * Metrics.FLOOR * zoom)
+    }
+
+    /** The window changed size: keep the middle of the view in the middle and the ground at the same distance from the bottom. */
+    fun resize(width: Double, height: Double) {
+        world.x += (width - screenWidth) / 2
+        world.y += height - screenHeight
+        screenWidth = width
+        screenHeight = height
+        hit.size(width, height)
+        clampCamera()
     }
 
     /** Moves the camera so that [loc] is in the middle of the screen. */
@@ -632,6 +646,7 @@ class TowerView(
 /** Daylight over the day: 1 at noon, 0 at night, with dawn and dusk in between. */
 object DayLight {
     fun light(minuteOfDay: Int): Double {
+        if (!Options.current.dayNight) return 1.0
         val h = minuteOfDay / 60.0
         return when {
             h < 5 || h >= 21.5 -> 0.0

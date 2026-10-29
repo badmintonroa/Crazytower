@@ -14,10 +14,13 @@ import kotlin.system.exitProcess
 
 /**
  * Development helper: with CRAZYTOWER_SCREENSHOT=<file.png> the game builds a demo tower,
- * lets it run for a while, saves a screenshot and quits (CRAZYTOWER_FINANCE=1 opens the finance window). Used to check the rendering
+ * lets it run for a while, saves a screenshot and quits (CRAZYTOWER_FINANCE=1 opens the finance window, CRAZYTOWER_OPTIONS=1 the options). Used to check the rendering
  * on machines without a screen.
  */
 object Autopilot {
+    /** True when the game runs for a screenshot; then it must not touch the player's files. */
+    val active: Boolean get() = System.getenv("CRAZYTOWER_SCREENSHOT") != null
+
     fun attachIfRequested(root: SContainer, sim: Simulation, game: GameController, tower: TowerView, hud: Hud) {
         val target = System.getenv("CRAZYTOWER_SCREENSHOT") ?: return
         val minutes = System.getenv("CRAZYTOWER_MINUTES")?.toDoubleOrNull() ?: 90.0
@@ -25,7 +28,8 @@ object Autopilot {
         sim.step(minutes)
         game.selection = sim.tower.allRooms.firstOrNull()?.let { Selection.RoomSel(it.id) }
         tower.lookAt(Loc(2, sim.tower.width / 2f))
-        if (System.getenv("CRAZYTOWER_FINANCE") != null) hud.showFinance()
+        if (System.getenv("CRAZYTOWER_FINANCE") != null) game.financeOpen = true
+        if (System.getenv("CRAZYTOWER_OPTIONS") != null) game.optionsOpen = true
         var frames = 0
         root.addUpdater {
             frames++
