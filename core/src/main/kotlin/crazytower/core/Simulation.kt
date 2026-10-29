@@ -111,11 +111,31 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         private set
 
     fun checkPlace(type: RoomType, floor: Int, x: Int, width: Int = type.width): PlaceCheck {
-        if (type.minStage > stage) return PlaceCheck.no("Erst ab Stufe ${type.minStage}")
-        val maxFloor = Stages.info(stage).maxFloor
-        if (floor >= maxFloor) return PlaceCheck.no("Stufe $stage erlaubt nur $maxFloor Etagen")
+        val rules = checkRules(type, floor, x, width)
+        if (!rules.ok) return rules
         if (money < type.price(width)) return PlaceCheck.no("Zu wenig Geld")
         return tower.canPlace(type, floor, x, width)
+    }
+
+    /** Width of the building lot in segments; it grows with the best stars, see [Lot]. */
+    val lotWidth: Int get() = Lot.width(bestStars)
+
+    /** Whether the basement may be dug. */
+    val basementOpen: Boolean get() = bestStars >= Lot.BASEMENT_STARS
+
+    /** What stage, stars and lot allow, before money and the tower itself are asked. */
+    private fun checkRules(type: RoomType, floor: Int, x: Int, width: Int): PlaceCheck {
+        if (type.minStage > stage) return PlaceCheck.no("Erst ab Stufe ${type.minStage}")
+        if (type.minStars > bestStars) return PlaceCheck.no("Erst ab ${type.minStars} Sternen")
+        val maxFloor = Stages.info(stage).maxFloor
+        if (floor >= maxFloor) return PlaceCheck.no("Stufe $stage erlaubt nur $maxFloor Etagen")
+        if (floor < GROUND_FLOOR && !basementOpen) return PlaceCheck.no("Keller erst ab ${Lot.BASEMENT_STARS} Sternen")
+        if (type.basementOnly && floor >= GROUND_FLOOR) return PlaceCheck.no("${type.name} nur im Keller")
+        if (x >= 0 && x + width > lotWidth) {
+            val next = Lot.next(bestStars)
+            return PlaceCheck.no(if (next != null) "Grundstück wird erst ab ${next.stars} Sternen breiter" else "Außerhalb des Grundstücks")
+        }
+        return PlaceCheck.OK
     }
 
     fun build(type: RoomType, floor: Int, x: Int, width: Int = type.width): BuildResult {
@@ -138,8 +158,8 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
      * over the old lobby is free.
      */
     fun planLobby(from: Int, to: Int, floor: Int = GROUND_FLOOR): BuildPlan {
-        val lo = minOf(from, to).coerceIn(0, tower.width - 1)
-        val hi = maxOf(from, to).coerceIn(0, tower.width - 1)
+        val lo = minOf(from, to).coerceIn(0, lotWidth - 1)
+        val hi = maxOf(from, to).coerceIn(0, lotWidth - 1)
         val pieces = ArrayList<IntRange>()
         var start = -1
         for (s in lo..hi + 1) {
@@ -164,6 +184,30 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     }
 
     /**
+     * The gap filler for a click at [segment] on [floor]: the whole empty stretch around it,
+     * between the neighbouring rooms or the lot edge, if it is at most [MAX_GAP] wide.
+     */
+    fun planGap(floor: Int, segment: Int): BuildPlan {
+        val type = Catalog.FILLER
+        fun empty(s: Int) = s in 0 until lotWidth && tower.roomAt(floor, s) == null
+        if (!empty(segment)) return BuildPlan(type, emptyList(), 0, PlaceCheck.no("Hier ist keine Lücke"))
+        var lo = segment
+        var hi = segment
+        while (empty(lo - 1) && hi - lo < MAX_GAP) lo--
+        while (empty(hi + 1) && hi - lo < MAX_GAP) hi++
+        val width = hi - lo + 1
+        val piece = BuildPlan.Piece(floor, lo, width)
+        val cost = type.price(width)
+        val check = when {
+            width > MAX_GAP -> PlaceCheck.no("Zu große Lücke, hier passt ein ganzer Raum")
+            else -> checkRules(type, floor, lo, width).takeUnless { it.ok }
+                ?: tower.canPlace(type, floor, lo, width).takeUnless { it.ok }
+                ?: if (cost > money) PlaceCheck.no("Zu wenig Geld") else PlaceCheck.OK
+        }
+        return BuildPlan(type, listOf(piece), cost, check)
+    }
+
+    /**
      * The stairs or elevator modules a vertical drag at [x] from floor [from] to floor [to]
      * would add. Floors that already have a module of this type at [x] are skipped, so grabbing
      * the end of a shaft and dragging on extends it. Stairs lead up to the upper floor, so they
@@ -177,13 +221,12 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         floors = floors.sortedBy { if (it >= GROUND_FLOOR) it else -it }
         val fresh = floors.filter { f -> tower.wayAt(f, x)?.let { it.type == type && it.x == x } != true }
         val cost = type.price() * fresh.size
-        var check = if (type.minStage > stage) PlaceCheck.no("Erst ab Stufe ${type.minStage}") else PlaceCheck.OK
-        val maxFloor = Stages.info(stage).maxFloor
+        var check = PlaceCheck.OK
         val assumed = HashSet<Int>()
         for (f in fresh) {
             if (!check.ok) break
-            check = if (f >= maxFloor) PlaceCheck.no("Stufe $stage erlaubt nur $maxFloor Etagen")
-            else tower.canPlace(type, f, x, assumed = assumed)
+            check = checkRules(type, f, x, type.width).takeUnless { it.ok }
+                ?: tower.canPlace(type, f, x, assumed = assumed)
             assumed += f
         }
         if (check.ok && cost > money) check = PlaceCheck.no("Zu wenig Geld")
@@ -430,7 +473,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
 
     private fun homeFees(): Long = tower.allRooms.count { it.type.role == RoomRole.HOME && it.tenant != null && it.tenant!!.salePrice > 0 } * (HOME_FEE * starBonus).toLong()
 
-    private fun upkeep(): Long = tower.allRooms.sumOf { (UPKEEP[it.type.role] ?: 0L) * (if (it.type.stretchable) it.width else 6) / 6 }
+    private fun upkeep(): Long = tower.allRooms.sumOf { (UPKEEP[it.type.role] ?: 0L) * (if (it.type.perSegment) it.width else 6) / 6 }
 
     /**
      * Midnight: maintenance, every few days the home fees, unhappy tenants move out, new star
@@ -461,8 +504,18 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         val newStars = Rating.stars(population, satisfaction, hasFood)
         if (newStars > stars) {
             news.post("Der Turm hat jetzt $newStars Sterne! Neue Mieter werden neugierig.", important = true)
+            val oldLot = lotWidth
+            val hadBasement = basementOpen
             stars = newStars
+            if (lotWidth > oldLot) {
+                news.post("Die Stadt verkauft dir das Nachbargrundstück. Der Turm darf jetzt $lotWidth Felder breit werden. Der Nachbar zieht murrend mit seinem Gartenzwerg um.", Loc(GROUND_FLOOR, oldLot.toFloat()), important = true)
+            }
+            if (basementOpen && !hadBasement) {
+                news.post("Der Keller ist frei! Bis zur ${-Tower.MIN_FLOOR}. Untergeschoss darf gegraben werden, zum Beispiel für ein Parkhaus. Die Maulwürfe sind informiert.", important = true)
+            }
         }
+        val fees = parkingFees()
+        if (fees > 0) book(fees, MoneyKind.PARKING, "Parkgebühren", tower.allRooms.firstOrNull { it.type.role == RoomRole.PARKING }?.center)
         moveOutUnhappiest(leaving)
     }
 
@@ -482,6 +535,15 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             news.post("$name zieht aus: zu schlechte Laune im Turm. ${MOVE_OUT_REASONS[random.nextInt(MOVE_OUT_REASONS.size)]}", room.center, important = true)
         }
     }
+
+    /** Cars parked in the tower's car parks: one for every few people, as many as there are spaces. */
+    val parkedCars: Int get() {
+        val spaces = tower.allRooms.count { it.type.role == RoomRole.PARKING } * CARS_PER_PARKING
+        return minOf(spaces, population / PEOPLE_PER_CAR)
+    }
+
+    /** Daily parking fees for [parkedCars]. */
+    fun parkingFees(): Long = (parkedCars * PARKING_FEE * starBonus).toLong()
 
     private fun Long.fmt(): String = "%,d".format(this).replace(',', '.')
 
@@ -584,11 +646,11 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     }
 
     /** Street exit closest to [x]: people leave the tower to the left or right edge. */
-    fun streetExit(x: Float): Loc = Loc(GROUND_FLOOR, if (x < tower.width / 2f) 0f else tower.width - 0.01f)
+    fun streetExit(x: Float): Loc = Loc(GROUND_FLOOR, if (x < lotWidth / 2f) 0f else lotWidth - 0.01f)
 
     fun spawnVisitor(): Entity {
         val fromLeft = random.nextBoolean()
-        val start = if (fromLeft) 0f else tower.width - 0.01f
+        val start = if (fromLeft) 0f else lotWidth - 0.01f
         val look = VISITOR_LOOKS[random.nextInt(VISITOR_LOOKS.size)]
         return world.entity {
             it += Position(GROUND_FLOOR, start, facingLeft = !fromLeft)
@@ -681,7 +743,16 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         val UPKEEP = mapOf(
             RoomRole.ELEVATOR to 60L, RoomRole.STAIRS to 10L, RoomRole.LOBBY to 40L, RoomRole.CORRIDOR to 5L,
             RoomRole.SPECIAL to 300L, RoomRole.SECURITY to 800L, RoomRole.TELEPORTER to 1_000L,
+            RoomRole.PARKING to 400L,
         )
+
+        /** Cars one car park holds, people per car, and the daily fee per parked car. */
+        const val CARS_PER_PARKING = 40
+
+        /** The widest gap the gap filler closes; anything wider takes a room. */
+        const val MAX_GAP = 5
+        const val PEOPLE_PER_CAR = 4
+        const val PARKING_FEE = 60L
 
         val MOVE_OUT_REASONS = listOf(
             "Der Aufzug kam nie.",

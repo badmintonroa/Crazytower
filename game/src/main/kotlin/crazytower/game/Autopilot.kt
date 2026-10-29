@@ -28,7 +28,7 @@ object Autopilot {
         if (sim.tower.allRooms.isEmpty()) DemoTower.build(sim)
         sim.step(minutes)
         game.selection = sim.tower.allRooms.firstOrNull()?.let { Selection.RoomSel(it.id) }
-        tower.lookAt(Loc(2, sim.tower.width / 2f))
+        tower.lookAt(Loc(2, sim.lotWidth / 2f))
         if (System.getenv("CRAZYTOWER_FINANCE") != null) game.financeOpen = true
         if (System.getenv("CRAZYTOWER_OPTIONS") != null) game.optionsOpen = true
         System.getenv("CRAZYTOWER_CATEGORY")?.let { name -> Category.entries.firstOrNull { it.name == name }?.let { game.openCategory(it) } }
@@ -56,7 +56,7 @@ object Autopilot {
 object DemoTower {
     fun build(sim: Simulation) {
         sim.book(1_000_000, MoneyKind.LUCK, "Demo-Zuschuss")
-        val mid = sim.tower.width / 2 - 12
+        val mid = sim.lotWidth / 2 - 12
         sim.build(sim.planLobby(mid, mid + 23))
         val plan = listOf(
             listOf(Catalog.OFFICE, Catalog.OFFICE, Catalog.FOOD),

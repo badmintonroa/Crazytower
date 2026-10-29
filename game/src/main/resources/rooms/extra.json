@@ -339,6 +339,26 @@
     "w": 576,
     "h": 192
    }
+  },
+  "special_parking.png": {
+   "frame": {
+    "x": 1168,
+    "y": 1000,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
   }
  },
  "meta": {

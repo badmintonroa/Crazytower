@@ -4,6 +4,7 @@ import com.github.quillraven.fleks.Entity
 import crazytower.core.BuildPlan
 import crazytower.core.GROUND_FLOOR
 import crazytower.core.Loc
+import crazytower.core.Lot
 import crazytower.core.PlaceCheck
 import crazytower.core.Room
 import crazytower.core.RoomRole
@@ -72,6 +73,8 @@ class TowerView(
     val world = container()
     private val sky = world.solidRect(1.0, 1.0, Theme.SKY)
     private val backdrop = world.container()
+    private val lotMarks = backdrop.container()
+    private var drawnLot = -1
     private val dusk = world.solidRect(1.0, 1.0, RGBA(0, 0, 0, 0))
     private val roomsLayer = world.container()
     /** People busy inside rooms: behind stairs and elevator shafts that run through the room. */
@@ -125,7 +128,7 @@ class TowerView(
 
     init {
         drawBackdrop()
-        world.x = screenWidth / 2 - Metrics.x(sim.tower.width / 2)
+        world.x = screenWidth / 2 - Metrics.x(sim.lotWidth / 2)
         world.y = screenHeight - 170.0
         setupInput()
     }
@@ -166,8 +169,28 @@ class TowerView(
         backdrop.solidRect(lotWidth + 8000, 3000.0, Theme.GROUND).xy(-4000.0, 0.0)
         backdrop.solidRect(lotWidth + 8000, 20.0, Theme.GROUND_DARK).xy(-4000.0, 6.0)
         backdrop.solidRect(lotWidth + 8000, Metrics.FEET, Theme.STREET).xy(-4000.0, -Metrics.FEET)
-        // lot markers
-        for (x in listOf(0.0, lotWidth)) backdrop.solidRect(4.0, 24.0, Theme.GOLD).xy(x - 2, -24.0)
+        drawLot()
+    }
+
+    /** Lot markers, the plot that is for sale next and the locked basement. Redrawn when the lot changes. */
+    private fun drawLot() {
+        drawnLot = sim.lotWidth
+        backdrop.addChild(lotMarks) // on top of the ground and skyline
+        lotMarks.removeChildren()
+        val right = Metrics.x(sim.lotWidth)
+        for (x in listOf(0.0, right)) lotMarks.solidRect(4.0, 24.0, Theme.GOLD).xy(x - 2, -24.0)
+        val next = Lot.next(sim.bestStars)
+        if (next != null) {
+            val end = Metrics.x(next.width)
+            lotMarks.solidRect(end - right, 6.0, Theme.GOLD.withAd(0.35)).xy(right, -6.0)
+            lotMarks.solidRect(4.0, 16.0, Theme.GOLD.withAd(0.5)).xy(end - 2, -16.0)
+            val sign = lotMarks.text("ZU VERKAUFEN · ab ${next.stars} Sternen", textSize = 22.0, color = Theme.GOLD, font = Theme.bodyBold)
+            sign.xy(right + (end - right - sign.width) / 2, -Metrics.FEET - 36.0)
+        }
+        if (!sim.basementOpen) {
+            val sign = lotMarks.text("Keller ab ${Lot.BASEMENT_STARS} Sternen", textSize = 22.0, color = Theme.TEXT_DIM, font = Theme.bodyBold)
+            sign.xy((right - sign.width) / 2, 40.0)
+        }
     }
 
     // ---------------------------------------------------------------- sync
@@ -179,6 +202,7 @@ class TowerView(
             drawnDark = dark
             rebuildRooms()
         }
+        if (drawnLot != sim.lotWidth) drawLot()
         syncSky()
         syncCars()
         syncPeople()
@@ -417,15 +441,15 @@ class TowerView(
                         ghostInfo = "${modules.size} ${if (modules.size == 1) "Etage" else "Etagen"} abbauen · ${formatMoney(refund)} zurück" to true
                     }
                 }
-                tool.type.stretchable || tool.type.role.isWay -> {
+                tool.type.stretchable || tool.type.fillsGap || tool.type.role.isWay -> {
                     val plan = planFor(tool.type, h)
                     val color = if (plan.check.ok) Theme.SELECT else Theme.ALARM
-                    val pieces = plan.pieces.ifEmpty { listOf(BuildPlan.Piece(h.floor, BuildRules.snapX(h.segment, tool.type.width, sim.tower.width), tool.type.width)) }
+                    val pieces = plan.pieces.ifEmpty { listOf(BuildPlan.Piece(h.floor, BuildRules.snapX(h.segment, tool.type.width, sim.lotWidth), tool.type.width)) }
                     showGhost(pieces.map { Ghost(it.floor, it.x, it.width) }, color, 0.2)
                     ghostInfo = if (plan.check.ok) planText(plan) to true else plan.check.reason to false
                 }
                 else -> {
-                    val x = BuildRules.snapX(h.segment, tool.type.width, sim.tower.width)
+                    val x = BuildRules.snapX(h.segment, tool.type.width, sim.lotWidth)
                     val check = sim.checkPlace(tool.type, h.floor, x)
                     showGhost(listOf(Ghost(h.floor, x, tool.type.width)), if (check.ok) Theme.SELECT else Theme.ALARM, 0.2)
                     ghostInfo = if (check.ok) {
@@ -470,6 +494,7 @@ class TowerView(
      * the ground floor and stairs and elevators along a column, from where the button went down.
      */
     private fun planFor(type: RoomType, h: Hover): BuildPlan {
+        if (type.fillsGap) return sim.planGap(h.floor, floor(h.segment).toInt())
         val anchor = pressHover ?: h
         return if (type.stretchable) {
             if (!Tower.isLobbyFloor(anchor.floor)) {
@@ -478,24 +503,24 @@ class TowerView(
             val from = floor(anchor.segment).toInt()
             val to = floor(h.segment).toInt()
             if (pressHover == null || from == to) {
-                val x = BuildRules.snapX(h.segment, type.width, sim.tower.width)
+                val x = BuildRules.snapX(h.segment, type.width, sim.lotWidth)
                 sim.planLobby(x, x + type.width - 1, anchor.floor)
             } else {
                 sim.planLobby(from, to, anchor.floor)
             }
         } else {
-            val x = BuildRules.snapX(anchor.segment, type.width, sim.tower.width)
+            val x = BuildRules.snapX(anchor.segment, type.width, sim.lotWidth)
             sim.planColumn(type, x, anchor.floor, h.floor)
         }
     }
 
     private fun planText(plan: BuildPlan): String {
-        val size = if (plan.type.stretchable) {
+        val size = if (plan.type.perSegment) {
             "${plan.pieces.sumOf { it.width }} Felder"
         } else {
             "${plan.pieces.size} ${if (plan.pieces.size == 1) "Etage" else "Etagen"}"
         }
-        val hint = if (pressHover == null) "Ziehen zum Bauen" else "Loslassen zum Bauen"
+        val hint = if (plan.type.fillsGap) "Klicken zum Füllen" else if (pressHover == null) "Ziehen zum Bauen" else "Loslassen zum Bauen"
         return "${plan.type.name} · $size · ${formatMoney(plan.cost)} · $hint"
     }
 
@@ -653,9 +678,9 @@ class TowerView(
                         if (plan.pieces.isNotEmpty()) build(plan)
                     }
                 }
-                tool.type.stretchable || tool.type.role.isWay -> build(planFor(tool.type, h))
+                tool.type.stretchable || tool.type.fillsGap || tool.type.role.isWay -> build(planFor(tool.type, h))
                 else -> {
-                    val x = BuildRules.snapX(h.segment, tool.type.width, sim.tower.width)
+                    val x = BuildRules.snapX(h.segment, tool.type.width, sim.lotWidth)
                     val result = sim.build(tool.type, h.floor, x)
                     feedback(result.ok, result.reason)
                 }

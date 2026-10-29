@@ -26,6 +26,7 @@ class TransportTest {
         sim.build(Catalog.LOBBY, 0, 10)
         assertTrue(sim.build(Catalog.OFFICE, 1, 10).ok)
         assertFalse(sim.build(Catalog.OFFICE, 2, 13).ok)
+        sim.stars = Lot.BASEMENT_STARS
         assertTrue(sim.build(Catalog.OFFICE, -1, 30).ok, "the first basement can be dug anywhere")
         assertFalse(sim.build(Catalog.OFFICE, -2, 40).ok)
     }

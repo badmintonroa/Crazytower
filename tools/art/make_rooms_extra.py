@@ -319,6 +319,36 @@ def special_ufo():
     return r.save()
 
 
+def special_parking():
+    r = Room(6, (110, 112, 120), floor=(64, 66, 74), ceiling=(50, 52, 62))
+    d = r.d
+    # concrete pillars and painted bays
+    for x in (8, 280, 552):
+        r.box(x, 20, 24, 150, (150, 150, 156))
+        d.rectangle([x + 2, 120, x + 22, 132], fill=(240, 200, 60))
+    for x in range(40, 560, 120):
+        d.line([x, H - 22, x + 20, H], fill=(240, 240, 230), width=4)
+    cars = [(48, (220, 70, 70)), (168, (70, 140, 220)), (330, (240, 200, 60)), ]
+    for x, color in cars:
+        r.box(x, 132, 96, 30, color)
+        r.box(x + 16, 112, 60, 24, shade(color, 0.85))
+        d.rectangle([x + 22, 116, x + 70, 132], fill=(170, 210, 235))
+        for wx in (x + 18, x + 76):
+            d.ellipse([wx - 10, 154, wx + 10, 174], fill=INK)
+            d.ellipse([wx - 4, 160, wx + 4, 168], fill=(180, 180, 190))
+    # the one parked crosswise since 1987
+    # seen from behind: it blocks two bays
+    r.box(450, 116, 70, 48, (200, 120, 200))
+    d.rectangle([460, 122, 510, 138], fill=(170, 210, 235))
+    for lx in (456, 504):
+        d.rectangle([lx, 146, lx + 10, 154], fill=(240, 70, 70))
+    d.rectangle([462, 164, 474, 174], fill=INK)
+    d.rectangle([496, 164, 508, 174], fill=INK)
+    r.sign(100, 34, "P", bg=(60, 110, 220), size=26)
+    r.sign(330, 34, "NICHT QUER\nPARKEN (SEIT 1987)", bg=(255, 255, 255), size=11)
+    return r.save()
+
+
 ROOMS = {
     "corridor": corridor, "stairs": stairs, "elevator_shaft": elevator,
     "home_empty": home_empty, "home_family": home_family, "home_students": home_students,
@@ -326,6 +356,7 @@ ROOMS = {
     "home_penguins": home_penguins, "home_ghost": home_ghost,
     "food_empty": food_empty, "food_imbiss": food_imbiss, "food_sushi": food_sushi, "food_cafe": food_cafe,
     "special_security": special_security, "special_teleporter": special_teleporter, "special_ufo": special_ufo,
+    "special_parking": special_parking,
 }
 
 

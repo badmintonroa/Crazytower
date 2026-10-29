@@ -227,7 +227,8 @@ class Tower(val width: Int = DEFAULT_WIDTH) {
     }
 
     companion object {
-        const val DEFAULT_WIDTH = 64
+        /** Laid out for the widest lot; the simulation limits building to the current [Lot]. */
+        val DEFAULT_WIDTH = Lot.maxWidth
         const val MIN_FLOOR = -3
         const val MAX_SHAFT_FLOORS = 30
         const val MAX_EXPRESS_FLOORS = 100
