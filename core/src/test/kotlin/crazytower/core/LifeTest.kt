@@ -17,7 +17,7 @@ class LifeTest {
     @Test
     fun officeWorkersComeInTheMorningAndLeaveInTheEvening() {
         val sim = Simulation(seed = 2, startMoney = 10_000_000)
-        val office = sim.build(Catalog.OFFICE, 0, 20).room!!
+        val office = sim.buildReachable(Catalog.OFFICE, 20)
         sim.moveIn(office, Tenants.byId("accountant"))
         val staff = sim.membersOf(office.id)
         assertEquals(Catalog.OFFICE.capacity, staff.size)
@@ -26,7 +26,7 @@ class LifeTest {
         with(sim.world) {
             staff.forEach { e ->
                 assertTrue(e hasNo Away, "${e[Schedule].activity}")
-                assertEquals(0, e[Position].floor)
+                assertEquals(office.floor, e[Position].floor)
             }
         }
         stepTo(sim, 20)
@@ -35,8 +35,9 @@ class LifeTest {
 
     @Test
     fun nightShiftWorksAtNight() {
-        val sim = Simulation(seed = 4, startMoney = 10_000_000)
-        val office = sim.build(Catalog.OFFICE, 0, 20).room!!
+        // a seed without the clown event, which would turn the vampires into clowns
+        val sim = Simulation(seed = 3, startMoney = 10_000_000)
+        val office = sim.buildReachable(Catalog.OFFICE, 20)
         sim.moveIn(office, Tenants.byId("vampire"))
         stepTo(sim, 12)
         with(sim.world) { sim.membersOf(office.id).forEach { assertTrue(it has Away) } }
@@ -47,8 +48,8 @@ class LifeTest {
     @Test
     fun peopleGoForLunchAndPayForIt() {
         val sim = Simulation(seed = 8, startMoney = 10_000_000)
-        val office = sim.build(Catalog.OFFICE, 0, 20).room!!
-        val food = sim.build(Catalog.FOOD, 0, 30).room!!
+        val office = sim.buildReachable(Catalog.OFFICE, 20)
+        val food = sim.buildReachable(Catalog.FOOD, 30)
         sim.moveIn(office, Tenants.byId("accountant"))
         sim.moveIn(food, Tenants.byId("imbiss"))
         val before = sim.money
@@ -60,7 +61,7 @@ class LifeTest {
     @Test
     fun midnightPaysTheRent() {
         val sim = Simulation(seed = 9, startMoney = 1_000_000)
-        val office = sim.build(Catalog.OFFICE, 0, 20).room!!
+        val office = sim.buildReachable(Catalog.OFFICE, 20)
         sim.moveIn(office, Tenants.byId("accountant"))
         val before = sim.money
         stepTo(sim, 1, day = 1)
@@ -71,7 +72,7 @@ class LifeTest {
     @Test
     fun residentsLeaveForWorkOnWeekdays() {
         val sim = Simulation(seed = 6, startMoney = 10_000_000)
-        val home = sim.build(Catalog.HOME, 0, 20).room!!
+        val home = sim.buildReachable(Catalog.HOME, 20)
         sim.moveIn(home, Tenants.byId("family"))
         stepTo(sim, 8)
         with(sim.world) { assertTrue(sim.membersOf(home.id).all { it hasNo Away }) }
@@ -90,7 +91,7 @@ class LifeTest {
     @Test
     fun moveOutRemovesThePeople() {
         val sim = Simulation(seed = 1, startMoney = 10_000_000)
-        val office = sim.build(Catalog.OFFICE, 0, 20).room!!
+        val office = sim.buildReachable(Catalog.OFFICE, 20)
         sim.moveIn(office, Tenants.byId("startup"))
         sim.moveOut(office)
         assertEquals(0, sim.world.family { all(Member) }.numEntities)

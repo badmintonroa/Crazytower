@@ -1,6 +1,7 @@
 package crazytower.game
 
 import crazytower.core.Catalog
+import crazytower.core.GROUND_FLOOR
 import crazytower.core.Loc
 import crazytower.core.Simulation
 import korlibs.image.format.PNG
@@ -42,14 +43,11 @@ object Autopilot {
     }
 }
 
-/** A small prebuilt tower for demos and screenshots: lobbies, a few floors, stairs and an elevator. */
+/** A small prebuilt tower for demos and screenshots: a long lobby, a few floors, stairs and an elevator through the rooms. */
 object DemoTower {
     fun build(sim: Simulation) {
         val mid = sim.tower.width / 2 - 12
-        for (i in 0 until 3) sim.build(Catalog.LOBBY, 0, mid + i * 6)
-        sim.build(Catalog.ELEVATOR, 0, mid + 18)
-        sim.build(Catalog.STAIRS, 0, mid + 20)
-        sim.build(Catalog.LOBBY, 0, mid + 22)
+        sim.build(sim.planLobby(mid, mid + 23))
         val plan = listOf(
             listOf(Catalog.OFFICE, Catalog.OFFICE, Catalog.FOOD),
             listOf(Catalog.OFFICE, Catalog.HOME, Catalog.OFFICE),
@@ -58,9 +56,9 @@ object DemoTower {
         for ((i, row) in plan.withIndex()) {
             val floor = i + 1
             row.forEachIndexed { j, type -> sim.build(type, floor, mid + j * 6) }
-            sim.build(Catalog.ELEVATOR, floor, mid + 18)
-            if (floor < plan.size) sim.build(Catalog.STAIRS, floor, mid + 20)
-            sim.build(Catalog.CORRIDOR, floor, mid + 22)
+            sim.build(Catalog.CORRIDOR, floor, mid + 18)
         }
+        sim.build(sim.planColumn(Catalog.ELEVATOR, mid + 10, GROUND_FLOOR, plan.size))
+        sim.build(sim.planColumn(Catalog.STAIRS, mid + 20, GROUND_FLOOR, plan.size))
     }
 }

@@ -28,7 +28,8 @@ class VisitorSpawnSystem(
     override fun onTick() {
         cooldown -= deltaTime
         if (cooldown > 0f) return
-        val lobbies = sim.tower.allRooms.count { it.type.role == RoomRole.LOBBY }
+        // one "lobby" per six segments, however the player has dragged them
+        val lobbies = (sim.tower.allRooms.filter { it.type.role == RoomRole.LOBBY }.sumOf { it.width } + 5) / 6
         val hour = sim.clock.hour
         if (lobbies == 0 || hour < 7 || hour >= 22 || visitors.numEntities >= MAX_PER_LOBBY * lobbies) {
             cooldown = 5f

@@ -38,12 +38,17 @@ enum class RoomRole {
 
     /** Rooms that get a tenant. */
     val rentable: Boolean get() = this == OFFICE || this == HOME || this == FOOD
+
+    /** Stairs and elevators sit on their own layer in front of the rooms. */
+    val isWay: Boolean get() = this == STAIRS || this == ELEVATOR
 }
 
 /**
  * A buildable room type.
  *
- * @param width width in segments
+ * @param width width in segments; for [stretchable] types the width of a single click
+ * @param cost price of the room, or of one segment for [stretchable] types
+ * @param stretchable the player drags it to any width (the lobby)
  * @param art key of the room art (without size suffix)
  * @param capacity workers (office, food) or residents (home) once a tenant moved in
  */
@@ -58,13 +63,17 @@ data class RoomType(
     val art: String,
     val capacity: Int = 0,
     val description: String = "",
-)
+    val stretchable: Boolean = false,
+) {
+    /** What a room of this type with [width] segments costs. */
+    fun price(width: Int = this.width): Long = if (stretchable) cost * width else cost
+}
 
 object Catalog {
     val LOBBY = RoomType(
         id = "lobby", name = "Lobby", category = Category.WAYS, role = RoomRole.LOBBY,
-        width = 6, cost = 5_000, art = "lobby_stage1_bruchbude",
-        description = "Eingang zum Turm. Nur im Erdgeschoss.",
+        width = 6, cost = 800, art = "lobby_stage1_bruchbude", stretchable = true,
+        description = "Eingang zum Turm. Nur im Erdgeschoss. Zum Verlängern ziehen.",
     )
     val CORRIDOR = RoomType(
         id = "corridor", name = "Flur", category = Category.WAYS, role = RoomRole.CORRIDOR,
@@ -74,12 +83,12 @@ object Catalog {
     val STAIRS = RoomType(
         id = "stairs", name = "Treppe", category = Category.WAYS, role = RoomRole.STAIRS,
         width = 2, cost = 2_000, art = "stairs",
-        description = "Führt eine Etage nach oben. Langsam, aber ehrlich.",
+        description = "Führt eine Etage nach oben. Langsam, aber ehrlich. Senkrecht ziehen für mehrere Etagen.",
     )
     val ELEVATOR = RoomType(
         id = "elevator", name = "Aufzug", category = Category.WAYS, role = RoomRole.ELEVATOR,
         width = 2, cost = 6_000, art = "elevator_shaft",
-        description = "Pro Etage ein Stück Schacht. Übereinander bauen.",
+        description = "Senkrecht ziehen. Enden greifen zum Verlängern. Darf durch Räume laufen.",
     )
     val OFFICE = RoomType(
         id = "office", name = "Büro", category = Category.OFFICES, role = RoomRole.OFFICE,

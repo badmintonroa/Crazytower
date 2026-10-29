@@ -44,7 +44,7 @@ class StageEventSaveTest {
     @Test
     fun clownsTakeOverAnOffice() {
         val sim = Simulation(seed = 5, startMoney = 1_000_000)
-        val office = sim.build(Catalog.OFFICE, 0, 10).room!!
+        val office = sim.buildReachable(Catalog.OFFICE, 10)
         sim.moveIn(office, Tenants.byId("accountant"))
         val clown = Events.all.first { it.id == "clown" }
         assertTrue(clown.apply(sim))
@@ -77,9 +77,9 @@ class StageEventSaveTest {
     @Test
     fun saveAndLoadKeepTheTower() {
         val sim = Simulation(seed = 3, startMoney = 2_000_000)
-        val office = sim.build(Catalog.OFFICE, 0, 10).room!!
+        val office = sim.buildReachable(Catalog.OFFICE, 10)
         sim.build(Catalog.LOBBY, 0, 16)
-        sim.build(Catalog.CORRIDOR, 1, 10)
+        sim.build(Catalog.CORRIDOR, 1, 16)
         sim.moveIn(office, Tenants.byId("vampire"))
         sim.step(90.0)
         val json = sim.toSave().toJson()
@@ -91,8 +91,10 @@ class StageEventSaveTest {
         assertEquals(Catalog.OFFICE.capacity, loaded.world.family { all(Member) }.numEntities)
         assertEquals(sim.news.latest.map { it.text }, loaded.news.latest.map { it.text })
         // the loaded tower keeps working
+        val lobby = loaded.tower.roomAt(GROUND_FLOOR, 10)!!
+        assertEquals(10 to 12, lobby.x to lobby.width, "the two lobbies were joined, and stay joined")
         assertTrue(loaded.build(Catalog.OFFICE, 1, 10).ok.not())
-        assertTrue(loaded.build(Catalog.HOME, 0, 30).ok)
+        assertTrue(loaded.build(Catalog.HOME, 2, 10).ok)
         loaded.step(60.0)
     }
 }

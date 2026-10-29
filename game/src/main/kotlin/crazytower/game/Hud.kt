@@ -223,7 +223,7 @@ class Hud(
             }
             val name = content.label(type.name, 15.0, Theme.TEXT, Theme.bodyBold).also { it.xy(92.0, 12.0) }
             val sub = content.label(
-                if (unlocked) formatMoney(type.cost) else "AB STUFE ${type.minStage}", 13.0, Theme.TEXT, Theme.pixel,
+                if (!unlocked) "AB STUFE ${type.minStage}" else if (type.stretchable) "${formatMoney(type.cost)}/FELD" else formatMoney(type.cost), 13.0, Theme.TEXT, Theme.pixel,
             ).also { it.xy(92.0, 33.0) }
             onRestyle = { name.color = it.ink; sub.color = it.ink }
             onRestyle(this)

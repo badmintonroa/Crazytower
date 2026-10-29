@@ -71,7 +71,7 @@ class Elevators(private val tower: Tower) : LinkProvider {
         for (room in tower.allRooms) {
             if (room.type.role != RoomRole.ELEVATOR || room.id in seen) continue
             val range = tower.shaftRange(room.floor, room.x)
-            for (f in range) tower.roomAt(f, room.x)?.let { seen += it.id }
+            for (f in range) tower.wayAt(f, room.x)?.let { seen += it.id }
             shafts += room.x to range
         }
         val old = byId.values.toMutableList()
