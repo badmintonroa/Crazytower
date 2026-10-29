@@ -303,7 +303,7 @@ class Hud(
             RoomRole.ELEVATOR -> listOf(
                 "Unterhalt pro Tag: ${formatMoney(Simulation.UPKEEP.getValue(RoomRole.ELEVATOR))} pro Etage",
                 "plus ${formatMoney(Simulation.CABIN_UPKEEP)} pro Kabine",
-                "je Schacht mehr: +${(Simulation.SHAFT_SURCHARGE * 100).toInt()} % Bau, +${(Simulation.UPKEEP_SURCHARGE * 100).toInt()} % Unterhalt",
+                "jeder weitere Schacht +${(Simulation.SHAFT_SURCHARGE * 100).toInt()} % teurer",
             )
             else -> type.effects
         }
