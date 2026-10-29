@@ -14,7 +14,7 @@ class IdleSystem(
     private val sim: Simulation = inject(),
 ) : IteratingSystem(family { all(Idle) }) {
     override fun onTickEntity(entity: Entity) {
-        if (sim.clock.totalMinutes >= entity[Idle].until) entity.configure { it -= Idle }
+        if (sim.clock.totalMinutes >= entity[Idle].until) entity.configure { drop(it, Idle) }
     }
 }
 

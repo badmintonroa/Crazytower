@@ -34,8 +34,8 @@ class RouteRefreshSystem(
 
     override fun onTickEntity(entity: Entity) {
         entity.configure {
-            it -= Route
-            it -= Stuck
+            drop(it, Route)
+            drop(it, Stuck)
         }
     }
 }
@@ -59,10 +59,11 @@ class ElevatorSystem(
     }
 
     override fun onTickEntity(entity: Entity) {
-        val leg = entity[Route].legs.firstOrNull() as? Leg.Ride ?: return
+        // the family can hand out somebody whose route was just taken away; they plan again
+        val leg = entity.getOrNull(Route)?.legs?.firstOrNull() as? Leg.Ride ?: return
         val car = elevators.cars[leg.shaftId]
         if (car == null || leg.fromFloor !in car.floors || leg.toFloor !in car.floors) {
-            entity.configure { it -= Route } // plan again
+            entity.configure { drop(it, Route) } // plan again
             return
         }
         val pos = entity[Position]
@@ -72,10 +73,15 @@ class ElevatorSystem(
         }
     }
 
-    private fun rideOf(entity: Entity): Leg.Ride? = entity[Route].legs.firstOrNull() as? Leg.Ride
+    private fun rideOf(entity: Entity): Leg.Ride? = entity.getOrNull(Route)?.legs?.firstOrNull() as? Leg.Ride
 
     private fun runCar(car: Car) {
-        for (cabin in car.cabins) cabin.riders.removeAll { it !in world } // people whose tenant moved out mid-ride
+        for (cabin in car.cabins) {
+            cabin.riders.removeAll { it !in world } // people whose tenant moved out mid-ride
+            // a rider without a ride (route lost while the tower changed) gets out and plans again
+            cabin.riders.filter { rideOf(it) == null }.forEach { dropRider(car, cabin, it) }
+        }
+        for (line in car.waiting.values) line.removeAll { it !in world || rideOf(it) == null }
         car.waitingSince.keys.retainAll(car.waiting.values.flatten().toSet())
         if (sim.clock.totalMinutes < car.blockedUntil) return
         val assigned = assignCalls(car)
@@ -143,7 +149,7 @@ class ElevatorSystem(
             pos.x = car.centerX
             rider[Route].legs.removeFirst()
             rider[Route].legProgress = 0f
-            rider.configure { it -= Riding }
+            rider.configure { drop(it, Riding) }
             opened = true
         }
         val queue = car.waiting[floor] ?: return opened
@@ -180,17 +186,20 @@ class ElevatorSystem(
     }
 
     private fun dropCabin(car: Car, cabin: Cabin) {
-        val floor = cabin.position.roundToInt()
-        for (rider in cabin.riders) {
-            if (rider !in world) continue
-            val pos = rider[Position]
-            pos.floor = floor
-            pos.x = car.centerX
-            rider.configure {
-                it -= Riding
-                it -= Route
-            }
-        }
+        for (rider in cabin.riders.toList()) dropRider(car, cabin, rider)
         cabin.riders.clear()
+    }
+
+    /** Lets [rider] out at the floor the cabin is at; without a route they plan their way again. */
+    private fun dropRider(car: Car, cabin: Cabin, rider: Entity) {
+        cabin.riders -= rider
+        if (rider !in world) return
+        val pos = rider[Position]
+        pos.floor = cabin.position.roundToInt()
+        pos.x = car.centerX
+        rider.configure {
+            drop(it, Riding)
+            drop(it, Route)
+        }
     }
 }

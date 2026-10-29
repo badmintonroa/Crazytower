@@ -150,6 +150,24 @@ class TransportTest {
     }
 
     @Test
+    fun theTowerCanChangeWithMoreThan2048People() {
+        // Fleks keeps 2048 slots per component type; removing a component somebody beyond that
+        // never had used to throw while routes were refreshed, and the elevator crashed after it
+        val sim = Simulation(seed = 5, startMoney = 100_000_000)
+        sim.stage = 1
+        tallCorridor(sim, 8)
+        assertTrue(sim.build(sim.planColumn(Catalog.ELEVATOR, 16, GROUND_FLOOR, 8)).ok)
+        // somebody gets stuck early, so the storage for being stuck exists before the crowd comes
+        walker(sim, Loc(20, 12f))
+        sim.step(1.0)
+        val people = (0 until 2100).map { walker(sim, Loc(1 + it % 8, 12f)) }
+        repeat(5) { sim.step(1.0) }
+        assertTrue(sim.build(sim.planLobby(30, 31)).ok, "extending the lobby makes everybody plan again")
+        repeat(30) { sim.step(1.0) }
+        with(sim.world) { assertTrue(people.last() has Position) }
+    }
+
+    @Test
     fun peopleRideTheElevatorToTheTop() {
         val sim = Simulation(seed = 5, startMoney = 10_000_000)
         sim.stage = 1
