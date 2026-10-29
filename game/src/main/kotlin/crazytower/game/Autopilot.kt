@@ -3,6 +3,7 @@ package crazytower.game
 import crazytower.core.Catalog
 import crazytower.core.GROUND_FLOOR
 import crazytower.core.Loc
+import crazytower.core.MoneyKind
 import crazytower.core.Simulation
 import korlibs.image.format.PNG
 import korlibs.image.format.writeTo
@@ -13,17 +14,18 @@ import kotlin.system.exitProcess
 
 /**
  * Development helper: with CRAZYTOWER_SCREENSHOT=<file.png> the game builds a demo tower,
- * lets it run for a while, saves a screenshot and quits. Used to check the rendering
+ * lets it run for a while, saves a screenshot and quits (CRAZYTOWER_FINANCE=1 opens the finance window). Used to check the rendering
  * on machines without a screen.
  */
 object Autopilot {
-    fun attachIfRequested(root: SContainer, sim: Simulation, game: GameController, tower: TowerView) {
+    fun attachIfRequested(root: SContainer, sim: Simulation, game: GameController, tower: TowerView, hud: Hud) {
         val target = System.getenv("CRAZYTOWER_SCREENSHOT") ?: return
         val minutes = System.getenv("CRAZYTOWER_MINUTES")?.toDoubleOrNull() ?: 90.0
         DemoTower.build(sim)
         sim.step(minutes)
         game.selection = sim.tower.allRooms.firstOrNull()?.let { Selection.RoomSel(it.id) }
         tower.lookAt(Loc(2, sim.tower.width / 2f))
+        if (System.getenv("CRAZYTOWER_FINANCE") != null) hud.showFinance()
         var frames = 0
         root.addUpdater {
             frames++
@@ -46,6 +48,7 @@ object Autopilot {
 /** A small prebuilt tower for demos and screenshots: a long lobby, a few floors, stairs and an elevator through the rooms. */
 object DemoTower {
     fun build(sim: Simulation) {
+        sim.book(1_000_000, MoneyKind.LUCK, "Demo-Zuschuss")
         val mid = sim.tower.width / 2 - 12
         sim.build(sim.planLobby(mid, mid + 23))
         val plan = listOf(

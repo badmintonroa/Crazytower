@@ -60,12 +60,12 @@ object Events {
         },
         TowerEvent("refund", 2) {
             val amount = 5_000L + random.nextLong(15_000)
-            earn(amount)
+            book(amount, MoneyKind.LUCK, "Finanzamt-Fehler")
             news.post("Das Finanzamt hat sich verrechnet. Zu deinen Gunsten. Einmalig: ${"%,d".format(amount).replace(',', '.')} \$.")
             true
         },
         TowerEvent("fine", 2, bad = true) {
-            spend(3_000)
+            book(-3_000, MoneyKind.FINE, "Bußgeld")
             news.post("Bußgeld über 3.000 \$: Der Turm war drei Zentimeter zu hoch. Er wurde nicht kleiner.")
             true
         },
@@ -112,7 +112,7 @@ object Events {
         TowerEvent("ufo", 2, minStage = 5) {
             val pad = tower.allRooms.firstOrNull { it.type == Catalog.UFO_PAD }
             if (pad != null) {
-                earn(50_000)
+                book(50_000, MoneyKind.LUCK, "Ufo-Parkgebühr", pad.center)
                 news.post("Ein Ufo ist gelandet und zahlt brav 50.000 \$ Parkgebühr. In Gold. Von Gliese.", pad.center, important = true)
             } else {
                 news.post("Ein Ufo kreist über dem Turm und findet keinen Parkplatz.")

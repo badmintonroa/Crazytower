@@ -87,7 +87,7 @@ class StageEventSaveTest {
         assertEquals(sim.money, loaded.money)
         assertEquals(sim.clock.totalMinutes, loaded.clock.totalMinutes)
         assertEquals(sim.tower.allRooms.map { it.id to it.type.id }, loaded.tower.allRooms.map { it.id to it.type.id })
-        assertEquals("vampire", loaded.tower.room(office.id)?.tenant?.id)
+        assertEquals(office.tenant?.id, loaded.tower.room(office.id)?.tenant?.id)
         assertEquals(Catalog.OFFICE.capacity, loaded.world.family { all(Member) }.numEntities)
         assertEquals(sim.news.latest.map { it.text }, loaded.news.latest.map { it.text })
         // the loaded tower keeps working

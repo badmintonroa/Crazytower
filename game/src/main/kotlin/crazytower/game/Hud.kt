@@ -40,14 +40,20 @@ class Hud(
     private val flyout = panel(270.0, 100.0).also { it.xy(110.0, 84.0) }
     private val inspector = Inspector(sim, game, assets).addTo(this).also { it.xy(screenWidth - 302.0, 84.0) }
     private val ticker = container { xy(0.0, screenHeight - 50.0) }
+    private val finance = FinanceWindow(sim).addTo(this).also {
+        it.xy((screenWidth - it.panelWidth) / 2, 96.0)
+        it.visible = false
+    }
     private val tooltip = container { visible = false }
     private val toast = container { visible = false }
 
     private lateinit var moneyText: Text
+    private lateinit var nextText: Text
     private lateinit var popText: Text
     private lateinit var stageText: Text
     private lateinit var stageHint: Text
     private lateinit var stageBar: Graphics
+    private var stageBarWidth = 164.0
     private lateinit var stars: Container
     private lateinit var moodText: Text
     private var shownStars = -1
@@ -75,9 +81,14 @@ class Hud(
             add(Rectangle(buildBar.x, buildBar.y, buildBar.panelWidth, buildBar.panelHeight))
             if (flyout.visible) add(Rectangle(flyout.x, flyout.y, flyout.panelWidth, flyout.panelHeight))
             if (inspector.visible) add(Rectangle(inspector.x, inspector.y, inspector.panelWidth, inspector.panelHeight))
+            if (finance.visible) add(Rectangle(finance.x, finance.y, finance.panelWidth, finance.panelHeight))
             add(Rectangle(0.0, screenHeight - 50.0, screenWidth, 50.0))
         }
         return rects.any { it.contains(point) }
+    }
+
+    fun showFinance() {
+        finance.visible = true
     }
 
     // ---------------------------------------------------------------- top bar
@@ -91,9 +102,12 @@ class Hud(
             x += width + 10
             return c
         }
-        box(170.0) {
+        box(200.0) {
             coin(this, 16.0, 19.0)
-            moneyText = label("", 20.0, Theme.TEXT, Theme.pixel).also { it.xy(46.0, 17.0) }
+            moneyText = label("", 20.0, Theme.TEXT, Theme.pixel).also { it.xy(46.0, 9.0) }
+            nextText = label("", 11.0, Theme.TEXT_DIM).also { it.xy(46.0, 36.0) }
+            // the money opens the finance window
+            onClick { finance.visible = !finance.visible }
         }
         box(160.0) {
             solidRect(8.0, 8.0, Theme.alpha(Theme.SELECT, 0.9)).xy(20.0, 18.0)
@@ -102,19 +116,20 @@ class Hud(
             label("Bewohner", 12.0, Theme.TEXT_DIM).xy(95.0, 14.0)
             moodText = label("", 12.0, Theme.TEXT_DIM).also { it.xy(95.0, 30.0) }
         }
-        val stageWidth = screenWidth - 24 - x - 150 - 10 - 206
+        val stageWidth = screenWidth - 24 - x - 150 - 10 - 254
         box(stageWidth) {
             stars = container { xy(16.0, 20.0) }
             stageText = label("", 16.0, Theme.TEXT, Theme.pixel).also { it.xy(140.0, 12.0) }
             stageHint = label("", 12.0, Theme.TEXT_DIM).also { it.xy(140.0, 34.0) }
-            stageBar = graphics { }.also { it.xy(stageWidth - 180.0, 26.0) }
+            stageBarWidth = stageWidth - 156.0
+            stageBar = graphics { }.also { it.xy(140.0, 50.0) }
         }
         box(150.0) {
             sun(this, 16.0, 19.0)
             clockText = label("", 18.0, Theme.TEXT, Theme.pixel).also { it.xy(46.0, 18.0) }
         }
-        box(206.0) {
-            val speeds = listOf(0 to "II", 1 to "1×", 2 to "2×", 4 to "4×")
+        box(254.0) {
+            val speeds = GameController.SPEEDS.map { it to if (it == 0) "II" else "$it×" }
             speeds.forEachIndexed { i, (speed, title) ->
                 val b = TextButton(44.0, 40.0, title) { game.speed = speed }
                 b.xy(10.0 + i * 48.0, 10.0)
@@ -253,7 +268,16 @@ class Hud(
                 down(Key.valueOf("N${i + 1}")) { game.openCategory(c); refreshFlyout(force = true) }
             }
             down(Key.SPACE) { game.togglePause() }
-            down(Key.ESCAPE) { game.cancel(); if (game.category == null) game.selection = null }
+            down(Key.N) {
+                game.fastNights = !game.fastNights
+                game.say(if (game.fastNights) "Nachts vorspulen: an" else "Nachts vorspulen: aus")
+            }
+            down(Key.F) { finance.visible = !finance.visible }
+            down(Key.ESCAPE) {
+                if (finance.visible) { finance.visible = false; return@down }
+                game.cancel()
+                if (game.category == null) game.selection = null
+            }
         }
     }
 
@@ -262,12 +286,15 @@ class Hud(
     fun sync(dtSeconds: Double) {
         moneyText.text = formatMoney(sim.money)
         moneyText.color = if (sim.money < 0) Theme.ALARM else Theme.TEXT
+        val next = sim.upcoming(24).firstOrNull { it.amount > 0 }
+        nextText.text = next?.let { "nächste: +${formatMoney(it.amount)} um ${clockOf(it.minute)}" } ?: "keine Einnahmen in Sicht"
+        if (finance.visible) finance.sync()
         popText.text = formatNumber(sim.population.toLong())
         val mood = sim.satisfaction.toInt()
         moodText.text = "Laune $mood %"
         moodText.color = if (mood < 40) Theme.ALARM else Theme.TEXT_DIM
         syncStage()
-        clockText.text = sim.clock.format()
+        clockText.text = sim.clock.format() + if (game.speed > 0 && game.nightBoost > 1) " »" else ""
         clockText.color = if (game.speed == 0) Theme.ALARM else Theme.TEXT
         speedButtons.forEach { (speed, b) -> b.selected = game.speed == speed }
         categoryButtons.forEach { (c, b) -> b.selected = game.category == c }
@@ -276,6 +303,11 @@ class Hud(
         syncTicker(dtSeconds)
         syncTooltip()
         syncToast()
+    }
+
+    private fun clockOf(minute: Int): String {
+        val m = minute % GameClock.MINUTES_PER_DAY
+        return "%02d:%02d".format(m / 60, m % 60)
     }
 
     private fun syncStage() {
@@ -292,13 +324,10 @@ class Hud(
         val next = if (stage < 5) Stages.info(stage + 1) else null
         stageHint.text = next?.let { "Für Stufe ${it.number}: ${it.requirement}" } ?: "Der Turm ist komplett verrückt."
         val progress = sim.stageProgress.coerceIn(0.0, 1.0)
+        val w = stageBarWidth
         stageBar.updateShape {
-            fill(Theme.INK) { rect(0.0, 0.0, 164.0, 10.0) }
-            var x = 0.0
-            while (x < 164.0 * progress - 1) {
-                fill(Theme.SELECT) { rect(x, 0.0, minOf(10.0, 164.0 * progress - x), 10.0) }
-                x += 12.0
-            }
+            fill(Theme.INK) { rect(0.0, 0.0, w, 4.0) }
+            fill(Theme.SELECT) { rect(0.0, 0.0, w * progress, 4.0) }
         }
     }
 

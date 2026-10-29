@@ -37,8 +37,14 @@ class GameController(val sim: Simulation) {
             toastLeft -= seconds
             if (toastLeft <= 0) toast = null
         }
-        if (speed > 0) sim.step(seconds.coerceAtMost(0.25) * GAME_MINUTES_PER_SECOND * speed)
+        if (speed > 0) sim.step(seconds.coerceAtMost(0.25) * GAME_MINUTES_PER_SECOND * speed * nightBoost)
     }
+
+    /** Between 23 and 6 o'clock the clock runs four times faster, if the player wants. */
+    var fastNights: Boolean = true
+
+    val nightBoost: Int
+        get() = if (fastNights && (sim.clock.hour >= 23 || sim.clock.hour < 6)) NIGHT_BOOST else 1
 
     fun togglePause() {
         speed = if (speed == 0) lastSpeed else 0.also { lastSpeed = speed }
@@ -66,7 +72,9 @@ class GameController(val sim: Simulation) {
     }
 
     companion object {
-        /** At 1x one real second is two game minutes, so a game day lasts 12 minutes. */
-        const val GAME_MINUTES_PER_SECOND = 2.0
+        /** At 1x one real second is four game minutes, so a game day lasts 6 minutes. */
+        const val GAME_MINUTES_PER_SECOND = 4.0
+        const val NIGHT_BOOST = 4
+        val SPEEDS = listOf(0, 1, 2, 4, 8)
     }
 }

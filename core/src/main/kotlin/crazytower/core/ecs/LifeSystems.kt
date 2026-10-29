@@ -12,7 +12,7 @@ import crazytower.core.Simulation
 /**
  * The daily routine of everybody who works or lives in the tower: come in, work or stay
  * at home, go for lunch or dinner, walk around a bit, leave. Runs around the clock, since
- * every tenant has its own shift.
+ * every tenant has its own hours.
  */
 class ScheduleSystem(
     private val sim: Simulation = inject(),
@@ -27,7 +27,7 @@ class ScheduleSystem(
             return
         }
         val clock = sim.clock
-        val inside = Routine.wantsInside(room.type.role, member.resident, schedule.shift, schedule.offset, clock)
+        val inside = Routine.wantsInside(member.resident, schedule.plan, schedule.crew, schedule.seed, schedule.offset, clock)
         val pos = entity[Position]
 
         if (entity has Away) {
@@ -43,7 +43,7 @@ class ScheduleSystem(
             sim.goTo(entity, sim.streetExit(pos.x), Activity.LEAVING)
             return
         }
-        if (schedule.ateOnDay != clock.day && Routine.mealTime(member.resident, schedule.shift, schedule.offset, clock)) {
+        if (schedule.ateOnDay != clock.day && Routine.mealTime(member.resident, schedule.plan, schedule.offset, clock)) {
             schedule.ateOnDay = clock.day
             val food = sim.nearestOpenFood(pos.floor, pos.x)
             if (food != null) {
@@ -72,15 +72,21 @@ class ScheduleSystem(
 }
 
 /**
- * Settles the accounts every midnight: rent in, maintenance out. Unhappy tenants move out,
- * and the tower gets its new star rating.
+ * Collects the rent when the tenants finish work, and settles the accounts every midnight:
+ * maintenance out, home fees in. Unhappy tenants move out, and the tower gets its new star rating.
  */
 class EconomySystem(
     private val sim: Simulation = inject(),
 ) : IntervalSystem() {
     private var lastDay = -1
+    private var lastMinute = -1
 
     override fun onTick() {
+        val minute = sim.clock.totalMinutes.toInt()
+        if (minute != lastMinute) {
+            lastMinute = minute
+            sim.collectRent()
+        }
         val day = sim.clock.day
         if (lastDay < 0) lastDay = day
         if (day == lastDay) return
@@ -101,6 +107,6 @@ class EventSystem(
         if (hour == lastHour) return
         lastHour = hour
         sim.checkStage()
-        crazytower.core.Events.roll(sim)
+        if (sim.eventsEnabled) crazytower.core.Events.roll(sim)
     }
 }

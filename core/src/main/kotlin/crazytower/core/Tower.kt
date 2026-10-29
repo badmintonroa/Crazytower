@@ -12,6 +12,12 @@ class Room(val id: Int, val type: RoomType, val floor: Int, val x: Int, val widt
 
     /** Game minute the tenant moved in, or the room became empty. */
     var since: Double = 0.0
+
+    /** Offices and restaurants: end of the last working day the rent was paid for. */
+    var paidUntil: Double = 0.0
+
+    /** Homes: what the residents paid for the flat; half of it goes back when they leave unhappy. */
+    var salePaid: Long = 0
 }
 
 /** Result of a placement check. [reason] is shown to the player when the spot is invalid. */

@@ -161,8 +161,8 @@ class TowerView(
 
     // ---------------------------------------------------------------- sync
 
-    /** Mirrors the simulation into views. Called once per frame. */
-    fun sync() {
+    /** Mirrors the simulation into views. Called once per frame with the real seconds since the last one. */
+    fun sync(dtSeconds: Double = 0.0) {
         val dark = DayLight.isDark(sim.clock.minuteOfDay)
         if (drawnVersion != sim.tower.version || drawnLooks != sim.looksVersion || drawnDark != dark || ++artCheck % 60 == 0) {
             drawnDark = dark
@@ -172,6 +172,35 @@ class TowerView(
         syncCars()
         syncPeople()
         syncOverlay()
+        syncMoney(dtSeconds)
+    }
+
+    private class Floater(val view: Text, var age: Double)
+
+    private val floaters = ArrayList<Floater>()
+
+    /** Payments rise as "+1.800 $" from the room that paid, and fade away. */
+    private fun syncMoney(dt: Double) {
+        val fresh = sim.finance.fresh
+        while (fresh.isNotEmpty()) {
+            val payment = fresh.removeFirst()
+            val where = payment.where ?: continue
+            val text = (if (payment.amount > 0) "+" else "") + formatMoney(payment.amount)
+            val view = overlay.text(text, textSize = 22.0, color = if (payment.amount > 0) Theme.GOOD else Theme.ALARM, font = Theme.pixel)
+            view.xy(Metrics.x(where.x) - view.width / 2, Metrics.floorTop(where.floor) + 18.0)
+            floaters += Floater(view, 0.0)
+        }
+        val it = floaters.iterator()
+        while (it.hasNext()) {
+            val f = it.next()
+            f.age += dt
+            f.view.y -= dt * 30
+            f.view.alpha = (1.0 - (f.age - 1.2) / 0.8).coerceIn(0.0, 1.0)
+            if (f.age > 2.0) {
+                f.view.removeFromParent()
+                it.remove()
+            }
+        }
     }
 
     private fun rebuildRooms() {

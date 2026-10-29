@@ -18,7 +18,7 @@ class GameScene(private val assets: Assets, private val loaded: Simulation? = nu
         val tower = TowerView(sim, game, assets, w, h).addTo(this)
         val hud = Hud(sim, game, assets, tower, w, h).addTo(this)
         tower.isOverUi = hud::isOverUi
-        Autopilot.attachIfRequested(this, sim, game, tower)
+        Autopilot.attachIfRequested(this, sim, game, tower, hud)
         game.say(if (loaded != null) "Spielstand geladen" else "F5 speichert, F9 lädt", 4.0)
         keys {
             down(Key.F5) { game.say(SaveSlot.save(sim)) }
@@ -29,7 +29,7 @@ class GameScene(private val assets: Assets, private val loaded: Simulation? = nu
         }
         addUpdater { dt ->
             game.update(dt)
-            tower.sync()
+            tower.sync(dt.inWholeMilliseconds / 1000.0)
             hud.sync(dt.inWholeMilliseconds / 1000.0)
         }
     }

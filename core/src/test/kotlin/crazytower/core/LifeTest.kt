@@ -59,14 +59,44 @@ class LifeTest {
     }
 
     @Test
-    fun midnightPaysTheRent() {
-        val sim = Simulation(seed = 9, startMoney = 1_000_000)
+    fun officesPayAfterWork() {
+        val sim = Simulation(seed = 9, startMoney = 1_000_000).apply { eventsEnabled = false }
         val office = sim.buildReachable(Catalog.OFFICE, 20)
         sim.moveIn(office, Tenants.byId("accountant"))
-        val before = sim.money
+        val rent = Tenants.byId("accountant").rentPerDay
+        assertEquals(17 * 60, sim.upcoming().first { it.label == office.tenant!!.name }.minute)
+        stepTo(sim, 16)
+        assertEquals(null, sim.finance.day(0)[MoneyKind.RENT], "nothing before closing time")
+        stepTo(sim, 18)
+        assertEquals(rent, sim.finance.day(0)[MoneyKind.RENT])
         stepTo(sim, 1, day = 1)
-        assertTrue(sim.money - before >= Tenants.byId("accountant").rentPerDay / 2)
         assertTrue(sim.news.latest.any { it.text.startsWith("Tagesabschluss") })
+    }
+
+    @Test
+    fun vampiresPayInTheMorning() {
+        val sim = Simulation(seed = 9, startMoney = 1_000_000).apply { eventsEnabled = false }
+        val office = sim.buildReachable(Catalog.OFFICE, 20)
+        sim.moveIn(office, Tenants.byId("vampire"))
+        stepTo(sim, 23)
+        assertEquals(null, sim.finance.day(0)[MoneyKind.RENT])
+        stepTo(sim, 5, day = 1)
+        assertTrue(sim.finance.day(1)[MoneyKind.RENT] == Tenants.byId("vampire").rentPerDay)
+    }
+
+    @Test
+    fun flatsAreSoldOnceAndPayFeesEveryThreeDays() {
+        val sim = Simulation(seed = 9, startMoney = 1_000_000).apply { eventsEnabled = false }
+        val home = sim.buildReachable(Catalog.HOME, 20)
+        val before = sim.money
+        sim.moveIn(home, Tenants.byId("family"))
+        assertEquals(before + Tenants.byId("family").salePrice, sim.money)
+        stepTo(sim, 1, day = 4)
+        assertEquals(Simulation.HOME_FEE, sim.finance.day(3)[MoneyKind.FEES])
+        // leaving unhappy costs half of the price
+        val now = sim.money
+        sim.moveOut(home)
+        assertEquals(now - Tenants.byId("family").salePrice / 2, sim.money)
     }
 
     @Test
@@ -74,9 +104,9 @@ class LifeTest {
         val sim = Simulation(seed = 6, startMoney = 10_000_000)
         val home = sim.buildReachable(Catalog.HOME, 20)
         sim.moveIn(home, Tenants.byId("family"))
-        stepTo(sim, 8)
+        stepTo(sim, 6, day = 1)
         with(sim.world) { assertTrue(sim.membersOf(home.id).all { it hasNo Away }) }
-        stepTo(sim, 13)
+        stepTo(sim, 13, day = 1)
         with(sim.world) { assertTrue(sim.membersOf(home.id).all { it has Away }) }
     }
 

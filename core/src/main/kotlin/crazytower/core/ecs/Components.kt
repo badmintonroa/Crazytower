@@ -3,7 +3,7 @@ package crazytower.core.ecs
 import com.github.quillraven.fleks.Component
 import com.github.quillraven.fleks.ComponentType
 import crazytower.core.Loc
-import crazytower.core.Shift
+import crazytower.core.WorkPlan
 import crazytower.core.nav.Leg
 
 /** Where a person currently is. [x] is measured in segments. */
@@ -74,10 +74,11 @@ enum class Activity(val label: String) {
 }
 
 /**
- * The daily routine of a member. [offset] shifts the times by a few minutes per person so
- * not everybody turns up at the same second. [mood] is 0..100.
+ * The daily routine of a member, following the [plan] of its tenant. [offset] shifts the times
+ * by a few minutes per person so not everybody turns up at the same second; [crew] picks the
+ * turn in tenants that work in shifts; [seed] varies daily quirks such as being late. [mood] is 0..100.
  */
-class Schedule(val shift: Shift, val offset: Int) : Component<Schedule> {
+class Schedule(val plan: WorkPlan, val offset: Int, val crew: Int = 0, val seed: Int = 0) : Component<Schedule> {
     var activity: Activity = Activity.AWAY
     var ateOnDay: Int = -1
     var tripStart: Double = 0.0

@@ -56,6 +56,21 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     var money: Long = startMoney
         private set
 
+    val finance = Finance()
+
+    /** Absurd events every hour; tests that count money switch them off. */
+    var eventsEnabled: Boolean = true
+
+    /** Changes the money and writes it into the books. */
+    fun book(amount: Long, kind: MoneyKind, label: String, where: Loc? = null) {
+        if (amount == 0L) return
+        money += amount
+        finance.record(Payment(clock.totalMinutes, amount, kind, label, where))
+    }
+
+    /** Rent and prices grow with the star rating: 20 % per star above the first. */
+    val starBonus: Double get() = 1.0 + 0.2 * (stars - 1)
+
     val world: World = configureWorld(entityCapacity = 2048) {
         injectables { add(this@Simulation) }
         systems {
@@ -101,8 +116,8 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         val check = checkPlace(type, floor, x, width)
         if (!check.ok) return BuildResult(null, check.reason)
         val firstLobby = type.role == RoomRole.LOBBY && tower.allRooms.none { it.type.role == RoomRole.LOBBY }
-        money -= type.price(width)
         var room = tower.place(type, floor, x, width)
+        book(-type.price(width), MoneyKind.BUILD, type.name, Loc(floor, x + width / 2f))
         room.since = clock.totalMinutes
         if (type.role == RoomRole.LOBBY) room = tower.mergeLobbies() ?: room
         if (firstLobby) {
@@ -216,22 +231,33 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         removeMembers(roomId)
         tower.remove(roomId)
         val refund = refundFor(room)
-        money += refund
+        book(refund, MoneyKind.BUILD, "Abriss ${room.type.name}", room.center)
+        if (room.salePaid > 0) book(-room.salePaid / 2, MoneyKind.REFUND, "Kaufpreis zurück", room.center)
         return refund
     }
 
+    /**
+     * A tenant moves in. New residents buy their flat right away; offices and restaurants pay
+     * at the end of each working day from now on. [announce] is false when loading a save.
+     */
     fun moveIn(room: Room, tenant: TenantKind, announce: Boolean = true) {
         removeMembers(room.id)
         room.tenant = tenant
         room.since = clock.totalMinutes
+        room.paidUntil = clock.totalMinutes
+        room.salePaid = 0
         looksVersion++
+        if (announce && room.type.role == RoomRole.HOME && tenant.salePrice > 0) {
+            room.salePaid = (tenant.salePrice * starBonus).toLong()
+            book(room.salePaid, MoneyKind.SALE, tenant.name, room.center)
+        }
         val resident = room.type.role == RoomRole.HOME
-        repeat(room.type.capacity) {
+        repeat(room.type.capacity) { i ->
             world.entity {
                 it += Position(GROUND_FLOOR, 0f)
                 it += Person(Names.random(random), tenant.look)
                 it += Member(room.id, resident)
-                it += Schedule(tenant.shift, offset = random.nextInt(-40, 41))
+                it += Schedule(tenant.plan, offset = random.nextInt(-40, 41), crew = i % tenant.plan.crews, seed = random.nextInt(1_000_000))
                 it += Away(clock.totalMinutes)
             }
         }
@@ -240,6 +266,8 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
 
     fun moveOut(room: Room) {
         removeMembers(room.id)
+        if (room.salePaid > 0) book(-room.salePaid / 2, MoneyKind.REFUND, "Kaufpreis zurück", room.center)
+        room.salePaid = 0
         room.tenant = null
         room.since = clock.totalMinutes
         looksVersion++
@@ -298,33 +326,77 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         .minByOrNull { kotlin.math.abs(it.floor - floor) * 10 + kotlin.math.abs(it.centerX - x) }
 
     /** Money earned since the last midnight, for the daily report. */
-    var earnedToday: Long = 0
-        private set
+    val earnedToday: Long get() = finance.income(clock.day)
 
-    fun earn(amount: Long) {
-        money += amount
-        earnedToday += amount
-    }
+    fun earn(amount: Long) = book(amount, MoneyKind.GUESTS, "Gäste")
 
-    /** Midnight: rent, maintenance, unhappy tenants move out, new star rating. */
-    fun closeDay() {
-        var rent = 0L
-        val leaving = ArrayList<Room>()
+    /**
+     * Offices and restaurants pay at the end of every working day of their tenant, the
+     * vampires in the morning. Unhappy tenants pay half. Called every game minute.
+     */
+    fun collectRent() {
+        val now = clock.totalMinutes
         for (room in tower.allRooms) {
             val tenant = room.tenant ?: continue
+            if (room.type.role == RoomRole.HOME || tenant.rentPerDay <= 0) continue
+            val end = tenant.plan.lastEnd(now) ?: continue
+            if (end <= room.paidUntil) continue
+            room.paidUntil = end.toDouble()
+            book(rentFor(room, tenant), if (room.type.role == RoomRole.FOOD) MoneyKind.FOOD else MoneyKind.RENT, tenant.name, room.center)
+        }
+    }
+
+    private fun rentFor(room: Room, tenant: TenantKind): Long {
+        val mood = moodOf(room) ?: 70f
+        val full = (tenant.rentPerDay * starBonus).toLong()
+        return if (mood < UNHAPPY) full / 2 else full
+    }
+
+    /** Payments expected in the next [hours] game hours, soonest first. Upkeep is negative. */
+    fun upcoming(hours: Int = 36): List<Upcoming> {
+        val now = clock.totalMinutes
+        val horizon = now + hours * 60
+        val list = ArrayList<Upcoming>()
+        for (room in tower.allRooms) {
+            val tenant = room.tenant ?: continue
+            if (room.type.role == RoomRole.HOME || tenant.rentPerDay <= 0) continue
+            val end = tenant.plan.nextEnd(now) ?: continue
+            if (end <= horizon) list += Upcoming(end, rentFor(room, tenant), tenant.name, room.center)
+        }
+        var midnight = (clock.day + 1) * GameClock.MINUTES_PER_DAY
+        while (midnight <= horizon) {
+            val day = midnight / GameClock.MINUTES_PER_DAY
+            if (day % FEE_EVERY_DAYS == 0) {
+                val fees = homeFees()
+                if (fees > 0) list += Upcoming(midnight, fees, "Hausgeld")
+            }
+            list += Upcoming(midnight, -upkeep(), "Unterhalt")
+            midnight += GameClock.MINUTES_PER_DAY
+        }
+        return list.sortedBy { it.minute }
+    }
+
+    private fun homeFees(): Long = tower.allRooms.count { it.type.role == RoomRole.HOME && it.tenant != null && it.tenant!!.salePrice > 0 } * HOME_FEE
+
+    private fun upkeep(): Long = tower.allRooms.sumOf { (UPKEEP[it.type.role] ?: 0L) * (if (it.type.stretchable) it.width else 6) / 6 }
+
+    /** Midnight: maintenance, every few days the home fees, unhappy tenants move out, new star rating. */
+    fun closeDay() {
+        val leaving = ArrayList<Room>()
+        for (room in tower.allRooms) {
+            if (room.tenant == null) continue
             val mood = moodOf(room) ?: 70f
-            rent += if (mood < UNHAPPY) tenant.rentPerDay / 2 else tenant.rentPerDay
             if (mood < MOVE_OUT && clock.totalMinutes - room.since > MIN_STAY_MINUTES) leaving += room
         }
-        val upkeep = tower.allRooms.sumOf { (UPKEEP[it.type.role] ?: 0L) * (if (it.type.stretchable) it.width else 6) / 6 }
         // special rooms cheer everybody up a bit, every day
         val specials = tower.allRooms.count { it.type.role == RoomRole.SPECIAL }
         if (specials > 0) members.forEach { it[Schedule].mood = (it[Schedule].mood + 2f * specials).coerceAtMost(100f) }
-        money += rent - upkeep
-        val total = rent - upkeep + earnedToday
-        news.post("Tagesabschluss: Miete ${rent.fmt()} $, Unterhalt ${upkeep.fmt()} $, Umsatz ${earnedToday.fmt()} $. " +
-            if (total >= 0) "Der Turm lebt." else "Der Steuerberater weint leise.")
-        earnedToday = 0
+        val yesterday = clock.day - 1
+        book(-upkeep(), MoneyKind.UPKEEP, "Unterhalt", tower.allRooms.firstOrNull { it.type.role == RoomRole.LOBBY }?.center)
+        if (clock.day % FEE_EVERY_DAYS == 0) book(homeFees(), MoneyKind.FEES, "Hausgeld")
+        val income = finance.income(yesterday)
+        news.post("Tagesabschluss: Einnahmen ${income.fmt()} $, Unterhalt ${upkeep().fmt()} $. " +
+            if (income >= upkeep()) "Der Turm lebt." else "Der Steuerberater weint leise.")
         for (room in leaving) {
             val name = room.tenant?.name ?: continue
             moveOut(room)
@@ -367,10 +439,6 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         news.post("STUFE $stage: Der Turm ist jetzt ein ${info.name}! Bis zur ${info.maxFloor}. Etage darf gebaut werden. ${info.unlocks}", important = true)
     }
 
-    fun spend(amount: Long) {
-        money -= amount
-    }
-
     fun toSave(): SaveGame = SaveGame(
         minutes = clock.totalMinutes,
         money = money,
@@ -379,7 +447,10 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         vipSurvived = vipSurvived,
         earnedToday = earnedToday,
         rooms = tower.allRooms.map {
-            SavedRoom(it.id, it.type.id, it.floor, it.x, it.since, it.tenant?.id, moodOf(it), it.width.takeIf { w -> w != it.type.width })
+            SavedRoom(
+                it.id, it.type.id, it.floor, it.x, it.since, it.tenant?.id, moodOf(it),
+                it.width.takeIf { w -> w != it.type.width }, it.paidUntil, it.salePaid,
+            )
         },
         news = news.latest.map { SavedNews(it.text, it.where?.floor, it.where?.x, it.important) },
     )
@@ -390,7 +461,6 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         stage = save.stage
         stars = save.stars
         vipSurvived = save.vipSurvived
-        earnedToday = save.earnedToday
         for (saved in save.rooms) {
             val room = tower.placeUnchecked(Catalog.type(saved.type), saved.floor, saved.x, saved.id, saved.width ?: Catalog.type(saved.type).width)
             val tenant = saved.tenant?.let { Tenants.byId(it) }
@@ -399,6 +469,8 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
                 saved.mood?.let { mood -> with(world) { membersOf(room.id).forEach { it[Schedule].mood = mood } } }
             }
             room.since = saved.since
+            room.paidUntil = saved.paidUntil ?: save.minutes
+            room.salePaid = saved.salePaid
         }
         for (item in save.news.asReversed()) {
             news.post(item.text, item.floor?.let { Loc(it, item.x ?: 0f) }, item.important)
@@ -489,13 +561,17 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             else -> "$floor. Etage"
         }
 
-        const val START_MONEY = 250_000L
+        const val START_MONEY = 120_000L
 
         /** Waiting longer than this many minutes for an elevator makes people grumpy. */
         const val PATIENCE_MINUTES = 3.0
         const val MEAL_MOOD = 8f
         const val STUCK_MOOD = 15f
         const val MEAL_PRICE = 12L
+
+        /** Every this many days each sold flat pays its fees. */
+        const val FEE_EVERY_DAYS = 3
+        const val HOME_FEE = 600L
         const val UNHAPPY = 40f
         const val MOVE_OUT = 25f
         const val MIN_STAY_MINUTES = 2 * 1440.0
