@@ -43,6 +43,12 @@ class Car(val id: Int, val x: Int, var bottom: Int, var top: Int, val express: B
     /** People waiting in front of the doors, per floor. Refreshed every tick by the elevator system. */
     val waiting = HashMap<Int, MutableList<Entity>>()
 
+    /**
+     * People who reached the doors during the last tick's movement. The elevator system sorts
+     * them into [waiting] at the start of its tick, so it doesn't have to look at everybody who walks.
+     */
+    val arrived = ArrayList<Entity>()
+
     /** Game minute each waiting person arrived at the doors. */
     val waitingSince = HashMap<Entity, Double>()
 
@@ -110,9 +116,12 @@ class Elevators(private val tower: Tower) : LinkProvider {
     /** Cars whose shaft was torn down since the last call; the elevator system drops their riders. */
     val removed = ArrayList<Car>()
 
+    /** The cars by id once more, asked for by everybody at the doors, so without boxing. */
+    private var byIndex = arrayOfNulls<Car>(0)
+
     fun car(id: Int): Car? {
         sync()
-        return byId[id]
+        return byIndex.getOrNull(id)
     }
 
     fun sync() {
@@ -142,6 +151,8 @@ class Elevators(private val tower: Tower) : LinkProvider {
             car.setCabins(range.maxOf { tower.wayAt(it, x)?.cabins ?: 1 })
             byId[car.id] = car
         }
+        byIndex = arrayOfNulls(nextId)
+        for (car in byId.values) byIndex[car.id] = car
         removed += old
     }
 

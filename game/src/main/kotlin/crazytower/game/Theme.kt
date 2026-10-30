@@ -2,7 +2,10 @@ package crazytower.game
 
 import korlibs.image.color.Colors
 import korlibs.image.color.RGBA
+import korlibs.image.font.BitmapFont
+import korlibs.image.font.CharacterSet
 import korlibs.image.font.TtfFont
+import korlibs.image.font.toBitmapFont
 import korlibs.image.font.readTtfFont
 import korlibs.io.file.std.resourcesVfs
 
@@ -37,8 +40,15 @@ object Theme {
     lateinit var body: TtfFont
     lateinit var bodyBold: TtfFont
 
+    /**
+     * [bodyBold] as a bitmap font, for labels that change all the time (the riders in a cabin):
+     * text in a vector font is drawn again from its curves whenever it changes.
+     */
+    lateinit var numbers: BitmapFont
+
     suspend fun loadFonts() {
         body = resourcesVfs["fonts/SpaceGrotesk-Medium.ttf"].readTtfFont()
         bodyBold = resourcesVfs["fonts/SpaceGrotesk-Bold.ttf"].readTtfFont()
+        numbers = bodyBold.toBitmapFont(32, CharacterSet.LATIN_BASIC)
     }
 }

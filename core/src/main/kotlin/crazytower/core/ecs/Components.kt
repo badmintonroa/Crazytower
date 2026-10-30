@@ -18,6 +18,13 @@ inline fun <reified T : Component<*>> EntityUpdateContext.drop(entity: Entity, t
     if (entity has type) entity -= type
 }
 
+/**
+ * A system that only looks at the clock, not at the time step, so it runs every
+ * [crazytower.core.Simulation.UNHURRIED_EVERY] ticks instead of every tick: half a game minute
+ * later nobody notices, and with thousands of people every pass over a family counts.
+ */
+interface Unhurried
+
 /** Where a person currently is. [x] is measured in segments. */
 data class Position(var floor: Int, var x: Float, var facingLeft: Boolean = false) : Component<Position> {
     override fun type() = Position

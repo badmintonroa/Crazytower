@@ -14,7 +14,7 @@ import crazytower.core.visitorsStopped
 /** Ends [Idle] once its time is up. */
 class IdleSystem(
     private val sim: Simulation = inject(),
-) : IteratingSystem(family { all(Idle) }) {
+) : IteratingSystem(family { all(Idle) }), Unhurried {
     override fun onTickEntity(entity: Entity) {
         if (sim.clock.totalMinutes >= entity[Idle].until) entity.configure { drop(it, Idle) }
     }
@@ -63,7 +63,7 @@ private val SIGHTS = setOf(RoomRole.LOBBY, RoomRole.SPECIAL)
 /** Picks the next stop for idle sightseers, or sends them home when they have seen enough. */
 class VisitorSystem(
     private val sim: Simulation = inject(),
-) : IteratingSystem(family { all(Visitor, Position).none(Goal, Route, Idle, Stuck) }) {
+) : IteratingSystem(family { all(Visitor, Position).none(Goal, Route, Idle, Stuck) }), Unhurried {
     override fun onTickEntity(entity: Entity) {
         val visitor = entity[Visitor]
         val lobbies = sim.tower.allRooms.filter { it.type.role == RoomRole.LOBBY }

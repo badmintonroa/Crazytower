@@ -18,7 +18,7 @@ import crazytower.core.tickEvents
  */
 class ScheduleSystem(
     private val sim: Simulation = inject(),
-) : IteratingSystem(family { all(Member, Schedule, Position).none(Goal, Route, Idle, Riding, Stuck) }) {
+) : IteratingSystem(family { all(Member, Schedule, Position).none(Goal, Route, Idle, Riding, Stuck) }), Unhurried {
     private var tick = 0
 
     override fun onTick() {
@@ -27,8 +27,8 @@ class ScheduleSystem(
     }
 
     override fun onTickEntity(entity: Entity) {
-        // people outside look at the clock once a game minute, not every tick: there are thousands of them
-        if (entity has Away && (tick + entity.id) % AWAY_CHECK_TICKS != 0) return
+        // people outside look at the clock once a game minute, not every pass: there are thousands of them
+        if (entity has Away && (tick + entity.id) % AWAY_CHECK_PASSES != 0) return
         val member = entity[Member]
         val schedule = entity[Schedule]
         val room = sim.tower.room(member.roomId)
@@ -94,8 +94,8 @@ class ScheduleSystem(
         /** Share of the way to the mood they settle to, on each look around the room. */
         const val MOOD_SETTLE = 0.1f
 
-        /** Ticks between two looks at the clock for people outside the tower (ten ticks are a game minute). */
-        const val AWAY_CHECK_TICKS = 10
+        /** Passes between two looks at the clock for people outside the tower: a pass is half a game minute. */
+        const val AWAY_CHECK_PASSES = 2
     }
 }
 
