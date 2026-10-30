@@ -17,6 +17,10 @@ Das Spiel startet im Hauptmenü: Spiel laden, Neues Spiel, Optionen, Testtürme 
 
 `CRAZYTOWER_TITLE=<stufe>` zeigt für Screenshots das Hauptmenü mit einem Testturm, jeder andere Wert mit dem Spielstand.
 
+## Sprachen
+
+Das Spiel gibt es auf Deutsch und Englisch, umschaltbar unter Optionen → „Sprache · Language“ (ohne Einstellung gilt die Systemsprache). Texte stehen im Code als Paar: `tr("Deutsch", "English")` für Text, der gleich angezeigt wird, `Tr(...)` für Daten wie Mieter- und Raumnamen (`core/.../I18n.kt`). Zahlen und Geld folgen der Sprache (`48.250 $` / `$48,250`). Zu lange Texte werden umbrochen (`wrapText`) oder verkleinert und notfalls gekürzt (`fitWidth`), Buttons machen das von selbst. Für Screenshots wählt `CRAZYTOWER_LANG=en` Englisch.
+
 ## Steuerung
 
 | Eingabe | Aktion |

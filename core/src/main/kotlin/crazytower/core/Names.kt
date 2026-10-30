@@ -13,5 +13,13 @@ object Names {
         "Eilig", "Zögerlich", "Kaffeeklatsch", "Treppenwitz", "Aufzugmann", "Wolkenkratz",
     )
 
-    fun random(random: Random): String = "${first[random.nextInt(first.size)]} ${last[random.nextInt(last.size)]}"
+    private val lastEn = listOf(
+        "Miller", "Smith", "Petty", "Ladder", "Sunshine", "Ontime", "Honk", "Snore",
+        "Hurry", "Dawdle", "Teabreak", "Stairwit", "Liftman", "Cloudscrape",
+    )
+
+    fun random(random: Random): String {
+        val names = if (I18n.english) lastEn else last
+        return "${first[random.nextInt(first.size)]} ${names[random.nextInt(names.size)]}"
+    }
 }

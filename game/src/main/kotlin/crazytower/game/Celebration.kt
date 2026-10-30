@@ -3,7 +3,10 @@ package crazytower.game
 import crazytower.core.Stages
 import crazytower.game.ui.Icons
 import crazytower.game.ui.Panel
+import crazytower.game.ui.fitWidth
 import crazytower.game.ui.label
+import crazytower.game.ui.wrapText
+import crazytower.core.tr
 import korlibs.image.color.RGBA
 import korlibs.korge.input.onClick
 import korlibs.korge.view.*
@@ -38,10 +41,10 @@ class Celebration(private val screenWidth: Double, private val screenHeight: Dou
     fun showStar(stars: Int) {
         val bonus = ((stars - 1) * 20)
         show(
-            title = if (stars == 1) "1 STERN" else "$stars STERNE",
+            title = if (stars == 1) tr("1 STERN", "1 STAR") else tr("$stars STERNE", "$stars STARS"),
             lines = listOf(
-                "Der Turm spricht sich herum.",
-                if (bonus > 0) "Alle Mieten und Nebenkosten jetzt +$bonus %." else "",
+                tr("Der Turm spricht sich herum.", "Word about the tower is getting around."),
+                if (bonus > 0) tr("Alle Mieten und Nebenkosten jetzt +$bonus %.", "All rents and service charges now +$bonus %.") else "",
             ),
             stars = stars,
             seconds = 4.5,
@@ -53,8 +56,8 @@ class Celebration(private val screenWidth: Double, private val screenHeight: Dou
     fun showStage(stage: Int, stars: Int) {
         val info = Stages.info(stage)
         show(
-            title = "STUFE $stage · ${info.name.uppercase()}",
-            lines = listOf("Jetzt bis Etage ${info.maxFloor}.", info.unlocks),
+            title = tr("STUFE", "STAGE") + " $stage · ${info.name.toString().uppercase()}",
+            lines = listOf(tr("Jetzt bis Etage ${info.maxFloor}.", "Now up to floor ${info.maxFloor}."), info.unlocks.toString()),
             stars = stars,
             seconds = 6.5,
         )
@@ -66,22 +69,23 @@ class Celebration(private val screenWidth: Double, private val screenHeight: Dou
         confetti.forEach { it.view.removeFromParent() }
         confetti.clear()
         val width = 560.0
-        val text = lines.filter { it.isNotBlank() }
+        // long lines wrap inside the card
+        val text = lines.filter { it.isNotBlank() }.flatMap { wrapText(it, width - 48.0, 15.0).split('\n') }
         val height = 190.0 + text.size * 24.0
         Panel(width, height, Theme.SELECT, 14.0).addTo(card)
         Panel(width - 8, height - 8, Theme.PANEL, 12.0).addTo(card).xy(4.0, 4.0)
         val row = card.container()
         for (i in 0 until 5) Icons.star(row, i < stars, 48.0).xy(i * 56.0, 0.0)
         row.xy((width - 5 * 56.0 + 8) / 2, 28.0)
-        val heading = card.label(title, 30.0, Theme.GOLD, Theme.bodyBold)
-        heading.xy((width - heading.width) / 2, 96.0)
+        val heading = card.label(title, 30.0, Theme.GOLD, Theme.bodyBold).fitWidth(width - 48.0)
+        heading.xy((width - heading.width * heading.scaleX) / 2, 96.0)
         var y = 144.0
         for (line in text) {
             val l = card.label(line, 15.0, Theme.TEXT)
             l.xy((width - l.width) / 2, y)
             y += 24.0
         }
-        val hint = card.label("Klicken zum Weiterbauen", 11.0, Theme.TEXT_DIM)
+        val hint = card.label(tr("Klicken zum Weiterbauen", "Click to keep building"), 11.0, Theme.TEXT_DIM)
         hint.xy((width - hint.width) / 2, height - 28.0)
         card.xy((screenWidth - width) / 2, (screenHeight - height) / 2 - 40)
         val colors = listOf(Theme.GOLD, Theme.SELECT, Theme.ALARM, Theme.GOOD, Theme.TEXT)

@@ -26,7 +26,7 @@ class RoomProblemsTest {
         sim.step(3 * 60.0)
         assertNull(home.tenant)
         val problem = assertNotNull(sim.roomProblems[home.id])
-        assertEquals("Kein Weg hierher", problem.title)
+        assertEquals("Kein Weg hierher", problem.title.de)
         assertTrue(problem.far)
     }
 
@@ -37,7 +37,7 @@ class RoomProblemsTest {
         val office = sim.buildReachable(Catalog.OFFICE, 10, floor = 7)
         sim.step(3 * 60.0)
         assertNull(office.tenant)
-        assertEquals("Zu viele Treppen", sim.roomProblems[office.id]?.title)
+        assertEquals("Zu viele Treppen", sim.roomProblems[office.id]?.title?.de)
     }
 
     @Test
@@ -54,7 +54,7 @@ class RoomProblemsTest {
         sim.step(8 * 60.0)
         assertNull(office.tenant)
         val problem = assertNotNull(sim.roomProblems[office.id])
-        assertEquals("Zu weit weg", problem.title)
+        assertEquals("Zu weit weg", problem.title.de)
         assertTrue(problem.far)
     }
 }

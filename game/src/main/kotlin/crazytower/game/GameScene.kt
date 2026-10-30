@@ -3,6 +3,7 @@ package crazytower.game
 import crazytower.core.Settings
 import crazytower.core.Simulation
 import crazytower.core.TestTower
+import crazytower.core.tr
 import korlibs.event.Key
 import korlibs.korge.input.keys
 import korlibs.korge.scene.Scene
@@ -52,9 +53,9 @@ class GameScene(private val assets: Assets, private val loaded: Simulation? = nu
         Autopilot.attachIfRequested(this, sim, game, tower, hud)
         game.say(
             when {
-                test -> "Testturm: wird nicht gespeichert, F9 holt dein Spiel zurück"
-                loaded != null -> "Spielstand geladen"
-                else -> "F5 speichert, F9 lädt"
+                test -> tr("Testturm: wird nicht gespeichert, F9 holt dein Spiel zurück", "Test tower: not saved, F9 brings your game back")
+                loaded != null -> tr("Spielstand geladen", "Game loaded")
+                else -> tr("F5 speichert, F9 lädt", "F5 saves, F9 loads")
             },
             5.0,
         )
@@ -70,13 +71,18 @@ class GameScene(private val assets: Assets, private val loaded: Simulation? = nu
         onStageResized(firstTrigger = false) { _, _ -> relayout(views, sim, game) }
         Options.onChange = { old, new ->
             applyWindow(views, old, new)
-            if (old.borderless != new.borderless) game.say("Fenster-Vollbild gilt ab dem nächsten Start", 4.0)
+            if (old.borderless != new.borderless) game.say(tr("Fenster-Vollbild gilt ab dem nächsten Start", "Borderless applies from the next start"), 4.0)
             game.fastNights = new.fastNights
             if (old.uiScale != new.uiScale) relayout(views, sim, game)
+            // a new language: the HUD and the signs in the tower are written again
+            if (old.language != new.language) {
+                tower.relabel()
+                layoutHud(sim, game, layout.first.toDouble(), layout.second.toDouble())
+            }
         }
 
         keys {
-            down(Key.F5) { game.say(if (test) "Testtürme werden nicht gespeichert" else SaveSlot.save(sim)) }
+            down(Key.F5) { game.say(if (test) tr("Testtürme werden nicht gespeichert", "Test towers are not saved") else SaveSlot.save(sim)) }
             down(Key.F9) {
                 val (restored, message) = SaveSlot.load()
                 if (restored == null) game.say(message) else sceneContainer.changeTo { GameScene(assets, restored) }
@@ -125,8 +131,8 @@ class GameScene(private val assets: Assets, private val loaded: Simulation? = nu
     private fun autosave(sim: Simulation, game: GameController) {
         val every = Options.current.autosaveDays
         if (every <= 0 || sim.clock.day % every != 0 || Autopilot.active || test) return
-        val message = SaveSlot.save(sim)
-        game.say(if (message.startsWith("Gespeichert")) "Automatisch gespeichert" else message)
+        val (saved, message) = SaveSlot.trySave(sim)
+        game.say(if (saved) tr("Automatisch gespeichert", "Autosaved") else message)
     }
 
     /** The layout size the HUD was built for. */

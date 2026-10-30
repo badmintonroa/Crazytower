@@ -18,7 +18,7 @@ class TenantTest {
         assertEquals(RoomRole.OFFICE, tenant.role)
         assertNull(unreachable.tenant, "nobody can get up there without stairs")
         assertTrue(sim.population >= Catalog.OFFICE.capacity)
-        assertTrue(sim.news.latest.any { tenant.name in it.text })
+        assertTrue(sim.news.latest.any { tenant.name.toString() in it.text })
     }
 
     @Test

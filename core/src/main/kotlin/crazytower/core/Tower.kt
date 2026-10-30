@@ -112,25 +112,25 @@ class Tower(val width: Int = DEFAULT_WIDTH) {
      * column is treated as already built, so a whole dragged column can be checked before building.
      */
     fun canPlace(type: RoomType, floor: Int, x: Int, width: Int = type.width, assumed: Set<Int> = emptySet()): PlaceCheck {
-        if (width < 1 || x < 0 || x + width > this.width) return PlaceCheck.no("Außerhalb des Grundstücks")
-        if (floor < MIN_FLOOR) return PlaceCheck.no("Tiefer geht es nicht")
-        if (type.role == RoomRole.LOBBY && !isLobbyFloor(floor)) return PlaceCheck.no("Lobby nur im Erdgeschoss und alle $SKY_LOBBY_EVERY Etagen")
+        if (width < 1 || x < 0 || x + width > this.width) return PlaceCheck.no(tr("Außerhalb des Grundstücks", "Outside the lot"))
+        if (floor < MIN_FLOOR) return PlaceCheck.no(tr("Tiefer geht es nicht", "Can't dig any deeper"))
+        if (type.role == RoomRole.LOBBY && !isLobbyFloor(floor)) return PlaceCheck.no(tr("Lobby nur im Erdgeschoss und alle $SKY_LOBBY_EVERY Etagen", "Lobbies only on the ground floor and every $SKY_LOBBY_EVERY floors"))
         if (floor == GROUND_FLOOR && type.role != RoomRole.LOBBY && !type.role.isWay) {
-            return PlaceCheck.no("Im Erdgeschoss ist nur Platz für die Lobby")
+            return PlaceCheck.no(tr("Im Erdgeschoss ist nur Platz für die Lobby", "The ground floor is for the lobby only"))
         }
         val layer = layer(type)
         for (s in x until x + width) {
-            if (at(layer, floor, s) != null) return PlaceCheck.no("Hier steht schon etwas")
+            if (at(layer, floor, s) != null) return PlaceCheck.no(tr("Hier steht schon etwas", "Something is already here"))
         }
         val support = supportFloor(floor)
         if (support != null && support !in assumed && (x until x + width).any { !isBuilt(support, it) }) {
-            return PlaceCheck.no(if (floor > 0) "Darunter fehlt der Unterbau" else "Darüber fehlt die Decke")
+            return PlaceCheck.no(if (floor > 0) tr("Darunter fehlt der Unterbau", "Nothing to stand on below") else tr("Darüber fehlt die Decke", "No ceiling above"))
         }
         if (type.role == RoomRole.ELEVATOR) {
             val shaft = shaftRange(floor, x, type, extraFloors = assumed + floor)
             val maxFloors = if (type.express) MAX_EXPRESS_FLOORS else MAX_SHAFT_FLOORS
             if (shaft.last - shaft.first + 1 > maxFloors) {
-                return PlaceCheck.no("${type.name} höchstens $maxFloors Etagen")
+                return PlaceCheck.no(tr("${type.name} höchstens $maxFloors Etagen", "${type.name}: $maxFloors floors at most"))
             }
             // shafts keep at least two rooms' width apart, on this floor and the ones next to it
             val crowded = (floor - 1..floor + 1).any { f ->
@@ -138,7 +138,7 @@ class Tower(val width: Int = DEFAULT_WIDTH) {
                     wayAt(f, s)?.let { it.type.role == RoomRole.ELEVATOR && (it.x != x || it.type != type) } == true
                 }
             }
-            if (crowded) return PlaceCheck.no("Zu nah am nächsten Aufzug (mind. $ELEVATOR_GAP Felder Abstand)")
+            if (crowded) return PlaceCheck.no(tr("Zu nah am nächsten Aufzug (mind. $ELEVATOR_GAP Felder Abstand)", "Too close to the next elevator (at least $ELEVATOR_GAP tiles apart)"))
         }
         return PlaceCheck.OK
     }
@@ -167,7 +167,7 @@ class Tower(val width: Int = DEFAULT_WIDTH) {
     }
 
     fun canRemove(room: Room): PlaceCheck =
-        if (dependents(room).isEmpty()) PlaceCheck.OK else PlaceCheck.no("Darauf steht noch etwas")
+        if (dependents(room).isEmpty()) PlaceCheck.OK else PlaceCheck.no(tr("Darauf steht noch etwas", "Something still stands on it"))
 
     /**
      * Floor range of the elevator shaft through segment [x] on [floor], counting stacked

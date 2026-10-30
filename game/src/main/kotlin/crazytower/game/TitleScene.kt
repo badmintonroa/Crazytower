@@ -6,7 +6,9 @@ import crazytower.core.TestTower
 import crazytower.game.ui.Panel
 import crazytower.game.ui.TextButton
 import crazytower.game.ui.formatNumber
+import crazytower.game.ui.fitWidth
 import crazytower.game.ui.label
+import crazytower.core.tr
 import korlibs.event.Key
 import korlibs.image.paint.LinearGradientPaint
 import korlibs.io.async.launchImmediately
@@ -46,6 +48,8 @@ class TitleScene(private val assets: Assets) : Scene() {
         Options.onChange = { old, new ->
             GameScene.applyWindow(views, old, new)
             if (old.uiScale != new.uiScale) relayout(views, sim)
+            // a new language: every text of the menu is written again
+            if (old.language != new.language) buildMenu(sim, layoutSize.first.toDouble(), layoutSize.second.toDouble())
         }
         keys {
             down(Key.ENTER) { if (saved != null) loadGame() else newGame() }
@@ -109,44 +113,44 @@ class TitleScene(private val assets: Assets) : Scene() {
         val crazy = root.label("CRAZY", 64.0, Theme.TEXT, Theme.bodyBold).xy(left, y)
         root.label("TOWER", 64.0, Theme.SELECT, Theme.bodyBold).xy(left + crazy.width + 4, y)
         y += 80.0
-        root.label("Der Turm, in dem nichts normal ist", 17.0, Theme.TEXT_DIM).xy(left + 2, y)
+        root.label(tr("Der Turm, in dem nichts normal ist", "The tower where nothing is normal"), 17.0, Theme.TEXT_DIM).xy(left + 2, y).fitWidth(TEXT_WIDTH)
         y += 56.0
 
         val save = saved
-        val load = button(root, left, y, "Spiel laden", primary = save != null) { loadGame() }
+        val load = button(root, left, y, tr("Spiel laden", "Load game"), primary = save != null) { loadGame() }
         load.enabled = SaveSlot.file.exists()
         y += 46.0
-        root.label(saveInfo(save), 13.0, Theme.TEXT_DIM).xy(left + 2, y)
+        root.label(saveInfo(save), 13.0, Theme.TEXT_DIM).xy(left + 2, y).fitWidth(TEXT_WIDTH)
         y += 34.0
         lateinit var newButton: TextButton
-        newButton = button(root, left, y, "Neues Spiel", primary = save == null) {
+        newButton = button(root, left, y, tr("Neues Spiel", "New game"), primary = save == null) {
             if (saved != null && !confirmNew) {
                 confirmNew = true
-                newButton.setTitle("Wirklich neu anfangen?")
+                newButton.setTitle(tr("Wirklich neu anfangen?", "Really start over?"))
                 newHint.visible = true
             } else {
                 newGame()
             }
         }
         y += BUTTON_STEP
-        newHint = root.label("Dein Spielstand wird beim nächsten Speichern überschrieben", 12.0, Theme.ALARM)
-            .xy(left + 2, y - 10).also { it.visible = false }
+        newHint = root.label(tr("Dein Spielstand wird beim nächsten Speichern überschrieben", "Your saved game will be overwritten the next time you save"), 12.0, Theme.ALARM)
+            .xy(left + 2, y - 10).fitWidth(TEXT_WIDTH).also { it.visible = confirmNew }
         y += 8.0
-        button(root, left, y, "Optionen") { toggleOptions() }
+        button(root, left, y, tr("Optionen", "Options")) { toggleOptions() }
         y += BUTTON_STEP
 
         // the test towers from the options, right here as well
-        root.label("Testturm", 15.0, Theme.TEXT, Theme.bodyBold).xy(left + 2, y + 10)
+        root.label(tr("Testturm", "Test tower"), 15.0, Theme.TEXT, Theme.bodyBold).xy(left + 2, y + 10).fitWidth(88.0)
         for (stage in 1..TestTower.MAXIMUM) {
             val max = stage == TestTower.MAXIMUM
             TextButton(if (max) 50.0 else 30.0, 36.0, if (max) "Max" else "$stage", 14.0) { testTower(stage) }
                 .addTo(root).xy(left + 96 + (stage - 1) * 34.0, y)
         }
         y += BUTTON_STEP
-        button(root, left, y, "Beenden") { views.gameWindow.close() }
+        button(root, left, y, tr("Beenden", "Quit")) { views.gameWindow.close() }
 
-        root.label("Enter spielt · O Optionen · F11 Vollbild", 12.0, Theme.TEXT_DIM).xy(left + 2, h - 36.0)
-        val caption = if (save != null) "Dein Turm · ${sim.clock.format()}" else "Testturm · ${Stages.all[sim.stage].name}"
+        root.label(tr("Enter spielt · O Optionen · F11 Vollbild", "Enter plays · O options · F11 fullscreen"), 12.0, Theme.TEXT_DIM).xy(left + 2, h - 36.0)
+        val caption = if (save != null) tr("Dein Turm · ", "Your tower · ") + sim.clock.format() else tr("Testturm · ", "Test tower · ") + Stages.all[sim.stage].name
         val capText = root.label(caption, 13.0, Theme.alpha(Theme.TEXT, 0.75), Theme.bodyBold)
         capText.xy(w - capText.width - 24.0, h - 36.0)
 
@@ -164,9 +168,14 @@ class TitleScene(private val assets: Assets) : Scene() {
         }
 
     private fun saveInfo(save: Simulation?): String {
-        if (save == null) return if (SaveSlot.file.exists()) SaveSlot.load().second else "Noch kein Spielstand vorhanden"
-        val stars = when (save.stars) { 0 -> "ohne Sterne"; 1 -> "1 Stern"; else -> "${save.stars} Sterne" }
-        return "${Stages.all[save.stage].name} · $stars · ${formatNumber(save.population.toLong())} Leute · Tag ${save.clock.day + 1}"
+        if (save == null) return if (SaveSlot.file.exists()) SaveSlot.load().second else tr("Noch kein Spielstand vorhanden", "No saved game yet")
+        val stars = when (save.stars) {
+            0 -> tr("ohne Sterne", "no stars")
+            1 -> tr("1 Stern", "1 star")
+            else -> tr("${save.stars} Sterne", "${save.stars} stars")
+        }
+        val people = formatNumber(save.population.toLong())
+        return "${Stages.all[save.stage].name} · $stars · " + tr("$people Leute · Tag ${save.clock.day + 1}", "$people people · day ${save.clock.day + 1}")
     }
 
     private fun toggleOptions() {
@@ -195,5 +204,8 @@ class TitleScene(private val assets: Assets) : Scene() {
         const val SHADE_WIDTH = 220.0
         const val BUTTON_WIDTH = 320.0
         const val BUTTON_STEP = 62.0
+
+        /** Texts of the menu end where the shade starts to fade. */
+        const val TEXT_WIDTH = MENU_WIDTH - 40.0 - 64.0 - 2.0
     }
 }

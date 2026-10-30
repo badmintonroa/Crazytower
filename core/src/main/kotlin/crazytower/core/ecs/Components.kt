@@ -5,6 +5,7 @@ import com.github.quillraven.fleks.ComponentType
 import com.github.quillraven.fleks.Entity
 import com.github.quillraven.fleks.EntityUpdateContext
 import crazytower.core.Loc
+import crazytower.core.Tr
 import crazytower.core.WorkPlan
 import crazytower.core.nav.Leg
 
@@ -74,16 +75,19 @@ data class Member(val roomId: Int, val resident: Boolean) : Component<Member> {
 }
 
 /** What a member is up to right now; shown in the inspector and used to react on arrival. */
-enum class Activity(val label: String) {
-    AWAY("Nicht im Turm"),
-    ARRIVING("Kommt in den Turm"),
-    AT_ROOM("Bei der Arbeit"),
-    WANDERING("Vertritt sich die Beine"),
-    TO_MEAL("Geht essen"),
-    EATING("Isst"),
-    LEAVING("Geht nach Hause"),
-    TO_CLEAN("Geht putzen"),
-    CLEANING("Putzt ein Hotelzimmer"),
+enum class Activity(private val text: Tr) {
+    AWAY(Tr("Nicht im Turm", "Not in the tower")),
+    ARRIVING(Tr("Kommt in den Turm", "Coming to the tower")),
+    AT_ROOM(Tr("Bei der Arbeit", "At work")),
+    WANDERING(Tr("Vertritt sich die Beine", "Stretching their legs")),
+    TO_MEAL(Tr("Geht essen", "Going for a meal")),
+    EATING(Tr("Isst", "Eating")),
+    LEAVING(Tr("Geht nach Hause", "Going home")),
+    TO_CLEAN(Tr("Geht putzen", "Off to clean")),
+    CLEANING(Tr("Putzt ein Hotelzimmer", "Cleaning a hotel room")),
+    ;
+
+    val label: String get() = text.toString()
 }
 
 /**

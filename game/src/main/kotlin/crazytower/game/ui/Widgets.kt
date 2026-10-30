@@ -46,6 +46,59 @@ fun Container.label(
 ): Text = text(value, textSize = size, color = color, font = font)
 
 /**
+ * Makes a one-line text at most [maxWidth] wide: a little too long shrinks it, much too long
+ * also cuts it with "…". Texts that fit stay as they are, in every language.
+ */
+fun Text.fitWidth(maxWidth: Double): Text {
+    scale = 1.0
+    if (width <= maxWidth) return this
+    val full = text
+    var keep = full.length
+    while (width * MIN_FIT > maxWidth && keep > 1) {
+        keep--
+        text = full.take(keep).trimEnd() + "…"
+    }
+    if (width > maxWidth) scale = maxWidth / width
+    return this
+}
+
+/** Texts are shrunk to this share of their size at most before they are cut. */
+private const val MIN_FIT = 0.8
+
+/**
+ * Breaks [value] into lines of at most [maxWidth] at [size] in [font], at the spaces.
+ * Line breaks already in [value] are kept.
+ */
+fun wrapText(value: String, maxWidth: Double, size: Double, font: Font = Theme.body): String {
+    val probe = Text("", size, font = font)
+    fun widthOf(s: String): Double { probe.text = s; return probe.width }
+    return value.split('\n').joinToString("\n") { paragraph ->
+        val lines = ArrayList<String>()
+        var line = ""
+        for (word in paragraph.split(' ')) {
+            val candidate = if (line.isEmpty()) word else "$line $word"
+            if (line.isNotEmpty() && widthOf(candidate) > maxWidth) {
+                lines += line
+                line = word
+            } else {
+                line = candidate
+            }
+        }
+        lines += line
+        lines.joinToString("\n")
+    }
+}
+
+/** A label broken into lines of at most [maxWidth], see [wrapText]. */
+fun Container.wrappedLabel(
+    value: String,
+    maxWidth: Double,
+    size: Double = 14.0,
+    color: RGBA = Theme.TEXT,
+    font: Font = Theme.body,
+): Text = label(wrapText(value, maxWidth, size, font), size, color, font)
+
+/**
  * The game's button: hover lifts it with a teal frame, pressed pushes it down,
  * selected fills it teal, disabled shows it greyed out.
  */
@@ -142,16 +195,15 @@ class TextButton(width: Double, height: Double, title: String, size: Double = 15
     }
 
     private fun centre() {
-        text.x = (buttonWidth - text.width) / 2
-        text.y = (buttonHeight - 3.0 - text.height) / 2
+        // long titles (some languages need more letters) shrink instead of spilling over the edge
+        text.fitWidth(buttonWidth - 12.0)
+        text.x = (buttonWidth - text.width * text.scaleX) / 2
+        text.y = (buttonHeight - 3.0 - text.height * text.scaleY) / 2
     }
 }
 
-/** German number formatting with dots: 48250 -> "48.250". */
-fun formatNumber(value: Long): String {
-    val digits = kotlin.math.abs(value).toString()
-    val grouped = digits.reversed().chunked(3).joinToString(".").reversed()
-    return if (value < 0) "-$grouped" else grouped
-}
+/** Numbers in the current language: 48250 is "48.250" or "48,250". */
+fun formatNumber(value: Long): String = crazytower.core.formatNumber(value)
 
-fun formatMoney(value: Long): String = "${formatNumber(value)} $"
+/** Money in the current language: "48.250 $" or "$48,250". */
+fun formatMoney(value: Long): String = crazytower.core.formatMoney(value)

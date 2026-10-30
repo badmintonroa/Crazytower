@@ -10,13 +10,18 @@ import crazytower.core.RoomType
 import crazytower.core.Simulation
 import crazytower.core.Stages
 import crazytower.core.Tenants
+import crazytower.core.formatMoneyRange
+import crazytower.core.tr
 import crazytower.game.ui.Button
 import crazytower.game.ui.Icons
 import crazytower.game.ui.Panel
 import crazytower.game.ui.TextButton
 import crazytower.game.ui.formatMoney
+import crazytower.game.ui.fitWidth
 import crazytower.game.ui.formatNumber
 import crazytower.game.ui.label
+import crazytower.game.ui.wrapText
+import crazytower.game.ui.wrappedLabel
 import crazytower.game.ui.panel
 import korlibs.event.Key
 import korlibs.korge.input.keys
@@ -41,7 +46,7 @@ class Hud(
 ) : Container() {
     private val topBar = container { xy(12.0, 12.0) }
     private val buildBar = panel(88.0, 470.0).also { it.xy(12.0, 84.0) }
-    private val flyout = panel(270.0, 100.0).also { it.xy(110.0, 84.0) }
+    private val flyout = panel(FLYOUT_WIDTH, 100.0).also { it.xy(110.0, 84.0) }
     private val inspector = Inspector(sim, game, assets).addTo(this).also { it.xy(screenWidth - 302.0, 84.0) }
     private val ticker = container { xy(0.0, screenHeight - 50.0) }
     private val finance = FinanceWindow(sim) { game.financeOpen = false }.addTo(this).also {
@@ -124,7 +129,7 @@ class Hud(
             solidRect(8.0, 8.0, Theme.alpha(Theme.SELECT, 0.9)).xy(20.0, 18.0)
             solidRect(14.0, 12.0, Theme.alpha(Theme.SELECT, 0.6)).xy(17.0, 28.0)
             popText = label("", 20.0, Theme.TEXT, Theme.bodyBold).also { it.xy(42.0, 17.0) }
-            label("Bewohner", 12.0, Theme.TEXT_DIM).xy(95.0, 14.0)
+            label(tr("Bewohner", "Residents"), 12.0, Theme.TEXT_DIM).xy(95.0, 14.0).fitWidth(POP_LABEL)
             moodText = label("", 12.0, Theme.TEXT_DIM).also { it.xy(95.0, 30.0) }
         }
         val stageWidth = screenWidth - 24 - x - 150 - 10 - 254 - 10 - 60
@@ -179,12 +184,12 @@ class Hud(
         Category.entries.forEachIndexed { i, category ->
             val b = Button(68.0, 68.0) { game.openCategory(category); refreshFlyout(force = true) }
             val icon = b.content.graphics { }.also { it.xy(21.0, 10.0) }
-            val name = b.content.label(category.label, 11.0, Theme.TEXT, Theme.bodyBold)
+            val name = b.content.label(category.label, 11.0, Theme.TEXT, Theme.bodyBold).fitWidth(62.0)
             val key = b.content.label("${i + 1}", 11.0, Theme.TEXT_DIM, Theme.bodyBold).also { it.xy(56.0, 3.0) }
             b.onRestyle = {
                 Icons.draw(icon, category, it.ink)
                 name.color = it.ink
-                name.xy((68.0 - name.width) / 2, 42.0)
+                name.xy((68.0 - name.width * name.scaleX) / 2, 42.0)
                 key.color = if (it.selected) Theme.ON_SELECT else Theme.TEXT_DIM
             }
             b.selected = false
@@ -209,31 +214,56 @@ class Hud(
             return
         }
         flyout.visible = true
-        val bg = Panel(270.0, 100.0).addTo(flyout)
-        flyout.label(category.label.uppercase(), 20.0, Theme.TEXT, Theme.bodyBold).xy(14.0, 12.0)
-        flyout.label("Esc schließt", 12.0, Theme.TEXT_DIM).xy(180.0, 18.0)
+        val bg = Panel(FLYOUT_WIDTH, 100.0).addTo(flyout)
+        val heading = flyout.label(category.label.uppercase(), 20.0, Theme.TEXT, Theme.bodyBold).xy(14.0, 12.0)
+        val close = flyout.label(tr("Esc schließt", "Esc closes"), 12.0, Theme.TEXT_DIM)
         var y = 44.0
+        var width = FLYOUT_WIDTH
         if (category == Category.DEMOLISH) {
-            flyout.label("Klick auf einen Raum reißt ihn ab.\nDu bekommst ein Viertel der Baukosten\nzurück.", 13.0, Theme.TEXT_DIM).xy(14.0, y)
-            y += 64.0
+            val hint = flyout.wrappedLabel(
+                tr("Klick auf einen Raum reißt ihn ab. Du bekommst ein Viertel der Baukosten zurück.",
+                    "Click a room to tear it down. You get a quarter of the building costs back."),
+                FLYOUT_TEXT, 13.0, Theme.TEXT_DIM,
+            ).xy(14.0, y)
+            y += hint.height + 14.0
         } else {
             val types = Catalog.roomTypes.filter { it.category == category }
             if (types.isEmpty()) {
-                flyout.label("Kommt mit einer späteren Stufe.", 13.0, Theme.TEXT_DIM).xy(14.0, y)
-                y += 30.0
+                val none = flyout.wrappedLabel(tr("Kommt mit einer späteren Stufe.", "Comes with a later stage."), FLYOUT_TEXT, 13.0, Theme.TEXT_DIM).xy(14.0, y)
+                y += none.height + 14.0
             }
-            for (type in types) {
+            val cards = types.map { type ->
                 val built = type.maxCount?.let { max -> sim.tower.allRooms.count { it.type == type } >= max } == true
-                val card = ItemCard(type, sim.stage >= type.minStage && sim.bestStars >= type.minStars && !built, built)
-                card.xy(14.0, y)
+                ItemCard(type, sim.stage >= type.minStage && sim.bestStars >= type.minStars && !built, built)
+            }
+            // a list too long for the screen continues in a second column
+            val bottom = screenHeight - 50.0 - flyout.y - 8.0 - 48.0
+            var column = 0
+            val top = y
+            for (card in cards) {
+                if (y > top && y + card.cardHeight > bottom) {
+                    column++
+                    y = top
+                }
+                card.xy(14.0 + column * (FLYOUT_TEXT + 14.0), y)
                 flyout.addChild(card)
                 y += card.cardHeight + 6
             }
-            flyout.label("Klicken zum Wählen, im Turm\nklicken zum Bauen. Rechtsklick\nbricht ab.", 12.0, Theme.TEXT_DIM).xy(14.0, y + 2)
-            y += 54.0
+            if (column > 0) {
+                width += column * (FLYOUT_TEXT + 14.0)
+                y = flyout.children.filterIsInstance<ItemCard>().maxOf { it.y + it.cardHeight + 6 }
+            }
+            val hint = flyout.wrappedLabel(
+                tr("Klicken zum Wählen, im Turm klicken zum Bauen. Rechtsklick bricht ab.",
+                    "Click to choose, click in the tower to build. Right-click cancels."),
+                width - 28.0, 12.0, Theme.TEXT_DIM,
+            ).xy(14.0, y + 2)
+            y += hint.height + 12.0
         }
-        bg.resize(270.0, y + 10)
-        flyout.panelWidth = 270.0
+        close.xy(width - 14.0 - close.width, 18.0)
+        heading.fitWidth(close.x - 24.0)
+        bg.resize(width, y + 10)
+        flyout.panelWidth = width
         flyout.panelHeight = y + 10
         updateFlyoutSelection()
     }
@@ -250,7 +280,9 @@ class Hud(
      * below that who lives or works there and what the room earns.
      */
     private inner class ItemCard(
-        val type: RoomType, unlocked: Boolean, built: Boolean = false, val info: List<String> = roomInfo(type),
+        val type: RoomType, unlocked: Boolean, built: Boolean = false,
+        // long lines wrap, the card grows with them
+        val info: List<String> = roomInfo(type).flatMap { wrapText(it, CARD_TEXT, 12.0).split('\n') },
         val cardHeight: Double = if (info.isEmpty()) 62.0 else 66.0 + info.size * 17.0,
     ) : Button(242.0, cardHeight, { game.tool = Tool.Build(type) }) {
         init {
@@ -260,11 +292,18 @@ class Hud(
                 xy(10.0 + (72.0 - bitmap.width * scale) / 2, (59.0 - bitmap.height * scale) / 2)
                 alpha = if (unlocked) 1.0 else 0.35
             }
-            val name = content.label(type.name, 15.0, Theme.TEXT, Theme.bodyBold).also { it.xy(92.0, 12.0) }
+            val name = content.label(type.name.toString(), 15.0, Theme.TEXT, Theme.bodyBold).also { it.xy(92.0, 12.0) }.fitWidth(buttonWidth - 100.0)
             val sub = content.label(
-                if (built) "SCHON GEBAUT" else if (!unlocked) (if (sim.stage < type.minStage) "AB STUFE ${type.minStage}" else "AB ${type.minStars} STERNEN") else if (type.perSegment) "${formatMoney(type.cost)}/FELD" else formatMoney(type.cost), 13.0, Theme.TEXT, Theme.bodyBold,
-            ).also { it.xy(92.0, 33.0) }
-            val lines = info.mapIndexed { i, line -> content.label(line, 12.0, Theme.TEXT_DIM).also { it.xy(12.0, 60.0 + i * 17.0) } }
+                when {
+                    built -> tr("SCHON GEBAUT", "ALREADY BUILT")
+                    !unlocked && sim.stage < type.minStage -> tr("AB STUFE ${type.minStage}", "FROM STAGE ${type.minStage}")
+                    !unlocked -> tr("AB ${type.minStars} STERNEN", "FROM ${type.minStars} STARS")
+                    type.perSegment -> tr("${formatMoney(type.cost)}/FELD", "${formatMoney(type.cost)}/TILE")
+                    else -> formatMoney(type.cost)
+                },
+                13.0, Theme.TEXT, Theme.bodyBold,
+            ).also { it.xy(92.0, 33.0) }.fitWidth(buttonWidth - 100.0)
+            val lines = info.mapIndexed { i, line -> content.label(line, 12.0, Theme.TEXT_DIM).also { it.xy(12.0, 60.0 + i * 17.0) }.fitWidth(CARD_TEXT) }
             onRestyle = { b ->
                 name.color = b.ink
                 sub.color = b.ink
@@ -279,43 +318,42 @@ class Hud(
         val tenants = Tenants.candidates(type, sim.stars, sim.stage)
         fun range(values: List<Long>, bonus: Double = sim.starBonus): String {
             if (values.isEmpty()) return "–"
-            val low = (values.min() * bonus).toLong()
-            val high = (values.max() * bonus).toLong()
-            return if (low == high) formatMoney(low) else "${formatNumber(low)}–${formatMoney(high)}"
+            return formatMoneyRange((values.min() * bonus).toLong(), (values.max() * bonus).toLong())
         }
         return when (type.role) {
             RoomRole.HOME -> listOf(
-                "${type.capacity} Bewohner, nur ${sim.flatBuyersPerDay} Käufer pro Tag",
-                "Verkauf einmalig: ${range(tenants.map { it.salePrice }, bonus = 1.0)}",
-                "dann ${formatMoney((Simulation.HOME_FEE * sim.starBonus).toLong())} Hausgeld pro Tag",
+                tr("${type.capacity} Bewohner, nur ${sim.flatBuyersPerDay} Käufer pro Tag", "${type.capacity} residents, only ${sim.flatBuyersPerDay} buyers a day"),
+                tr("Verkauf einmalig: ", "sold once: ") + range(tenants.map { it.salePrice }, bonus = 1.0),
+                tr("dann ${formatMoney((Simulation.HOME_FEE * sim.starBonus).toLong())} Hausgeld pro Tag", "then ${formatMoney((Simulation.HOME_FEE * sim.starBonus).toLong())} service charge a day"),
             )
             RoomRole.OFFICE -> if (type.luxury) listOf(
-                "${type.capacity} Angestellte, nur feine Mieter",
-                "Miete pro Arbeitstag: ${range(tenants.map { it.rentPerDay })}",
-                "halbe Miete unter ${Simulation.LUXURY_MOOD.toInt()} % Laune, ${formatMoney(type.upkeep ?: 0)} Unterhalt",
+                tr("${type.capacity} Angestellte, nur feine Mieter", "${type.capacity} employees, posh tenants only"),
+                tr("Miete pro Arbeitstag: ", "rent per working day: ") + range(tenants.map { it.rentPerDay }),
+                tr("halbe Miete unter ${Simulation.LUXURY_MOOD.toInt()} % Laune, ${formatMoney(type.upkeep ?: 0)} Unterhalt",
+                    "half rent below ${Simulation.LUXURY_MOOD.toInt()} % mood, ${formatMoney(type.upkeep ?: 0)} upkeep"),
             ) else listOf(
-                "${type.capacity} Angestellte, kommen zur Arbeit",
-                "Miete pro Arbeitstag: ${range(tenants.map { it.rentPerDay })}",
-                "mehr Sterne bringen bessere Mieter",
+                tr("${type.capacity} Angestellte, kommen zur Arbeit", "${type.capacity} employees come to work"),
+                tr("Miete pro Arbeitstag: ", "rent per working day: ") + range(tenants.map { it.rentPerDay }),
+                tr("mehr Sterne bringen bessere Mieter", "more stars bring better tenants"),
             )
             RoomRole.FOOD -> listOf(
-                "${type.capacity} Angestellte, Pflicht für Stern 3",
-                "Miete pro Tag: ${range(tenants.map { it.rentPerDay })}",
-                "plus ${formatMoney(Simulation.MEAL_PRICE)}–${formatMoney(Simulation.VISITOR_MEAL_PRICE)} pro Essen",
+                tr("${type.capacity} Angestellte, Pflicht für Stern 3", "${type.capacity} employees, needed for star 3"),
+                tr("Miete pro Tag: ", "rent per day: ") + range(tenants.map { it.rentPerDay }),
+                tr("plus ${formatMoneyRange(Simulation.MEAL_PRICE, Simulation.VISITOR_MEAL_PRICE)} pro Essen", "plus ${formatMoneyRange(Simulation.MEAL_PRICE, Simulation.VISITOR_MEAL_PRICE)} per meal"),
             )
             RoomRole.HOTEL -> listOf(
-                "${type.capacity} Gäste, ab ${Simulation.CHECK_IN_FROM} Uhr, eine Nacht",
-                "pro Nacht: ${range(tenants.map { it.rentPerDay })}",
-                "danach schmutzig, braucht Reinigungsdienst",
+                tr("${type.capacity} Gäste, ab ${Simulation.CHECK_IN_FROM} Uhr, eine Nacht", "${type.capacity} guests, from ${Simulation.CHECK_IN_FROM}:00, one night"),
+                tr("pro Nacht: ", "per night: ") + range(tenants.map { it.rentPerDay }),
+                tr("danach schmutzig, braucht Reinigungsdienst", "then dirty, needs housekeeping"),
             )
-            RoomRole.HOUSEKEEPING -> type.effects
-            RoomRole.PARKING -> type.effects + "gebucht: ${sim.parkedCars} von ${sim.carsWanted} Autos, ${sim.parkingSpaces} Plätze"
+            RoomRole.PARKING -> type.effects.map { it.toString() } +
+                tr("gebucht: ${sim.parkedCars} von ${sim.carsWanted} Autos, ${sim.parkingSpaces} Plätze", "booked: ${sim.parkedCars} of ${sim.carsWanted} cars, ${sim.parkingSpaces} spaces")
             RoomRole.ELEVATOR -> listOf(
-                "Unterhalt pro Tag: ${formatMoney(Simulation.UPKEEP.getValue(RoomRole.ELEVATOR))} pro Etage",
-                "plus ${formatMoney(Simulation.CABIN_UPKEEP)} pro Kabine",
-                "jeder weitere Schacht +${(Simulation.SHAFT_SURCHARGE * 100).toInt()} % teurer",
+                tr("Unterhalt pro Tag: ${formatMoney(Simulation.UPKEEP.getValue(RoomRole.ELEVATOR))} pro Etage", "upkeep per day: ${formatMoney(Simulation.UPKEEP.getValue(RoomRole.ELEVATOR))} per floor"),
+                tr("plus ${formatMoney(Simulation.CABIN_UPKEEP)} pro Kabine", "plus ${formatMoney(Simulation.CABIN_UPKEEP)} per cabin"),
+                tr("jeder weitere Schacht +${(Simulation.SHAFT_SURCHARGE * 100).toInt()} % teurer", "every further shaft +${(Simulation.SHAFT_SURCHARGE * 100).toInt()} % dearer"),
             )
-            else -> type.effects
+            else -> type.effects.map { it.toString() }
         }
     }
 
@@ -325,7 +363,8 @@ class Hud(
         ticker.solidRect(screenWidth, 50.0, Theme.INK)
         ticker.solidRect(screenWidth, 2.0, Theme.SELECT)
         val badge = Panel(150.0, 28.0, Theme.ALARM, 6.0).addTo(ticker).also { it.xy(12.0, 11.0) }
-        badge.label("TOWER-TICKER", 15.0, Theme.ON_SELECT, Theme.bodyBold).xy(14.0, 4.0)
+        val badgeText = badge.label(tr("TOWER-TICKER", "TOWER TICKER"), 15.0, Theme.ON_SELECT, Theme.bodyBold).fitWidth(126.0)
+        badgeText.xy((150.0 - badgeText.width * badgeText.scaleX) / 2, 4.0)
         tickerClip = ticker.clipContainer(Size(screenWidth - 180.0, 50.0)) { xy(172.0, 0.0) }
         tickerText = tickerClip.label("", 15.0, Theme.TEXT).also { it.y = 15.0 }
         tickerClip.onClick { e ->
@@ -344,7 +383,7 @@ class Hud(
             down(Key.SPACE) { game.togglePause() }
             down(Key.N) {
                 game.fastNights = !game.fastNights
-                game.say(if (game.fastNights) "Nachts vorspulen: an" else "Nachts vorspulen: aus")
+                game.say(if (game.fastNights) tr("Nachts vorspulen: an", "Fast-forward nights: on") else tr("Nachts vorspulen: aus", "Fast-forward nights: off"))
             }
             down(Key.F) { game.financeOpen = !game.financeOpen }
             down(Key.O) { game.optionsOpen = !game.optionsOpen }
@@ -368,15 +407,19 @@ class Hud(
         val coming = sim.upcoming(24).filter { it.amount > 0 }
         val nextMinute = coming.firstOrNull()?.minute
         nextText.text = nextMinute?.let { m ->
-            "nächste: +${formatMoney(coming.filter { it.minute == m }.sumOf { it.amount })} um ${clockOf(m)}"
-        } ?: "keine Einnahmen in Sicht"
+            val amount = formatMoney(coming.filter { it.minute == m }.sumOf { it.amount })
+            tr("nächste: +$amount um ${clockOf(m)}", "next: +$amount at ${clockOf(m)}")
+        } ?: tr("keine Einnahmen in Sicht", "no income in sight")
+        nextText.fitWidth(TOP_MONEY_TEXT)
         finance.visible = game.financeOpen
         if (finance.visible) finance.sync()
         options.visible = game.optionsOpen
         if (options.visible) options.sync()
         popText.text = formatNumber(sim.population.toLong())
+        popText.fitWidth(POP_WIDTH)
         val mood = sim.satisfaction.toInt()
-        moodText.text = "Laune $mood %"
+        moodText.text = tr("Laune $mood %", "Mood $mood %")
+        moodText.fitWidth(POP_LABEL)
         moodText.color = if (mood < 40) Theme.ALARM else Theme.TEXT_DIM
         syncStage()
         celebration.update(dtSeconds)
@@ -408,17 +451,21 @@ class Hud(
         }
         if (stage != shownStage) {
             shownStage = stage
-            stageText.text = "STUFE $stage · ${Stages.info(stage).name.uppercase()}"
+            stageText.text = tr("STUFE", "STAGE") + " $stage · ${Stages.info(stage).name.toString().uppercase()}"
+            stageText.fitWidth(stageBarWidth)
         }
         val missing = sim.nextStarMissing
         starHint.text = when {
             sim.stars >= Rating.steps.size -> ""
             // everything is there, the rating catches up at the next check
-            missing.isEmpty() -> "Stern ${sim.stars + 1}: kommt bald"
-            else -> "Stern ${sim.stars + 1}: ${missing.first()}"
+            missing.isEmpty() -> tr("Stern ${sim.stars + 1}: kommt bald", "Star ${sim.stars + 1}: coming soon")
+            else -> tr("Stern ${sim.stars + 1}: ${missing.first()}", "Star ${sim.stars + 1}: ${missing.first()}")
         }
+        starHint.fitWidth(STAR_HINT)
         val next = if (stage < Stages.last) Stages.info(stage + 1) else null
-        stageHint.text = next?.let { "Für Stufe ${it.number}: ${it.requirement}" } ?: "Der Turm ist komplett verrückt."
+        stageHint.text = next?.let { tr("Für Stufe ${it.number}: ${it.requirement}", "For stage ${it.number}: ${it.requirement}") }
+            ?: tr("Der Turm ist komplett verrückt.", "The tower is completely crazy.")
+        stageHint.fitWidth(stageBarWidth)
         val progress = sim.stageProgress.coerceIn(0.0, 1.0)
         val w = stageBarWidth
         stageBar.updateShape {
@@ -432,7 +479,7 @@ class Hud(
         if (items != tickerItems) {
             tickerItems = items
             tickerText.text = if (items.isEmpty()) {
-                "Willkommen in CrazyTower. Bau eine Lobby, dann kommen die ersten Neugierigen."
+                tr("Willkommen in CrazyTower. Bau eine Lobby, dann kommen die ersten Neugierigen.", "Welcome to CrazyTower. Build a lobby and the first curious visitors will come.")
             } else {
                 items.take(6).joinToString("   ·   ") { it.text }
             }
@@ -453,7 +500,7 @@ class Hud(
         }
         tooltip.removeChildren()
         val (text, ok) = info
-        val t = Text(text, 13.0, if (ok) Theme.TEXT else Theme.ON_SELECT, Theme.bodyBold)
+        val t = Text(text, 13.0, if (ok) Theme.TEXT else Theme.ON_SELECT, Theme.bodyBold).fitWidth(screenWidth - 60.0)
         val box = Panel(t.width + 28, 32.0, if (ok) Theme.INK else Theme.ALARM, 6.0).addTo(tooltip)
         if (ok) {
             box.color = Theme.SELECT
@@ -476,11 +523,33 @@ class Hud(
         if (toast.name != message) {
             toast.name = message
             toast.removeChildren()
-            val t = Text(message, 15.0, Theme.ON_SELECT, Theme.bodyBold)
+            val t = Text(message, 15.0, Theme.ON_SELECT, Theme.bodyBold).fitWidth(screenWidth - 80.0)
             Panel(t.width + 32, 38.0, Theme.GOLD, 8.0).addTo(toast)
             t.addTo(toast).xy(16.0, 10.0)
             toast.xy((screenWidth - t.width - 32) / 2, 92.0)
         }
         toast.visible = true
+    }
+
+    private companion object {
+        const val FLYOUT_WIDTH = 270.0
+
+        /** Text width inside the build list. */
+        const val FLYOUT_TEXT = 242.0
+
+        /** Text width inside a build list entry. */
+        const val CARD_TEXT = 222.0
+
+        /** Room for the population left of its label. */
+        const val POP_WIDTH = 50.0
+
+        /** Room for "Bewohner" and the mood right of the population. */
+        const val POP_LABEL = 58.0
+
+        /** Room for the next payment under the money. */
+        const val TOP_MONEY_TEXT = 146.0
+
+        /** Room for the star hint under the five stars, left of the stage. */
+        const val STAR_HINT = 130.0
     }
 }

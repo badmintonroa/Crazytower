@@ -14,7 +14,11 @@ import crazytower.core.ecs.Stuck
 import crazytower.core.ecs.Visitor
 import crazytower.game.ui.Panel
 import crazytower.game.ui.TextButton
+import crazytower.game.ui.fitWidth
+import crazytower.game.ui.formatMoney
 import crazytower.game.ui.label
+import crazytower.game.ui.wrappedLabel
+import crazytower.core.tr
 import korlibs.korge.input.onOut
 import korlibs.korge.input.onOver
 import korlibs.korge.view.*
@@ -80,7 +84,7 @@ class Inspector(private val sim: Simulation, private val game: GameController, p
                 title = person.name
                 subtitle = "${PersonInfo.role(sim, e)} · ${floorName(pos.floor)}"
                 look = person.look
-                lines += "Macht gerade" to PersonInfo.doing(sim, e)
+                lines += tr("Macht gerade", "Doing") to PersonInfo.doing(sim, e)
                 PersonInfo.extra(sim, e).forEach { lines += it }
             }
         }
@@ -88,145 +92,141 @@ class Inspector(private val sim: Simulation, private val game: GameController, p
         when {
             art != null -> {
                 image(assets.room(art)) { scale = minOf(96.0 / bitmap.width, 32.0 / bitmap.height); xy(16.0, y) }
-                label(title.uppercase(), 18.0, Theme.TEXT, Theme.bodyBold).xy(16.0, y + 42)
-                label(subtitle, 12.0, Theme.TEXT_DIM).xy(16.0, y + 66)
+                label(title.uppercase(), 18.0, Theme.TEXT, Theme.bodyBold).xy(16.0, y + 42).fitWidth(panelWidth - 32)
+                label(subtitle, 12.0, Theme.TEXT_DIM).xy(16.0, y + 66).fitWidth(panelWidth - 32)
                 y += 92.0
             }
             look != null -> {
                 image(assets.person(look, 0)) { scale = assets.personScale(look, 2.0); smoothing = scale < 1.0; xy(16.0, y) }
-                label(title.uppercase(), 18.0, Theme.TEXT, Theme.bodyBold).xy(52.0, y + 6)
-                label(subtitle, 12.0, Theme.TEXT_DIM).xy(52.0, y + 30)
+                label(title.uppercase(), 18.0, Theme.TEXT, Theme.bodyBold).xy(52.0, y + 6).fitWidth(panelWidth - 68)
+                label(subtitle, 12.0, Theme.TEXT_DIM).xy(52.0, y + 30).fitWidth(panelWidth - 68)
                 y += 60.0
             }
         }
         for ((key, value) in lines) {
-            label(key, 12.0, Theme.TEXT_DIM).xy(16.0, y)
-            label(value, 14.0, Theme.TEXT, Theme.bodyBold).xy(120.0, y - 1)
+            label(key, 12.0, Theme.TEXT_DIM).xy(16.0, y).fitWidth(VALUE_X - 22.0)
+            label(value, 14.0, Theme.TEXT, Theme.bodyBold).xy(VALUE_X, y - 1).fitWidth(panelWidth - VALUE_X - 14.0)
             y += 22.0
         }
         if (problem != null) {
             // why nobody moves in: the reason behind the badge over the room
-            val text = wrap(problem.hint, 40)
-            val height = 30.0 + text.size * 16.0
-            val box = Panel(panelWidth - 32, height, Theme.BUTTON, 6.0).addTo(this).also { it.xy(16.0, y + 4) }
-            box.label((if (problem.far) "Warum leer? " else "Achtung: ") + problem.title, 12.0, Theme.ALARM, Theme.bodyBold).xy(10.0, 6.0)
-            text.forEachIndexed { i, line -> box.label(line, 12.0, Theme.TEXT).xy(10.0, 24.0 + i * 16.0) }
+            val box = Panel(panelWidth - 32, 56.0, Theme.BUTTON, 6.0).addTo(this).also { it.xy(16.0, y + 4) }
+            box.label((if (problem.far) tr("Warum leer? ", "Why empty? ") else tr("Achtung: ", "Watch out: ")) + problem.title, 12.0, Theme.ALARM, Theme.bodyBold)
+                .xy(10.0, 6.0).fitWidth(panelWidth - 52)
+            val text = box.wrappedLabel(problem.hint.toString(), panelWidth - 52, 12.0, Theme.TEXT).xy(10.0, 24.0)
+            val height = maxOf(56.0, text.height + 32.0)
+            box.resize(panelWidth - 32, height)
             y += height + 10.0
         }
         if (quirk != null) {
+            // long quirks wrap, and the box grows with them
             val box = Panel(panelWidth - 32, 56.0, Theme.BUTTON, 6.0).addTo(this).also { it.xy(16.0, y + 4) }
-            box.label("Macke", 12.0, Theme.ALARM, Theme.bodyBold).xy(10.0, 6.0)
-            box.label(quirk, 12.0, Theme.TEXT).xy(10.0, 24.0)
-            y += 66.0
+            box.label(tr("Macke", "Quirk"), 12.0, Theme.ALARM, Theme.bodyBold).xy(10.0, 6.0)
+            val text = box.wrappedLabel(quirk, panelWidth - 52, 12.0, Theme.TEXT).xy(10.0, 24.0)
+            val boxHeight = maxOf(56.0, text.height + 32.0)
+            box.resize(panelWidth - 32, boxHeight)
+            y += boxHeight + 10.0
         }
         val shaft = (sel as? Selection.RoomSel)?.let { sim.tower.room(it.roomId) }?.takeIf { it.type.role == RoomRole.ELEVATOR }
             ?.let { room -> sim.elevators.cars.values.firstOrNull { it.x == room.x && room.floor in it.floors } }
         if (shaft != null) {
             val half = (panelWidth - 40) / 2
-            TextButton(half, 40.0, "+ Kabine", 14.0) {
+            TextButton(half, 40.0, tr("+ Kabine", "+ Cabin"), 14.0) {
                 val result = sim.addCabin(shaft)
-                game.say(if (result.ok) "Neue Kabine, ${crazytower.game.ui.formatMoney(Elevators.CABIN_COST)}" else result.reason)
+                game.say(if (result.ok) tr("Neue Kabine, ", "New cabin, ") + formatMoney(Elevators.CABIN_COST) else result.reason)
                 Sfx.play(if (result.ok) Sfx.BUILD else Sfx.ERROR)
                 shown = null
             }.addTo(this).xy(16.0, y + 8).also { it.enabled = sim.checkCabin(shaft).ok }
-            TextButton(half, 40.0, "− Kabine", 14.0) {
+            TextButton(half, 40.0, tr("− Kabine", "− Cabin"), 14.0) {
                 if (sim.removeCabin(shaft)) Sfx.play(Sfx.DEMOLISH)
                 shown = null
             }.addTo(this).xy(24.0 + half, y + 8).also { it.enabled = shaft.cabins.size > 1 }
             y += 48.0
         }
-        TextButton(panelWidth - 32, 40.0, "Schließen", 14.0) { game.selection = null }.addTo(this).xy(16.0, y + 8)
+        TextButton(panelWidth - 32, 40.0, tr("Schließen", "Close"), 14.0) { game.selection = null }.addTo(this).xy(16.0, y + 8)
         y += 56.0
         panelHeight = y + 8
         bg.resize(panelWidth, panelHeight)
     }
-}
 
-/** Breaks [text] into lines of at most about [width] characters, at spaces. */
-fun wrap(text: String, width: Int): List<String> {
-    val lines = ArrayList<String>()
-    var line = ""
-    for (word in text.split(' ')) {
-        if (line.isNotEmpty() && line.length + 1 + word.length > width) {
-            lines += line
-            line = word
-        } else {
-            line = if (line.isEmpty()) word else "$line $word"
-        }
+    private companion object {
+        /** Where the values start, right of their names. */
+        const val VALUE_X = 120.0
     }
-    if (line.isNotEmpty()) lines += line
-    return lines
 }
 
-fun floorName(floor: Int): String = when {
-    floor == 0 -> "Erdgeschoss"
-    floor < 0 -> "${-floor}. Untergeschoss"
-    else -> "$floor. Etage"
-}
+fun floorName(floor: Int): String = Simulation.floorLabel(floor).replaceFirstChar { it.uppercase() }
 
 /** Text for the inspector's room card. */
 data class RoomCard(val title: String, val subtitle: String, val lines: List<Pair<String, String>>, val quirk: String?)
 
 object RoomInfo {
+    private val ROOM get() = tr("Raum", "Room")
+    private val MOOD get() = tr("Laune", "Mood")
+    private val HOURS get() = tr("Zeiten", "Hours")
+    private val PEOPLE get() = tr("Leute", "People")
+    private val STATUS get() = tr("Status", "Status")
+    private val HINT get() = tr("Hinweis", "Note")
+
     fun describe(sim: Simulation, room: crazytower.core.Room): RoomCard {
-        val where = "${floorName(room.floor)} · ${room.width} Felder breit"
+        val where = "${floorName(room.floor)} · " + tr("${room.width} Felder breit", "${room.width} tiles wide")
         val tenant = room.tenant
         val lines = ArrayList<Pair<String, String>>()
         return when {
             room.type.role == RoomRole.ELEVATOR -> {
                 val car = sim.elevators.cars.values.firstOrNull { it.x == room.x && room.floor in it.floors }
                 if (car != null) {
-                    lines += "Schacht" to "${floorName(car.bottom)} bis ${floorName(car.top)}"
-                    lines += "Kabinen" to "${car.cabins.size} von ${Elevators.maxCabins(sim.bestStars)}" +
-                        if (car.cabins.size < Elevators.MAX_CABINS && Elevators.maxCabins(sim.bestStars) <= car.cabins.size) " (mehr mit Sternen)" else ""
-                    if (car.express) lines += "Hält auf" to car.stops.joinToString(", ") { if (it == 0) "EG" else "$it" }
-                    lines += "Fahrgäste" to "${car.riders.size} von ${car.capacity * car.cabins.size}"
-                    lines += "Warten" to "${car.waitingCount} Leute"
+                    lines += tr("Schacht", "Shaft") to "${floorName(car.bottom)} " + tr("bis", "to") + " ${floorName(car.top)}"
+                    lines += tr("Kabinen", "Cabins") to tr("${car.cabins.size} von ${Elevators.maxCabins(sim.bestStars)}", "${car.cabins.size} of ${Elevators.maxCabins(sim.bestStars)}") +
+                        if (car.cabins.size < Elevators.MAX_CABINS && Elevators.maxCabins(sim.bestStars) <= car.cabins.size) tr(" (mehr mit Sternen)", " (more with stars)") else ""
+                    if (car.express) lines += tr("Hält auf", "Stops at") to car.stops.joinToString(", ") { if (it == 0) tr("EG", "G") else "$it" }
+                    lines += tr("Fahrgäste", "Riders") to tr("${car.riders.size} von ${car.capacity * car.cabins.size}", "${car.riders.size} of ${car.capacity * car.cabins.size}")
+                    lines += tr("Warten", "Waiting") to tr("${car.waitingCount} Leute", "${car.waitingCount} people")
                 }
-                RoomCard(room.type.name, where, lines, null)
+                RoomCard(room.type.name.toString(), where, lines, null)
             }
             tenant != null && room.type.role == RoomRole.HOTEL -> {
-                lines += "Raum" to room.type.name
-                sim.moodOf(room)?.let { lines += "Laune" to "${it.toInt()} %" }
-                lines += "Unterwegs" to tenant.plan.label
-                lines += "Pro Nacht" to "${crazytower.game.ui.formatMoney((tenant.rentPerDay * sim.starBonus).toLong())} beim Auschecken"
-                lines += "Gäste" to "${room.type.capacity}"
-                RoomCard(tenant.name, where, lines, tenant.quirk)
+                lines += ROOM to room.type.name.toString()
+                sim.moodOf(room)?.let { lines += MOOD to "${it.toInt()} %" }
+                lines += tr("Unterwegs", "Out") to tenant.plan.label.toString()
+                lines += tr("Pro Nacht", "Per night") to formatMoney((tenant.rentPerDay * sim.starBonus).toLong()) + tr(" beim Auschecken", " at check-out")
+                lines += tr("Gäste", "Guests") to "${room.type.capacity}"
+                RoomCard(tenant.name.toString(), where, lines, tenant.quirk.toString())
             }
             tenant != null && room.type.role == RoomRole.HOUSEKEEPING -> {
-                lines += "Raum" to room.type.name
-                lines += "Zeiten" to tenant.plan.label
-                lines += "Schmutzig" to "${sim.dirtyRooms.size} Hotelzimmer"
-                lines += "Leute" to "${room.type.capacity}"
-                RoomCard(tenant.name, where, lines, tenant.quirk)
+                lines += ROOM to room.type.name.toString()
+                lines += HOURS to tenant.plan.label.toString()
+                lines += tr("Schmutzig", "Dirty") to tr("${sim.dirtyRooms.size} Hotelzimmer", "${sim.dirtyRooms.size} hotel rooms")
+                lines += PEOPLE to "${room.type.capacity}"
+                RoomCard(tenant.name.toString(), where, lines, tenant.quirk.toString())
             }
             room.dirty -> {
-                lines += "Status" to "Muss geputzt werden"
-                lines += "Hinweis" to if (sim.tower.allRooms.any { it.type.role == RoomRole.HOUSEKEEPING && it.tenant != null }) "Die Reinigung kommt" else "Kein Reinigungsdienst im Turm"
-                RoomCard(room.type.name, where, lines, null)
+                lines += STATUS to tr("Muss geputzt werden", "Needs cleaning")
+                lines += HINT to if (sim.tower.allRooms.any { it.type.role == RoomRole.HOUSEKEEPING && it.tenant != null }) tr("Die Reinigung kommt", "Housekeeping is coming") else tr("Kein Reinigungsdienst im Turm", "No housekeeping in the tower")
+                RoomCard(room.type.name.toString(), where, lines, null)
             }
             tenant != null -> {
-                lines += "Raum" to room.type.name
-                sim.moodOf(room)?.let { lines += "Laune" to "${it.toInt()} %" }
-                lines += (if (room.type.role == RoomRole.HOME) "Außer Haus" else "Zeiten") to tenant.plan.label
+                lines += ROOM to room.type.name.toString()
+                sim.moodOf(room)?.let { lines += MOOD to "${it.toInt()} %" }
+                lines += (if (room.type.role == RoomRole.HOME) tr("Außer Haus", "Out") else HOURS) to tenant.plan.label.toString()
                 lines += if (room.type.role == RoomRole.HOME) {
-                    "Kaufpreis" to if (room.salePaid > 0) crazytower.game.ui.formatMoney(room.salePaid) else "geschenkt"
+                    tr("Kaufpreis", "Price paid") to if (room.salePaid > 0) formatMoney(room.salePaid) else tr("geschenkt", "a gift")
                 } else {
-                    "Miete" to "${crazytower.game.ui.formatMoney((tenant.rentPerDay * sim.starBonus).toLong())} nach Feierabend"
+                    tr("Miete", "Rent") to formatMoney((tenant.rentPerDay * sim.starBonus).toLong()) + tr(" nach Feierabend", " after work")
                 }
-                lines += if (room.type.role == RoomRole.HOME) "Bewohner" to "${room.type.capacity}" else "Leute" to "${room.type.capacity}"
-                RoomCard(tenant.name, where, lines, tenant.quirk)
+                lines += if (room.type.role == RoomRole.HOME) tr("Bewohner", "Residents") to "${room.type.capacity}" else PEOPLE to "${room.type.capacity}"
+                RoomCard(tenant.name.toString(), where, lines, tenant.quirk.toString())
             }
             room.type.role.rentable -> {
-                lines += "Status" to if (room.type.role == RoomRole.HOTEL) "Frei und sauber" else "Zu vermieten"
-                lines += "Hinweis" to when {
-                    sim.roomProblems[room.id] != null -> "Niemand zieht ein"
-                    room.type.role == RoomRole.HOTEL -> "Check-in ${Simulation.CHECK_IN_FROM}–${Simulation.CHECK_IN_UNTIL} Uhr"
-                    else -> "Mieter kommen bald"
+                lines += STATUS to if (room.type.role == RoomRole.HOTEL) tr("Frei und sauber", "Free and clean") else tr("Zu vermieten", "For rent")
+                lines += HINT to when {
+                    sim.roomProblems[room.id] != null -> tr("Niemand zieht ein", "Nobody moves in")
+                    room.type.role == RoomRole.HOTEL -> tr("Check-in ${Simulation.CHECK_IN_FROM}–${Simulation.CHECK_IN_UNTIL} Uhr", "Check-in ${Simulation.CHECK_IN_FROM}:00–${Simulation.CHECK_IN_UNTIL}:00")
+                    else -> tr("Mieter kommen bald", "Tenants coming soon")
                 }
-                RoomCard(room.type.name, where, lines, null)
+                RoomCard(room.type.name.toString(), where, lines, null)
             }
-            else -> RoomCard(room.type.name, where, lines, null)
+            else -> RoomCard(room.type.name.toString(), where, lines, null)
         }
     }
 }
@@ -236,47 +236,47 @@ object PersonInfo {
     fun role(sim: Simulation, e: com.github.quillraven.fleks.Entity): String = with(sim.world) {
         val member = e.getOrNull(Member)
         when {
-            e has crazytower.core.ecs.Vip -> "VIP-Besuch"
-            e has Visitor -> "Besucher"
-            member != null && member.resident -> "Wohnt hier"
-            member != null -> "Arbeitet hier"
-            else -> "Gast"
+            e has crazytower.core.ecs.Vip -> tr("VIP-Besuch", "VIP visit")
+            e has Visitor -> tr("Besucher", "Visitor")
+            member != null && member.resident -> tr("Wohnt hier", "Lives here")
+            member != null -> tr("Arbeitet hier", "Works here")
+            else -> tr("Gast", "Guest")
         }
     }
 
     fun doing(sim: Simulation, e: com.github.quillraven.fleks.Entity): String = with(sim.world) {
         val visitor = e.getOrNull(Visitor)
         when {
-            e has Stuck -> "Findet keinen Weg"
+            e has Stuck -> tr("Findet keinen Weg", "Can't find a way")
             e has Schedule && e[Schedule].activity == Activity.AT_ROOM && e.getOrNull(Member)?.resident == true ->
-                if (sim.clock.isNight) "Schläft" else "Ist zu Hause"
+                if (sim.clock.isNight) tr("Schläft", "Sleeping") else tr("Ist zu Hause", "At home")
             e has Schedule && e hasNo crazytower.core.ecs.Riding && e hasNo Goal -> e[Schedule].activity.label
-            e has crazytower.core.ecs.Riding -> "Fährt Aufzug"
-            (e.getOrNull(crazytower.core.ecs.Route)?.legs?.firstOrNull() is crazytower.core.nav.Leg.Ride) -> "Wartet auf den Aufzug"
-            (e.getOrNull(crazytower.core.ecs.Route)?.legs?.firstOrNull() is crazytower.core.nav.Leg.Stairs) -> "Nimmt die Treppe"
-            (e.getOrNull(crazytower.core.ecs.Route)?.legs?.firstOrNull() is crazytower.core.nav.Leg.Teleport) -> "Wird teleportiert"
-            e has crazytower.core.ecs.Vip -> "Inspiziert den Turm"
-            visitor != null && visitor.leaving -> "Verlässt den Turm"
-            e has Idle -> "Staunt die Lobby an"
-            e has Goal -> "Läuft herum"
-            else -> "Überlegt"
+            e has crazytower.core.ecs.Riding -> tr("Fährt Aufzug", "Riding the elevator")
+            (e.getOrNull(crazytower.core.ecs.Route)?.legs?.firstOrNull() is crazytower.core.nav.Leg.Ride) -> tr("Wartet auf den Aufzug", "Waiting for the elevator")
+            (e.getOrNull(crazytower.core.ecs.Route)?.legs?.firstOrNull() is crazytower.core.nav.Leg.Stairs) -> tr("Nimmt die Treppe", "Taking the stairs")
+            (e.getOrNull(crazytower.core.ecs.Route)?.legs?.firstOrNull() is crazytower.core.nav.Leg.Teleport) -> tr("Wird teleportiert", "Being teleported")
+            e has crazytower.core.ecs.Vip -> tr("Inspiziert den Turm", "Inspecting the tower")
+            visitor != null && visitor.leaving -> tr("Verlässt den Turm", "Leaving the tower")
+            e has Idle -> tr("Staunt die Lobby an", "Marvelling at the lobby")
+            e has Goal -> tr("Läuft herum", "Walking around")
+            else -> tr("Überlegt", "Thinking")
         }
     }
 
     fun extra(sim: Simulation, e: com.github.quillraven.fleks.Entity): List<Pair<String, String>> = with(sim.world) {
         e.getOrNull(crazytower.core.ecs.Vip)?.let { vip ->
             return listOfNotNull(
-                sim.tower.room(vip.roomId)?.tenant?.let { "Besuch bei" to it.name.take(24) },
-                "Unterwegs" to "${(sim.clock.totalMinutes - vip.since).toInt()} Min.",
+                sim.tower.room(vip.roomId)?.tenant?.let { tr("Besuch bei", "Visiting") to it.name.toString() },
+                tr("Unterwegs", "On the way") to tr("${(sim.clock.totalMinutes - vip.since).toInt()} Min.", "${(sim.clock.totalMinutes - vip.since).toInt()} min."),
             )
         }
         val member = e.getOrNull(Member) ?: return emptyList()
         val schedule = e[Schedule]
         val room = sim.tower.room(member.roomId)
         listOfNotNull(
-            room?.tenant?.let { (if (member.resident) "Bei" else "Firma") to it.name.take(24) },
-            "Zeiten" to schedule.plan.label.take(26),
-            "Laune" to "${schedule.mood.toInt()} %",
+            room?.tenant?.let { (if (member.resident) tr("Bei", "With") else tr("Firma", "Company")) to it.name.toString() },
+            tr("Zeiten", "Hours") to schedule.plan.label.toString(),
+            tr("Laune", "Mood") to "${schedule.mood.toInt()} %",
         )
     }
 }
