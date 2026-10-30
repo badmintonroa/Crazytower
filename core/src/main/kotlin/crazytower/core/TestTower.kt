@@ -66,7 +66,11 @@ object TestTower {
         if (stage >= 5) sim.vipSurvived = true
         sim.money = MONEY
         sim.eventsEnabled = true
-        sim.news.post("Testturm Stufe $stage: ${sim.population} Leute, ${sim.stars} Sterne. Wird nicht gespeichert.", important = true)
+        sim.news.post(
+            tr("Testturm Stufe $stage: ${sim.population} Leute, ${sim.stars} Sterne. Wird nicht gespeichert.",
+                "Test tower stage $stage: ${sim.population} people, ${sim.stars} stars. Will not be saved."),
+            important = true,
+        )
         return sim
     }
 
@@ -128,7 +132,11 @@ object TestTower {
         }
         sim.money = MONEY
         sim.eventsEnabled = true
-        sim.news.post("Maximum-Testturm: ${sim.population} Leute, alles voll. Wird nicht gespeichert.", important = true)
+        sim.news.post(
+            tr("Maximum-Testturm: ${sim.population} Leute, alles voll. Wird nicht gespeichert.",
+                "Maximum test tower: ${sim.population} people, everything full. Will not be saved."),
+            important = true,
+        )
         return sim
     }
 

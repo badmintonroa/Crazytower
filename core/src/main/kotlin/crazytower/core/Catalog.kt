@@ -1,13 +1,16 @@
 package crazytower.core
 
 /** The build bar categories, in the order of the hotkeys 1 to 6. */
-enum class Category(val label: String) {
-    WAYS("Wege"),
-    OFFICES("Büros"),
-    HOMES("Wohnen"),
-    FOOD("Essen"),
-    SPECIAL("Spezial"),
-    DEMOLISH("Abriss"),
+enum class Category(private val text: Tr) {
+    WAYS(Tr("Wege", "Ways")),
+    OFFICES(Tr("Büros", "Offices")),
+    HOMES(Tr("Wohnen", "Homes")),
+    FOOD(Tr("Essen", "Food")),
+    SPECIAL(Tr("Spezial", "Special")),
+    DEMOLISH(Tr("Abriss", "Demolish")),
+    ;
+
+    val label: String get() = text.toString()
 }
 
 /** How a room behaves in the simulation. */
@@ -67,7 +70,7 @@ enum class RoomRole {
  */
 data class RoomType(
     val id: String,
-    val name: String,
+    val name: Tr,
     val category: Category,
     val role: RoomRole,
     val width: Int,
@@ -79,7 +82,7 @@ data class RoomType(
     val basementOnly: Boolean = false,
     val art: String,
     val capacity: Int = 0,
-    val description: String = "",
+    val description: Tr = Tr("", ""),
     val stretchable: Boolean = false,
     /** Fills the whole gap it is clicked into, see [Simulation.planGap]. */
     val fillsGap: Boolean = false,
@@ -87,7 +90,7 @@ data class RoomType(
     /** How many a tower may have; null for no limit. */
     val maxCount: Int? = null,
     /** What the room does for the tower, one short line each, for the build menu. */
-    val effects: List<String> = emptyList(),
+    val effects: List<Tr> = emptyList(),
     /** Only luxury tenants move in, see [TenantKind.luxury]. */
     val luxury: Boolean = false,
     /** Daily upkeep of this type when it differs from the role's, see [Simulation.UPKEEP]. */
@@ -101,116 +104,155 @@ data class RoomType(
 }
 
 object Catalog {
+    private val ONCE = Tr("nur einmal pro Turm", "only one per tower")
+
+    /** A fixed amount with its thousands grouped by [separator], for texts built once. */
+    private fun grouped(value: Long, separator: Char): String = "%,d".format(value).replace(',', separator)
+
     val LOBBY = RoomType(
-        id = "lobby", name = "Lobby", category = Category.WAYS, role = RoomRole.LOBBY,
+        id = "lobby", name = Tr("Lobby", "Lobby"), category = Category.WAYS, role = RoomRole.LOBBY,
         width = 6, cost = 800, art = "lobby_stage1_bruchbude", stretchable = true,
-        description = "Eingang zum Turm. Im Erdgeschoss und als Sky-Lobby auf Etage 25, 50 und 75: Pflicht, bevor es darüber weitergeht. Zum Verlängern ziehen.",
+        description = Tr(
+            "Eingang zum Turm. Im Erdgeschoss und als Sky-Lobby auf Etage 25, 50 und 75: Pflicht, bevor es darüber weitergeht. Zum Verlängern ziehen.",
+            "The way into the tower. On the ground floor and as a sky lobby on floors 25, 50 and 75: a must before you build higher. Drag to make it longer.",
+        ),
     )
     val CORRIDOR = RoomType(
-        id = "corridor", name = "Flur", category = Category.WAYS, role = RoomRole.CORRIDOR,
+        id = "corridor", name = Tr("Flur", "Corridor"), category = Category.WAYS, role = RoomRole.CORRIDOR,
         width = 6, cost = 500, art = "corridor",
-        description = "Begehbarer Boden für die oberen Etagen.",
+        description = Tr("Begehbarer Boden für die oberen Etagen.", "Floor to walk on for the upper storeys."),
     )
     val FILLER = RoomType(
-        id = "filler", name = "Lückenfüller", category = Category.WAYS, role = RoomRole.CORRIDOR,
+        id = "filler", name = Tr("Lückenfüller", "Gap filler"), category = Category.WAYS, role = RoomRole.CORRIDOR,
         width = 1, cost = 300, art = "corridor", fillsGap = true,
-        description = "Klick in eine Lücke füllt sie ganz mit Flur, bis ${Simulation.MAX_GAP} Felder. Für Bauherren mit Augenmaß.",
+        description = Tr(
+            "Klick in eine Lücke füllt sie ganz mit Flur, bis ${Simulation.MAX_GAP} Felder. Für Bauherren mit Augenmaß.",
+            "Click into a gap to fill it with corridor, up to ${Simulation.MAX_GAP} tiles. For builders with a good eye.",
+        ),
     )
     val STAIRS = RoomType(
-        id = "stairs", name = "Treppe", category = Category.WAYS, role = RoomRole.STAIRS,
+        id = "stairs", name = Tr("Treppe", "Stairs"), category = Category.WAYS, role = RoomRole.STAIRS,
         width = 2, cost = 1_000, art = "stairs",
-        description = "Führt eine Etage nach oben. Günstig, aber mehr als 5 Etagen läuft keiner. Senkrecht ziehen für mehrere Etagen.",
+        description = Tr(
+            "Führt eine Etage nach oben. Günstig, aber mehr als 5 Etagen läuft keiner. Senkrecht ziehen für mehrere Etagen.",
+            "Goes up one floor. Cheap, but nobody walks more than 5 floors. Drag up or down for several floors.",
+        ),
     )
     val ELEVATOR = RoomType(
-        id = "elevator", name = "Aufzug", category = Category.WAYS, role = RoomRole.ELEVATOR,
+        id = "elevator", name = Tr("Aufzug", "Elevator"), category = Category.WAYS, role = RoomRole.ELEVATOR,
         width = 2, cost = 6_000, art = "elevator_shaft",
-        description = "Bis 25 Etagen. Jeder weitere Schacht kostet mehr. Senkrecht ziehen, Enden greifen zum Verlängern.",
+        description = Tr(
+            "Bis 25 Etagen. Jeder weitere Schacht kostet mehr. Senkrecht ziehen, Enden greifen zum Verlängern.",
+            "Up to 25 floors. Every further shaft costs more. Drag up or down, grab the ends to extend it.",
+        ),
     )
     val EXPRESS = RoomType(
-        id = "express", name = "Schnellaufzug", category = Category.WAYS, role = RoomRole.ELEVATOR,
+        id = "express", name = Tr("Schnellaufzug", "Express elevator"), category = Category.WAYS, role = RoomRole.ELEVATOR,
         width = 2, cost = 15_000, minStage = 2, art = "elevator_shaft", express = true,
-        description = "Bis 100 Etagen, dreimal so schnell, 40 Plätze pro Kabine. Hält nur im EG und auf jeder 5. Etage.",
+        description = Tr(
+            "Bis 100 Etagen, dreimal so schnell, 40 Plätze pro Kabine. Hält nur im EG und auf jeder 5. Etage.",
+            "Up to 100 floors, three times as fast, 40 seats per cabin. Only stops on the ground floor and every 5th floor.",
+        ),
     )
     val OFFICE = RoomType(
-        id = "office", name = "Büro", category = Category.OFFICES, role = RoomRole.OFFICE,
+        id = "office", name = Tr("Büro", "Office"), category = Category.OFFICES, role = RoomRole.OFFICE,
         width = 6, cost = 12_000, art = "office_empty", capacity = 6,
-        description = "Wird vermietet. Wer einzieht, entscheidet der Turm.",
+        description = Tr("Wird vermietet. Wer einzieht, entscheidet der Turm.", "For rent. The tower decides who moves in."),
     )
     val HOME = RoomType(
-        id = "home", name = "Wohnung", category = Category.HOMES, role = RoomRole.HOME,
+        id = "home", name = Tr("Wohnung", "Flat"), category = Category.HOMES, role = RoomRole.HOME,
         width = 6, cost = 15_000, art = "home_empty", capacity = 3,
-        description = "Drei Zimmer, Küche, seltsame Nachbarn.",
+        description = Tr("Drei Zimmer, Küche, seltsame Nachbarn.", "Three rooms, kitchen, strange neighbours."),
     )
     val FOOD = RoomType(
-        id = "food", name = "Imbiss", category = Category.FOOD, role = RoomRole.FOOD,
+        id = "food", name = Tr("Imbiss", "Snack bar"), category = Category.FOOD, role = RoomRole.FOOD,
         width = 6, cost = 25_000, art = "food_empty", capacity = 3,
-        description = "Hier essen Angestellte und Besucher.",
+        description = Tr("Hier essen Angestellte und Besucher.", "Where workers and visitors eat."),
     )
 
     val LUXURY_OFFICE = RoomType(
-        id = "luxury_office", name = "Luxusbüro", category = Category.OFFICES, role = RoomRole.OFFICE,
+        id = "luxury_office", name = Tr("Luxusbüro", "Luxury office"), category = Category.OFFICES, role = RoomRole.OFFICE,
         width = 12, cost = 150_000, minStage = 4, art = "office_empty", capacity = 10, luxury = true, upkeep = 2_000,
-        description = "Marmor, Kunst an der Wand und ein Aquarium mit Anwalt.",
+        description = Tr("Marmor, Kunst an der Wand und ein Aquarium mit Anwalt.", "Marble, art on the walls and an aquarium with a lawyer in it."),
         effects = listOf(
-            "nur feine Mieter, die sehr viel Miete zahlen",
-            "unter ${Simulation.LUXURY_MOOD.toInt()} % Laune nur die halbe Miete",
-            "Unterhalt 2.000 \$ pro Tag",
+            Tr("nur feine Mieter, die sehr viel Miete zahlen", "only posh tenants who pay a lot of rent"),
+            Tr("unter ${Simulation.LUXURY_MOOD.toInt()} % Laune nur die halbe Miete", "half the rent below ${Simulation.LUXURY_MOOD.toInt()} % mood"),
+            Tr("Unterhalt 2.000 \$ pro Tag", "upkeep \$2,000 a day"),
         ),
     )
     val HOTEL = RoomType(
-        id = "hotel", name = "Hotelzimmer", category = Category.HOMES, role = RoomRole.HOTEL,
+        id = "hotel", name = Tr("Hotelzimmer", "Hotel room"), category = Category.HOMES, role = RoomRole.HOTEL,
         width = 6, cost = 40_000, minStage = 3, art = "home_empty", capacity = 2,
-        description = "Frische Handtücher, gelegentlich.",
+        description = Tr("Frische Handtücher, gelegentlich.", "Fresh towels, occasionally."),
         effects = listOf(
-            "Gäste checken ab 14 Uhr ein, zahlen beim Auschecken",
-            "danach schmutzig, bis der Reinigungsdienst kommt",
-            "Unterhalt ${Simulation.HOTEL_UPKEEP} \$ pro Tag",
+            Tr("Gäste checken ab 14 Uhr ein, zahlen beim Auschecken", "guests check in from 2 pm, pay on check-out"),
+            Tr("danach schmutzig, bis der Reinigungsdienst kommt", "then dirty until housekeeping comes"),
+            Tr("Unterhalt ${Simulation.HOTEL_UPKEEP} \$ pro Tag", "upkeep \$${Simulation.HOTEL_UPKEEP} a day"),
         ),
     )
     val HOUSEKEEPING = RoomType(
-        id = "housekeeping", name = "Reinigungsdienst", category = Category.HOMES, role = RoomRole.HOUSEKEEPING,
+        id = "housekeeping", name = Tr("Reinigungsdienst", "Housekeeping"), category = Category.HOMES, role = RoomRole.HOUSEKEEPING,
         width = 6, cost = 60_000, minStage = 3, art = "home_empty", capacity = 2,
-        description = "Wischt alles weg. Auch Erinnerungen.",
+        description = Tr("Wischt alles weg. Auch Erinnerungen.", "Wipes everything away. Memories too."),
         effects = listOf(
-            "das Personal läuft zu schmutzigen Hotelzimmern",
-            "ein Zimmer putzen dauert ${Simulation.CLEAN_MINUTES} Minuten",
-            "Unterhalt ${"%,d".format(Simulation.HOUSEKEEPING_UPKEEP).replace(',', '.')} \$ pro Tag",
+            Tr("das Personal läuft zu schmutzigen Hotelzimmern", "the staff walk to dirty hotel rooms"),
+            Tr("ein Zimmer putzen dauert ${Simulation.CLEAN_MINUTES} Minuten", "cleaning a room takes ${Simulation.CLEAN_MINUTES} minutes"),
+            Tr("Unterhalt ${grouped(Simulation.HOUSEKEEPING_UPKEEP, '.')} \$ pro Tag", "upkeep \$${grouped(Simulation.HOUSEKEEPING_UPKEEP, ',')} a day"),
         ),
     )
 
     val COPYROOM = RoomType(
-        id = "copyroom", name = "Kopierraum der Ewigkeit", category = Category.SPECIAL, role = RoomRole.SPECIAL,
+        id = "copyroom", name = Tr("Kopierraum der Ewigkeit", "Copy Room of Eternity"), category = Category.SPECIAL, role = RoomRole.SPECIAL,
         width = 6, cost = 40_000, minStage = 2, art = "extra_copyroom", maxCount = 1,
-        description = "Niemand weiß, wer den Toner bezahlt.",
-        effects = listOf("Büroleute: jede Nacht +${Simulation.COPYROOM_MOOD.toInt()} Laune", "Sehenswürdigkeit für Besucher", "nur einmal pro Turm"),
+        description = Tr("Niemand weiß, wer den Toner bezahlt.", "Nobody knows who pays for the toner."),
+        effects = listOf(
+            Tr("Büroleute: jede Nacht +${Simulation.COPYROOM_MOOD.toInt()} Laune", "office workers: +${Simulation.COPYROOM_MOOD.toInt()} mood every night"),
+            Tr("Sehenswürdigkeit für Besucher", "a sight for visitors"),
+            ONCE,
+        ),
     )
     val SECURITY = RoomType(
-        id = "security", name = "Sicherheitsdienst", category = Category.SPECIAL, role = RoomRole.SECURITY,
+        id = "security", name = Tr("Sicherheitsdienst", "Security"), category = Category.SPECIAL, role = RoomRole.SECURITY,
         width = 6, cost = 80_000, minStage = 3, art = "special_security", maxCount = 1,
-        description = "Die Herren tragen Sonnenbrillen. Auch nachts.",
-        effects = listOf("halb so viel Ärger, verhindert manchen ganz", "Pflicht für Stufe 4", "nur einmal pro Turm"),
+        description = Tr("Die Herren tragen Sonnenbrillen. Auch nachts.", "The gentlemen wear sunglasses. At night too."),
+        effects = listOf(
+            Tr("halb so viel Ärger, verhindert manchen ganz", "half the trouble, stops some of it entirely"),
+            Tr("Pflicht für Stufe 4", "required for stage 4"),
+            ONCE,
+        ),
     )
     val TELEPORTER = RoomType(
-        id = "teleporter", name = "Teleporter", category = Category.SPECIAL, role = RoomRole.TELEPORTER,
+        id = "teleporter", name = Tr("Teleporter", "Teleporter"), category = Category.SPECIAL, role = RoomRole.TELEPORTER,
         width = 2, cost = 150_000, minStage = 4, art = "special_teleporter", maxCount = 2,
-        description = "Kommt meistens dort an, wo man hinwollte.",
-        effects = listOf("Leute springen sofort zum anderen Teleporter", "spart lange Aufzugfahrten", "genau ein Paar pro Turm"),
+        description = Tr("Kommt meistens dort an, wo man hinwollte.", "Usually arrives where you wanted to go."),
+        effects = listOf(
+            Tr("Leute springen sofort zum anderen Teleporter", "people jump straight to the other teleporter"),
+            Tr("spart lange Aufzugfahrten", "saves long elevator rides"),
+            Tr("genau ein Paar pro Turm", "exactly one pair per tower"),
+        ),
     )
     val UFO_PAD = RoomType(
-        id = "ufo", name = "Ufo-Landeplatz", category = Category.SPECIAL, role = RoomRole.SPECIAL,
+        id = "ufo", name = Tr("Ufo-Landeplatz", "UFO landing pad"), category = Category.SPECIAL, role = RoomRole.SPECIAL,
         width = 6, cost = 500_000, minStage = 5, art = "special_ufo", maxCount = 1,
-        description = "Für Besuch von ganz weit weg.",
-        effects = listOf("Landegebühr ${"%,d".format(Simulation.UFO_FEE).replace(',', '.')} \$ jeden Tag", "alle: jede Nacht +${Simulation.UFO_MOOD.toInt()} Laune (Aussicht!)", "nur einmal pro Turm"),
+        description = Tr("Für Besuch von ganz weit weg.", "For visitors from very far away."),
+        effects = listOf(
+            Tr("Landegebühr ${grouped(Simulation.UFO_FEE, '.')} \$ jeden Tag", "landing fee \$${grouped(Simulation.UFO_FEE, ',')} every day"),
+            Tr("alle: jede Nacht +${Simulation.UFO_MOOD.toInt()} Laune (Aussicht!)", "everyone: +${Simulation.UFO_MOOD.toInt()} mood every night (the view!)"),
+            ONCE,
+        ),
     )
 
     val PARKING = RoomType(
-        id = "parking", name = "Parkhaus", category = Category.SPECIAL, role = RoomRole.PARKING,
+        id = "parking", name = Tr("Parkhaus", "Car park"), category = Category.SPECIAL, role = RoomRole.PARKING,
         width = 6, cost = 60_000, minStars = Lot.BASEMENT_STARS, basementOnly = true, art = "special_parking",
-        description = "Ein Auto parkt seit 1987 quer.",
+        description = Tr("Ein Auto parkt seit 1987 quer.", "One car has been parked sideways since 1987."),
         effects = listOf(
-            "${Simulation.CARS_PER_PARKING} Plätze, gebucht von Büros (${Simulation.CARS_PER_OFFICE} Autos) und Wohnungen (${Simulation.CARS_PER_HOME})",
-            "${Simulation.PARKING_FEE} \$ pro gebuchtem Platz und Tag",
-            "nur im Keller, nur so viele wie gebraucht",
+            Tr(
+                "${Simulation.CARS_PER_PARKING} Plätze, gebucht von Büros (${Simulation.CARS_PER_OFFICE} Autos) und Wohnungen (${Simulation.CARS_PER_HOME})",
+                "${Simulation.CARS_PER_PARKING} spaces, booked by offices (${Simulation.CARS_PER_OFFICE} cars) and flats (${Simulation.CARS_PER_HOME})",
+            ),
+            Tr("${Simulation.PARKING_FEE} \$ pro gebuchtem Platz und Tag", "\$${Simulation.PARKING_FEE} per booked space and day"),
+            Tr("nur im Keller, nur so viele wie gebraucht", "basement only, only as many as needed"),
         ),
     )
 

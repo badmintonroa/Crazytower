@@ -63,7 +63,7 @@ object Autopilot {
 /** A small prebuilt tower for demos and screenshots: a long lobby, a few floors, stairs and an elevator through the rooms. */
 object DemoTower {
     fun build(sim: Simulation) {
-        sim.book(1_000_000, MoneyKind.LUCK, "Demo-Zuschuss")
+        sim.book(1_000_000, MoneyKind.LUCK, crazytower.core.tr("Demo-Zuschuss", "Demo grant"))
         val mid = sim.lotWidth / 2 - 12
         sim.build(sim.planLobby(mid, mid + 23))
         val plan = listOf(

@@ -152,7 +152,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     fun checkPlace(type: RoomType, floor: Int, x: Int, width: Int = type.width): PlaceCheck {
         val rules = checkRules(type, floor, x, width)
         if (!rules.ok) return rules
-        if (money < priceAt(type, floor, x, width)) return PlaceCheck.no("Zu wenig Geld")
+        if (money < priceAt(type, floor, x, width)) return PlaceCheck.no(NO_MONEY)
         return tower.canPlace(type, floor, x, width)
     }
 
@@ -164,26 +164,29 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
 
     /** What stage, stars and lot allow, before money and the tower itself are asked. */
     private fun checkRules(type: RoomType, floor: Int, x: Int, width: Int): PlaceCheck {
-        if (type.minStage > stage) return PlaceCheck.no("Erst ab Stufe ${type.minStage}")
-        if (type.minStars > bestStars) return PlaceCheck.no("Erst ab ${type.minStars} Sternen")
+        if (type.minStage > stage) return PlaceCheck.no(tr("Erst ab Stufe ${type.minStage}", "Only from stage ${type.minStage}"))
+        if (type.minStars > bestStars) return PlaceCheck.no(tr("Erst ab ${type.minStars} Sternen", "Only from ${type.minStars} stars"))
         val maxFloor = Stages.info(stage).maxFloor
-        if (floor >= maxFloor) return PlaceCheck.no("Stufe $stage erlaubt nur $maxFloor Etagen")
-        if (floor < GROUND_FLOOR && !basementOpen) return PlaceCheck.no("Keller erst ab ${Lot.BASEMENT_STARS} Sternen")
+        if (floor >= maxFloor) return PlaceCheck.no(floorLimit(maxFloor))
+        if (floor < GROUND_FLOOR && !basementOpen) return PlaceCheck.no(tr("Keller erst ab ${Lot.BASEMENT_STARS} Sternen", "Basement only from ${Lot.BASEMENT_STARS} stars"))
         Tower.skyLobbiesBelow(floor).firstOrNull { sky -> tower.allRooms.none { it.floor == sky && it.type.role == RoomRole.LOBBY } }?.let {
-            return PlaceCheck.no("Erst eine Sky-Lobby auf der $it. Etage bauen")
+            return PlaceCheck.no(tr("Erst eine Sky-Lobby auf der $it. Etage bauen", "Build a sky lobby on floor $it first"))
         }
-        if (type.basementOnly && floor >= GROUND_FLOOR) return PlaceCheck.no("${type.name} nur im Keller")
+        if (type.basementOnly && floor >= GROUND_FLOOR) return PlaceCheck.no(tr("${type.name} nur im Keller", "${type.name}: basement only"))
         val max = type.maxCount
         if (max != null && tower.allRooms.count { it.type == type } >= max) {
-            return PlaceCheck.no(if (max == 1) "${type.name} gibt es schon, nur einmal pro Turm" else "Schon $max ${type.name}, mehr gehen nicht")
+            return PlaceCheck.no(
+                if (max == 1) tr("${type.name} gibt es schon, nur einmal pro Turm", "There already is a ${type.name}, only one per tower")
+                else tr("Schon $max ${type.name}, mehr gehen nicht", "Already $max of ${type.name}, no more allowed"),
+            )
         }
         if (type.role == RoomRole.PARKING) {
             val missing = parkingSpaces + MIN_BOOKINGS - carsWanted
-            if (missing > 0) return PlaceCheck.no("Noch $missing Autos zu wenig für ein weiteres Parkhaus. Mehr Büros und Wohnungen!")
+            if (missing > 0) return PlaceCheck.no(tr("Noch $missing Autos zu wenig für ein weiteres Parkhaus. Mehr Büros und Wohnungen!", "$missing cars short of another car park. More offices and flats!"))
         }
         if (x >= 0 && x + width > lotWidth) {
             val next = Lot.next(bestStars)
-            return PlaceCheck.no(if (next != null) "Grundstück wird erst ab ${next.stars} Sternen breiter" else "Außerhalb des Grundstücks")
+            return PlaceCheck.no(if (next != null) tr("Grundstück wird erst ab ${next.stars} Sternen breiter", "The lot grows at ${next.stars} stars") else tr("Außerhalb des Grundstücks", "Outside the lot"))
         }
         return PlaceCheck.OK
     }
@@ -208,11 +211,11 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         if (!check.ok) return BuildResult(null, check.reason)
         val firstLobby = type.role == RoomRole.LOBBY && tower.allRooms.none { it.type.role == RoomRole.LOBBY }
         var room = tower.place(type, floor, x, width)
-        book(-priceAt(type, floor, x, width), MoneyKind.BUILD, type.name, Loc(floor, x + width / 2f))
+        book(-priceAt(type, floor, x, width), MoneyKind.BUILD, type.name.toString(), Loc(floor, x + width / 2f))
         room.since = clock.totalMinutes
         if (type.role == RoomRole.LOBBY) room = tower.mergeLobbies() ?: room
         if (firstLobby) {
-            news.post("Die erste Lobby ist offen. Ein Mann fragt, ob es hier zum Bahnhof geht.", Loc(floor, room.centerX))
+            news.post(tr("Die erste Lobby ist offen. Ein Mann fragt, ob es hier zum Bahnhof geht.", "The first lobby is open. A man asks if this is the way to the station."), Loc(floor, room.centerX))
         }
         return BuildResult(room)
     }
@@ -237,14 +240,14 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         }
         val cost = pieces.sumOf { Catalog.LOBBY.price(it.last - it.first + 1) }
         val maxFloor = Stages.info(stage).maxFloor
-        var check = if (floor >= maxFloor) PlaceCheck.no("Stufe $stage erlaubt nur $maxFloor Etagen") else PlaceCheck.OK
+        var check = if (floor >= maxFloor) PlaceCheck.no(floorLimit(maxFloor)) else PlaceCheck.OK
         for (piece in pieces) {
             if (!check.ok) break
             val c = tower.canPlace(Catalog.LOBBY, floor, piece.first, piece.last - piece.first + 1)
             if (!c.ok) { check = c; break }
         }
-        if (check.ok && cost > money) check = PlaceCheck.no("Zu wenig Geld")
-        if (check.ok && pieces.isEmpty()) check = PlaceCheck.no("Hier ist schon Lobby")
+        if (check.ok && cost > money) check = PlaceCheck.no(NO_MONEY)
+        if (check.ok && pieces.isEmpty()) check = PlaceCheck.no(tr("Hier ist schon Lobby", "There is lobby here already"))
         return BuildPlan(Catalog.LOBBY, pieces.map { BuildPlan.Piece(floor, it.first, it.last - it.first + 1) }, cost, check)
     }
 
@@ -255,7 +258,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     fun planGap(floor: Int, segment: Int): BuildPlan {
         val type = Catalog.FILLER
         fun empty(s: Int) = s in 0 until lotWidth && tower.roomAt(floor, s) == null
-        if (!empty(segment)) return BuildPlan(type, emptyList(), 0, PlaceCheck.no("Hier ist keine Lücke"))
+        if (!empty(segment)) return BuildPlan(type, emptyList(), 0, PlaceCheck.no(tr("Hier ist keine Lücke", "There is no gap here")))
         var lo = segment
         var hi = segment
         while (empty(lo - 1) && hi - lo < MAX_GAP) lo--
@@ -264,10 +267,10 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         val piece = BuildPlan.Piece(floor, lo, width)
         val cost = type.price(width)
         val check = when {
-            width > MAX_GAP -> PlaceCheck.no("Zu große Lücke, hier passt ein ganzer Raum")
+            width > MAX_GAP -> PlaceCheck.no(tr("Zu große Lücke, hier passt ein ganzer Raum", "Gap too big, a whole room fits here"))
             else -> checkRules(type, floor, lo, width).takeUnless { it.ok }
                 ?: tower.canPlace(type, floor, lo, width).takeUnless { it.ok }
-                ?: if (cost > money) PlaceCheck.no("Zu wenig Geld") else PlaceCheck.OK
+                ?: if (cost > money) PlaceCheck.no(NO_MONEY) else PlaceCheck.OK
         }
         return BuildPlan(type, listOf(piece), cost, check)
     }
@@ -294,8 +297,8 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
                 ?: tower.canPlace(type, f, x, assumed = assumed)
             assumed += f
         }
-        if (check.ok && cost > money) check = PlaceCheck.no("Zu wenig Geld")
-        if (check.ok && fresh.isEmpty()) check = PlaceCheck.no("Hier ist schon ${type.name}")
+        if (check.ok && cost > money) check = PlaceCheck.no(NO_MONEY)
+        if (check.ok && fresh.isEmpty()) check = PlaceCheck.no(tr("Hier ist schon ${type.name}", "There is ${type.name} here already"))
         return BuildPlan(type, fresh.map { BuildPlan.Piece(it, x, type.width) }, cost, check)
     }
 
@@ -337,9 +340,9 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
 
     /** Whether the shaft [car] may get another cabin now, and why not. */
     fun checkCabin(car: Car): PlaceCheck = when {
-        car.cabins.size >= Elevators.MAX_CABINS -> PlaceCheck(false, "Mehr Kabinen passen nicht in den Schacht")
-        car.cabins.size >= Elevators.maxCabins(bestStars) -> PlaceCheck(false, "Mehr Kabinen ab ${bestStars + 1} Sternen")
-        money < Elevators.CABIN_COST -> PlaceCheck(false, "Zu wenig Geld")
+        car.cabins.size >= Elevators.MAX_CABINS -> PlaceCheck(false, tr("Mehr Kabinen passen nicht in den Schacht", "No more cabins fit into the shaft"))
+        car.cabins.size >= Elevators.maxCabins(bestStars) -> PlaceCheck(false, tr("Mehr Kabinen ab ${bestStars + 1} Sternen", "More cabins at ${bestStars + 1} stars"))
+        money < Elevators.CABIN_COST -> PlaceCheck(false, NO_MONEY)
         else -> PlaceCheck(true)
     }
 
@@ -347,7 +350,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     fun addCabin(car: Car): PlaceCheck {
         val check = checkCabin(car)
         if (!check.ok) return check
-        book(-Elevators.CABIN_COST, MoneyKind.BUILD, "Aufzugkabine", Loc(car.bottom, car.centerX))
+        book(-Elevators.CABIN_COST, MoneyKind.BUILD, tr("Aufzugkabine", "Elevator cabin"), Loc(car.bottom, car.centerX))
         setCabins(car, car.cabins.size + 1)
         return check
     }
@@ -376,13 +379,13 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     fun demolish(roomId: Int): Long {
         val room = tower.room(roomId) ?: return 0
         if (!tower.canRemove(room).ok) return 0
-        room.tenant?.let { news.post("${it.name} zieht aus. Der Abrissbagger war sehr überzeugend.", room.center) }
+        room.tenant?.let { news.post(tr("${it.name} zieht aus. Der Abrissbagger war sehr überzeugend.", "${it.name} moves out. The wrecking ball was very convincing."), room.center) }
         removeMembers(roomId)
         tower.remove(roomId)
         val refund = refundFor(room)
-        book(refund, MoneyKind.BUILD, "Abriss ${room.type.name}", room.center)
+        book(refund, MoneyKind.BUILD, tr("Abriss ${room.type.name}", "Demolished ${room.type.name}"), room.center)
         // the owners get their whole purchase price back: the flat is gone
-        if (room.tenant != null && room.salePaid > 0) book(-room.salePaid, MoneyKind.REFUND, "Kaufpreis zurück", room.center)
+        if (room.tenant != null && room.salePaid > 0) book(-room.salePaid, MoneyKind.REFUND, tr("Kaufpreis zurück", "Purchase price back"), room.center)
         return refund
     }
 
@@ -403,7 +406,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             // the price is fixed, no star bonus: a flat sells for what it cost to build, never more
             room.salePaid = tenant.salePrice
             flatsSoldToday++
-            book(room.salePaid, MoneyKind.SALE, tenant.name, room.center)
+            book(room.salePaid, MoneyKind.SALE, tenant.name.toString(), room.center)
         }
         val resident = room.type.role.residential
         val firstLook = room.id // rooms of the same tenant start their crew at different people
@@ -417,14 +420,14 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             }
         }
         if (announce && room.type.role == RoomRole.HOTEL) {
-            if (random.nextInt(4) == 0) news.post("Check-in: ${tenant.name} (${floorLabel(room.floor)}). ${tenant.quirk}", room.center)
-        } else if (announce) news.post("Neu im Turm: ${tenant.name} (${floorLabel(room.floor)}). ${tenant.quirk}", room.center)
+            if (random.nextInt(4) == 0) news.post(tr("Check-in: ${tenant.name} (${floorLabel(room.floor)}). ${tenant.quirk}", "Check-in: ${tenant.name} (${floorLabel(room.floor)}). ${tenant.quirk}"), room.center)
+        } else if (announce) news.post(tr("Neu im Turm: ${tenant.name} (${floorLabel(room.floor)}). ${tenant.quirk}", "New in the tower: ${tenant.name} (${floorLabel(room.floor)}). ${tenant.quirk}"), room.center)
     }
 
     /** Unhappy tenants leave; the first owners of a flat get half their price back, once. */
     fun moveOut(room: Room) {
         removeMembers(room.id)
-        if (room.salePaid > 0) book(-room.salePaid / 2, MoneyKind.REFUND, "Kaufpreis zurück", room.center)
+        if (room.salePaid > 0) book(-room.salePaid / 2, MoneyKind.REFUND, tr("Kaufpreis zurück", "Purchase price back"), room.center)
         room.salePaid = 0
         // guests leave a mess behind, however long they stayed
         if (room.type.role == RoomRole.HOTEL) room.dirty = true
@@ -486,7 +489,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     /** Money earned since the last midnight, for the daily report. */
     val earnedToday: Long get() = finance.income(clock.day)
 
-    fun earn(amount: Long) = book(amount, MoneyKind.GUESTS, "Gäste")
+    fun earn(amount: Long) = book(amount, MoneyKind.GUESTS, MoneyKind.GUESTS.label)
 
     /**
      * Offices and restaurants pay at the end of every working day of their tenant, the
@@ -504,7 +507,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             val end = tenant.plan.lastEnd(now) ?: continue
             if (end <= room.paidUntil) continue
             room.paidUntil = end.toDouble()
-            book(rentFor(room, tenant), if (room.type.role == RoomRole.FOOD) MoneyKind.FOOD else MoneyKind.RENT, tenant.name, room.center)
+            book(rentFor(room, tenant), if (room.type.role == RoomRole.FOOD) MoneyKind.FOOD else MoneyKind.RENT, tenant.name.toString(), room.center)
         }
     }
 
@@ -514,7 +517,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
 
     /** The guests pay for their night and go; the room stays dirty until somebody cleans it. */
     private fun checkOut(room: Room, tenant: TenantKind) {
-        book(rentFor(room, tenant), MoneyKind.HOTEL, tenant.name, room.center)
+        book(rentFor(room, tenant), MoneyKind.HOTEL, tenant.name.toString(), room.center)
         moveOut(room)
     }
 
@@ -547,16 +550,16 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             val tenant = room.tenant ?: continue
             if (room.type.role == RoomRole.HOME || tenant.rentPerDay <= 0) continue
             val end = if (room.type.role == RoomRole.HOTEL) room.paidUntil.toInt() else tenant.plan.nextEnd(now) ?: continue
-            if (end <= horizon) list += Upcoming(end, rentFor(room, tenant), tenant.name, room.center)
+            if (end <= horizon) list += Upcoming(end, rentFor(room, tenant), tenant.name.toString(), room.center)
         }
         var midnight = (clock.day + 1) * GameClock.MINUTES_PER_DAY
         while (midnight <= horizon) {
             val day = midnight / GameClock.MINUTES_PER_DAY
             if (day % FEE_EVERY_DAYS == 0) {
                 val fees = homeFees()
-                if (fees > 0) list += Upcoming(midnight, fees, "Hausgeld")
+                if (fees > 0) list += Upcoming(midnight, fees, MoneyKind.FEES.label)
             }
-            list += Upcoming(midnight, -upkeep(), "Unterhalt")
+            list += Upcoming(midnight, -upkeep(), MoneyKind.UPKEEP.label)
             midnight += GameClock.MINUTES_PER_DAY
         }
         return list.groupBy { it.minute to it.label }.values
@@ -598,33 +601,44 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             if (hasCopyroom && !it[Member].resident) lift += COPYROOM_MOOD
             schedule.mood = (schedule.mood + lift).coerceAtMost(100f)
         }
-        if (ufoPad != null) book(UFO_FEE, MoneyKind.GUESTS, "Ufo-Landegebühr", ufoPad.center)
+        if (ufoPad != null) book(UFO_FEE, MoneyKind.GUESTS, tr("Ufo-Landegebühr", "UFO landing fee"), ufoPad.center)
         val yesterday = clock.day - 1
-        book(-upkeep(), MoneyKind.UPKEEP, "Unterhalt", tower.allRooms.firstOrNull { it.type.role == RoomRole.LOBBY }?.center)
-        if (clock.day % FEE_EVERY_DAYS == 0) book(homeFees(), MoneyKind.FEES, "Hausgeld")
+        book(-upkeep(), MoneyKind.UPKEEP, MoneyKind.UPKEEP.label, tower.allRooms.firstOrNull { it.type.role == RoomRole.LOBBY }?.center)
+        if (clock.day % FEE_EVERY_DAYS == 0) book(homeFees(), MoneyKind.FEES, MoneyKind.FEES.label)
         val income = finance.income(yesterday)
-        news.post("Tagesabschluss: Einnahmen ${income.fmt()} $, Unterhalt ${upkeep().fmt()} $. " +
-            if (income >= upkeep()) "Der Turm lebt." else "Der Steuerberater weint leise.")
+        news.post(
+            tr("Tagesabschluss: Einnahmen ${formatMoney(income)}, Unterhalt ${formatMoney(upkeep())}. ", "End of day: income ${formatMoney(income)}, upkeep ${formatMoney(upkeep())}. ") +
+                if (income >= upkeep()) tr("Der Turm lebt.", "The tower lives.") else tr("Der Steuerberater weint leise.", "The tax adviser weeps quietly."),
+        )
         for (room in leaving) {
             val name = room.tenant?.name ?: continue
             moveOut(room)
-            news.post("$name zieht aus. Grund: ${MOVE_OUT_REASONS[random.nextInt(MOVE_OUT_REASONS.size)]}", room.center, important = true)
+            val reason = moveOutReason()
+            news.post(tr("$name zieht aus. Grund: $reason", "$name moves out. Reason: $reason"), room.center, important = true)
         }
         val newStars = Rating.stars(population, satisfaction, hasFood)
         if (newStars > stars) {
-            news.post("Der Turm hat jetzt $newStars Sterne! Neue Mieter werden neugierig.", important = true)
+            news.post(tr("Der Turm hat jetzt $newStars Sterne! Neue Mieter werden neugierig.", "The tower now has $newStars stars! New tenants are getting curious."), important = true)
             val oldLot = lotWidth
             val hadBasement = basementOpen
             stars = newStars
             if (lotWidth > oldLot) {
-                news.post("Die Stadt verkauft dir das Nachbargrundstück. Der Turm darf jetzt $lotWidth Felder breit werden. Der Nachbar zieht murrend mit seinem Gartenzwerg um.", Loc(GROUND_FLOOR, oldLot.toFloat()), important = true)
+                news.post(
+                    tr("Die Stadt verkauft dir das Nachbargrundstück. Der Turm darf jetzt $lotWidth Felder breit werden. Der Nachbar zieht murrend mit seinem Gartenzwerg um.",
+                        "The city sells you the plot next door. The tower may now be $lotWidth tiles wide. The neighbour moves out grumbling, garden gnome in hand."),
+                    Loc(GROUND_FLOOR, oldLot.toFloat()), important = true,
+                )
             }
             if (basementOpen && !hadBasement) {
-                news.post("Der Keller ist frei! Bis zur ${-Tower.MIN_FLOOR}. Untergeschoss darf gegraben werden, zum Beispiel für ein Parkhaus. Die Maulwürfe sind informiert.", important = true)
+                news.post(
+                    tr("Der Keller ist frei! Bis zur ${-Tower.MIN_FLOOR}. Untergeschoss darf gegraben werden, zum Beispiel für ein Parkhaus. Die Maulwürfe sind informiert.",
+                        "The basement is open! You may dig down to basement ${-Tower.MIN_FLOOR}, for a car park for example. The moles have been informed."),
+                    important = true,
+                )
             }
         }
         val fees = parkingFees()
-        if (fees > 0) book(fees, MoneyKind.PARKING, "Parkgebühren", tower.allRooms.firstOrNull { it.type.role == RoomRole.PARKING }?.center)
+        if (fees > 0) book(fees, MoneyKind.PARKING, MoneyKind.PARKING.label, tower.allRooms.firstOrNull { it.type.role == RoomRole.PARKING }?.center)
         moveOutUnhappiest(leaving)
     }
 
@@ -641,9 +655,14 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         for (room in rented.sortedBy { moodOf(it) ?: 70f }.take(count.coerceAtLeast(0))) {
             val name = room.tenant?.name ?: continue
             moveOut(room)
-            news.post("$name zieht aus: zu schlechte Laune im Turm. ${MOVE_OUT_REASONS[random.nextInt(MOVE_OUT_REASONS.size)]}", room.center, important = true)
+            val reason = moveOutReason()
+            news.post(tr("$name zieht aus: zu schlechte Laune im Turm. $reason", "$name moves out: the mood in the tower is too bad. $reason"), room.center, important = true)
         }
     }
+
+    private fun moveOutReason(): String = MOVE_OUT_REASONS[random.nextInt(MOVE_OUT_REASONS.size)].toString()
+
+    private fun floorLimit(maxFloor: Int): String = tr("Stufe $stage erlaubt nur $maxFloor Etagen", "Stage $stage only allows $maxFloor floors")
 
     /** Parking spaces the rented offices and occupied flats want to book. */
     val carsWanted: Int get() = tower.allRooms.sumOf {
@@ -664,7 +683,6 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     /** Daily parking fees for [parkedCars]. */
     fun parkingFees(): Long = (parkedCars * PARKING_FEE * starBonus).toLong()
 
-    private fun Long.fmt(): String = "%,d".format(this).replace(',', '.')
 
     /** Flats sold since midnight; buyers are scarce, see [flatBuyersPerDay]. */
     var flatsSoldToday: Int = 0
@@ -711,7 +729,11 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         stage++
         looksVersion++ // the lobbies get a new look
         val info = Stages.info(stage)
-        news.post("STUFE $stage: Der Turm ist jetzt ein ${info.name}! Bis zur ${info.maxFloor}. Etage darf gebaut werden. ${info.unlocks}", important = true)
+        news.post(
+            tr("STUFE $stage: Der Turm ist jetzt ein ${info.name}! Bis zur ${info.maxFloor}. Etage darf gebaut werden. ${info.unlocks}",
+                "STAGE $stage: The tower is now a ${info.name}! You may build up to floor ${info.maxFloor}. ${info.unlocks}"),
+            important = true,
+        )
     }
 
     fun toSave(): SaveGame = SaveGame(
@@ -761,7 +783,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     fun onMisfire(entity: Entity, landed: Room) {
         if (random.nextInt(3) == 0) {
             val name = with(world) { entity[Person].name }
-            news.post("$name wollte teleportieren und ist in der ${floorLabel(landed.floor)} gelandet. Nimmt es gelassen.", landed.center)
+            news.post(tr("$name wollte teleportieren und ist in der ${floorLabel(landed.floor)} gelandet. Nimmt es gelassen.", "$name tried to teleport and ended up ${onFloor(landed.floor)}. Takes it calmly."), landed.center)
         }
     }
 
@@ -807,7 +829,10 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         }
         if (entity has Vip) {
             vipSurvived = true
-            news.post("Frau Dr. Wichtig ist angekommen und nickt anerkennend. Der Turm ist bereit für Größeres.", Loc(entity[Position].floor, entity[Position].x), important = true)
+            news.post(
+                tr("$VIP_NAME ist angekommen und nickt anerkennend. Der Turm ist bereit für Größeres.", "$VIP_NAME has arrived and nods approvingly. The tower is ready for bigger things."),
+                Loc(entity[Position].floor, entity[Position].x), important = true,
+            )
             entity.configure { drop(it, Vip) }
         }
         if (visitor != null && !visitor.leaving) {
@@ -830,7 +855,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             return@with
         }
         if (entity has Vip) {
-            news.post("Frau Dr. Wichtig hat den Weg nicht gefunden und reist beleidigt ab. Vielleicht ein Aufzug mehr?", important = true)
+            news.post(tr("$VIP_NAME hat den Weg nicht gefunden und reist beleidigt ab. Vielleicht ein Aufzug mehr?", "$VIP_NAME could not find the way and leaves in a huff. Maybe one more elevator?"), important = true)
             entity.configure { drop(it, Vip) }
         }
         val visitor = entity.getOrNull(Visitor) ?: return@with
@@ -840,15 +865,28 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     companion object {
         /** Rebuilds a simulation from a save game. */
         fun load(save: SaveGame, seed: Long = 1L): Simulation {
-            require(save.version <= SaveGame.VERSION) { "Spielstand ist von einer neueren Version" }
+            require(save.version <= SaveGame.VERSION) { tr("Spielstand ist von einer neueren Version", "The save game is from a newer version") }
             return Simulation(seed, startMoney = 0).also { it.restore(save) }
         }
 
+        /** "5. Etage" or "floor 5"; English sentences that need "on" use [onFloor]. */
         fun floorLabel(floor: Int): String = when {
-            floor == 0 -> "Erdgeschoss"
-            floor < 0 -> "${-floor}. Untergeschoss"
-            else -> "$floor. Etage"
+            floor == 0 -> tr("Erdgeschoss", "ground floor")
+            floor < 0 -> tr("${-floor}. Untergeschoss", "basement ${-floor}")
+            else -> tr("$floor. Etage", "floor $floor")
         }
+
+        /** English "on floor 5", "on the ground floor", "in basement 2", for sentences. */
+        fun onFloor(floor: Int): String = when {
+            floor == 0 -> "on the ground floor"
+            floor < 0 -> "in basement ${-floor}"
+            else -> "on floor $floor"
+        }
+
+        /** The visitor whose visit unlocks the last stage. */
+        val VIP_NAME = Tr("Frau Dr. Wichtig", "Dr. Bigwig")
+
+        private val NO_MONEY: String get() = tr("Zu wenig Geld", "Not enough money")
 
         const val START_MONEY = 120_000L
 
@@ -915,11 +953,11 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         const val PARKING_FEE = 60L
 
         val MOVE_OUT_REASONS = listOf(
-            "Der Aufzug kam nie.",
-            "Zu viel Treppe, zu wenig Leben.",
-            "Die Nachbarn haben geklatscht. Ständig.",
-            "Kein Mittagessen in Sicht.",
-            "Das Horoskop hat abgeraten.",
+            Tr("Der Aufzug kam nie.", "The elevator never came."),
+            Tr("Zu viel Treppe, zu wenig Leben.", "Too many stairs, too little life."),
+            Tr("Die Nachbarn haben geklatscht. Ständig.", "The neighbours kept clapping. Constantly."),
+            Tr("Kein Mittagessen in Sicht.", "No lunch in sight."),
+            Tr("Das Horoskop hat abgeraten.", "The horoscope advised against it."),
         )
         const val STEP_MINUTES = 0.1
         val VISITOR_LOOKS = listOf("npc_tourist", "npc_tourist", "npc_courier", "npc_pizza", "npc_janitor", "npc_office_blazer", "npc_office_sleeves")

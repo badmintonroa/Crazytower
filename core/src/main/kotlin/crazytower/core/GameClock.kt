@@ -28,6 +28,10 @@ class GameClock(startMinutes: Double = 7.0 * 60) {
 
     companion object {
         const val MINUTES_PER_DAY = 1440
-        val WEEKDAYS = listOf("MO", "DI", "MI", "DO", "FR", "SA", "SO")
+        private val WEEKDAYS_DE = listOf("MO", "DI", "MI", "DO", "FR", "SA", "SO")
+        private val WEEKDAYS_EN = listOf("MO", "TU", "WE", "TH", "FR", "SA", "SU")
+
+        /** Short weekday names in the current language, Monday first. */
+        val WEEKDAYS: List<String> get() = if (I18n.english) WEEKDAYS_EN else WEEKDAYS_DE
     }
 }

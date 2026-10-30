@@ -1,19 +1,22 @@
 package crazytower.core
 
 /** What money came in or went out for; the finance window groups by it. */
-enum class MoneyKind(val label: String, val income: Boolean) {
-    RENT("Büro-Miete", true),
-    FOOD("Restaurant-Miete", true),
-    SALE("Wohnungsverkauf", true),
-    FEES("Hausgeld", true),
-    GUESTS("Gäste", true),
-    HOTEL("Hotel", true),
-    PARKING("Parkgebühren", true),
-    LUCK("Glück", true),
-    BUILD("Bauen", false),
-    UPKEEP("Unterhalt", false),
-    REFUND("Rückzahlung", false),
-    FINE("Strafen", false),
+enum class MoneyKind(private val text: Tr, val income: Boolean) {
+    RENT(Tr("Büro-Miete", "Office rent"), true),
+    FOOD(Tr("Restaurant-Miete", "Restaurant rent"), true),
+    SALE(Tr("Wohnungsverkauf", "Flat sales"), true),
+    FEES(Tr("Hausgeld", "Service charges"), true),
+    GUESTS(Tr("Gäste", "Guests"), true),
+    HOTEL(Tr("Hotel", "Hotel"), true),
+    PARKING(Tr("Parkgebühren", "Parking fees"), true),
+    LUCK(Tr("Glück", "Luck"), true),
+    BUILD(Tr("Bauen", "Building"), false),
+    UPKEEP(Tr("Unterhalt", "Upkeep"), false),
+    REFUND(Tr("Rückzahlung", "Refunds"), false),
+    FINE(Tr("Strafen", "Fines"), false),
+    ;
+
+    val label: String get() = text.toString()
 }
 
 /** One booking. [where] places the floating amount in the tower. */

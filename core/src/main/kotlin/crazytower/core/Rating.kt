@@ -28,9 +28,9 @@ object Rating {
     fun missing(stars: Int, population: Int, satisfaction: Float, hasFood: Boolean): List<String> {
         val step = nextStep(stars) ?: return emptyList()
         return buildList {
-            if (step.needsFood && !hasFood) add("ein Imbiss")
-            if (satisfaction < step.satisfaction) add("Laune ${step.satisfaction.toInt()} %")
-            if (population < step.population) add("${step.population} Bewohner")
+            if (step.needsFood && !hasFood) add(tr("ein Imbiss", "a snack bar"))
+            if (satisfaction < step.satisfaction) add(tr("Laune ${step.satisfaction.toInt()} %", "${step.satisfaction.toInt()} % mood"))
+            if (population < step.population) add(tr("${step.population} Bewohner", "${step.population} residents"))
         }
     }
 

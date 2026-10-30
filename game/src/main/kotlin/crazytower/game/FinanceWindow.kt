@@ -6,7 +6,9 @@ import crazytower.core.Simulation
 import crazytower.game.ui.Panel
 import crazytower.game.ui.TextButton
 import crazytower.game.ui.formatMoney
+import crazytower.game.ui.fitWidth
 import crazytower.game.ui.label
+import crazytower.core.tr
 import korlibs.korge.view.*
 
 /**
@@ -21,9 +23,10 @@ class FinanceWindow(private val sim: Simulation, private val onClose: () -> Unit
     private var shownMinute = -1
 
     init {
-        label("FINANZEN", 20.0, Theme.TEXT, Theme.bodyBold).xy(18.0, 14.0)
-        label("F oder Esc schließt", 12.0, Theme.TEXT_DIM).xy(panelWidth - 140.0, 20.0)
-        TextButton(110.0, 36.0, "Schließen") { onClose() }.addTo(this).xy(panelWidth - 128.0, panelHeight - 50.0)
+        label(tr("FINANZEN", "FINANCES"), 20.0, Theme.TEXT, Theme.bodyBold).xy(18.0, 14.0)
+        val hint = label(tr("F oder Esc schließt", "F or Esc closes"), 12.0, Theme.TEXT_DIM)
+        hint.xy(panelWidth - 22.0 - hint.width, 20.0)
+        TextButton(110.0, 36.0, tr("Schließen", "Close")) { onClose() }.addTo(this).xy(panelWidth - 128.0, panelHeight - 50.0)
     }
 
     fun sync() {
@@ -36,12 +39,12 @@ class FinanceWindow(private val sim: Simulation, private val onClose: () -> Unit
     }
 
     private fun upcoming() {
-        body.label("Nächste Zahlungen", 15.0, Theme.TEXT, Theme.bodyBold).xy(18.0, 52.0)
+        body.label(tr("Nächste Zahlungen", "Next payments"), 15.0, Theme.TEXT, Theme.bodyBold).xy(18.0, 52.0).fitWidth(AMOUNT_RIGHT - 18.0)
         val today = sim.clock.day
         var y = 80.0
         val all = sim.upcoming(36)
         val list = all.take(ROWS)
-        if (list.isEmpty()) body.label("Noch keine Mieter, noch kein Geld.", 13.0, Theme.TEXT_DIM).xy(18.0, y)
+        if (list.isEmpty()) body.label(tr("Noch keine Mieter, noch kein Geld.", "No tenants yet, no money yet."), 13.0, Theme.TEXT_DIM).xy(18.0, y).fitWidth(AMOUNT_RIGHT - 18.0)
         for (item in list) {
             val day = item.minute / GameClock.MINUTES_PER_DAY
             val m = item.minute % GameClock.MINUTES_PER_DAY
@@ -57,9 +60,10 @@ class FinanceWindow(private val sim: Simulation, private val onClose: () -> Unit
         if (all.isNotEmpty()) {
             body.solidRect(AMOUNT_RIGHT - 18.0, 1.0, Theme.TEXT_DIM).xy(18.0, y + 2)
             val total = all.sumOf { it.amount }
-            body.label("Summe nächste 36 Std.", 13.0, Theme.TEXT, Theme.bodyBold).xy(18.0, y + 8)
             val sum = body.label(signed(total), 13.0, if (total >= 0) Theme.GOOD else Theme.ALARM, Theme.bodyBold)
             sum.xy(AMOUNT_RIGHT - sum.width, y + 8)
+            body.label(tr("Summe nächste 36 Std.", "Total next 36 hours"), 13.0, Theme.TEXT, Theme.bodyBold).xy(18.0, y + 8)
+                .fitWidth(AMOUNT_RIGHT - sum.width - 28.0)
         }
     }
 
@@ -81,7 +85,7 @@ class FinanceWindow(private val sim: Simulation, private val onClose: () -> Unit
         val top = 80.0
         val height = 200.0
         val barWidth = 14.0
-        body.label("Letzte 7 Tage", 15.0, Theme.TEXT, Theme.bodyBold).xy(left, 52.0)
+        body.label(tr("Letzte 7 Tage", "Last 7 days"), 15.0, Theme.TEXT, Theme.bodyBold).xy(left, 52.0)
         val today = sim.clock.day
         val days = (today - 6..today).filter { it >= 0 }
         val values = days.map { sim.finance.income(it) to sim.finance.expenses(it) }
@@ -93,22 +97,21 @@ class FinanceWindow(private val sim: Simulation, private val onClose: () -> Unit
             val hOut = height * expenses / max
             body.solidRect(barWidth, hIn.coerceAtLeast(1.0), Theme.GOOD).xy(x, top + height - hIn)
             body.solidRect(barWidth, hOut.coerceAtLeast(1.0), Theme.ALARM).xy(x + barWidth + 2, top + height - hOut)
-            body.label(if (day == today) "heute" else GameClock.WEEKDAYS[day % 7], 11.0, Theme.TEXT_DIM).xy(x, top + height + 6)
+            body.label(if (day == today) tr("heute", "today") else GameClock.WEEKDAYS[day % 7], 11.0, Theme.TEXT_DIM).xy(x, top + height + 6).fitWidth(34.0)
         }
         body.solidRect(250.0, 1.0, Theme.TEXT_DIM).xy(left, top + height)
         body.solidRect(10.0, 10.0, Theme.GOOD).xy(left, top + height + 30)
-        body.label("Einnahmen", 12.0, Theme.TEXT_DIM).xy(left + 14, top + height + 27)
+        body.label(tr("Einnahmen", "Income"), 12.0, Theme.TEXT_DIM).xy(left + 14, top + height + 27).fitWidth(82.0)
         body.solidRect(10.0, 10.0, Theme.ALARM).xy(left + 100, top + height + 30)
-        body.label("Ausgaben (mit Bauen)", 12.0, Theme.TEXT_DIM).xy(left + 114, top + height + 27)
+        body.label(tr("Ausgaben (mit Bauen)", "Expenses (incl. building)"), 12.0, Theme.TEXT_DIM).xy(left + 114, top + height + 27).fitWidth(panelWidth - left - 114 - 18.0)
 
         val sums = sim.finance.day(today)
         val parts = MoneyKind.entries.filter { it.income && (sums[it] ?: 0L) != 0L }
             .joinToString("  ·  ") { "${it.label} ${formatMoney(sums.getValue(it))}" }
-        val todayLine = body.label("Heute: " + parts.ifEmpty { "noch nichts eingenommen" }, 12.0, Theme.TEXT_DIM)
+        val todayLine = body.label(tr("Heute: ", "Today: ") + parts.ifEmpty { tr("noch nichts eingenommen", "nothing earned yet") }, 12.0, Theme.TEXT_DIM)
         todayLine.xy(18.0, panelHeight - 40.0)
         // keep clear of the close button
-        val room = panelWidth - 128.0 - 12.0 - 18.0
-        if (todayLine.width > room) todayLine.scale = room / todayLine.width
+        todayLine.fitWidth(panelWidth - 128.0 - 12.0 - 18.0)
     }
 
     private companion object {

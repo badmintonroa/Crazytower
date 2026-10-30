@@ -66,7 +66,7 @@ class LifeTest {
             listOf(26, 32).map { sim.build(Catalog.OFFICE, 1, it).room!! }
         val accountant = Tenants.byId("accountant")
         offices.forEach { sim.moveIn(it, accountant) }
-        val entry = sim.upcoming().single { it.label == accountant.name }
+        val entry = sim.upcoming().single { it.label == accountant.name.toString() }
         assertEquals(3, entry.count)
         assertEquals(3 * accountant.rentPerDay, entry.amount)
     }
@@ -77,7 +77,7 @@ class LifeTest {
         val office = sim.buildReachable(Catalog.OFFICE, 20)
         sim.moveIn(office, Tenants.byId("accountant"))
         val rent = Tenants.byId("accountant").rentPerDay
-        assertEquals(17 * 60, sim.upcoming().first { it.label == office.tenant!!.name }.minute)
+        assertEquals(17 * 60, sim.upcoming().first { it.label == office.tenant!!.name.toString() }.minute)
         stepTo(sim, 16)
         assertEquals(null, sim.finance.day(0)[MoneyKind.RENT], "nothing before closing time")
         stepTo(sim, 18)

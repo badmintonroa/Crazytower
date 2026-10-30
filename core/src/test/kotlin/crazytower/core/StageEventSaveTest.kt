@@ -104,7 +104,7 @@ class StageEventSaveTest {
         val sim = Simulation()
         assertEquals(0, sim.stage)
         assertEquals(0, sim.stars)
-        assertEquals("Baustelle", Stages.info(0).name)
+        assertEquals("Baustelle", Stages.info(0).name.toString())
         assertFalse(sim.checkPlace(Catalog.OFFICE, Stages.info(0).maxFloor + 1, 10).ok)
     }
 }

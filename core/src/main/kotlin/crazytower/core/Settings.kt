@@ -26,12 +26,14 @@ data class Settings(
     val volume: Int = 80,
     /** Saves the game every this many game days at midnight; 0 is off. */
     val autosaveDays: Int = 1,
+    /** The language of all texts; a new player gets the one of the system. */
+    val language: Language = Language.system(),
 ) {
     /** "Fenster", "Fenster-Vollbild" or "Vollbild". */
     val displayMode: String get() = when {
-        fullscreen -> "Vollbild"
-        borderless -> "Fenster-Vollbild"
-        else -> "Fenster"
+        fullscreen -> tr("Vollbild", "Fullscreen")
+        borderless -> tr("Fenster-Vollbild", "Borderless")
+        else -> tr("Fenster", "Window")
     }
 
     /** The next display mode: window, borderless window, fullscreen, window again. */

@@ -9,32 +9,32 @@ package crazytower.core
  */
 data class StageInfo(
     val number: Int,
-    val name: String,
+    val name: Tr,
     val maxFloor: Int,
-    val requirement: String,
+    val requirement: Tr,
     val population: Int,
     val lobbyArt: String,
-    val unlocks: String,
+    val unlocks: Tr,
 )
 
 object Stages {
     val all = listOf(
-        StageInfo(0, "Baustelle", maxFloor = 5, requirement = "Start", population = 0,
-            lobbyArt = "lobby_stage1_bruchbude", unlocks = ""),
-        StageInfo(1, "Bruchbude", maxFloor = 10, requirement = "60 Bewohner", population = 60,
-            lobbyArt = "lobby_stage1_bruchbude", unlocks = "Neu: bis zur 10. Etage. Die Statik sagt vorsichtig ja."),
-        StageInfo(2, "Hochhaus", maxFloor = 25, requirement = "300 Bewohner", population = 300,
+        StageInfo(0, Tr("Baustelle", "Building Site"), maxFloor = 5, requirement = Tr("Start", "Start"), population = 0,
+            lobbyArt = "lobby_stage1_bruchbude", unlocks = Tr("", "")),
+        StageInfo(1, Tr("Bruchbude", "Dump"), maxFloor = 10, requirement = Tr("60 Bewohner", "60 residents"), population = 60,
+            lobbyArt = "lobby_stage1_bruchbude", unlocks = Tr("Neu: bis zur 10. Etage. Die Statik sagt vorsichtig ja.", "New: up to floor 10. The structural engineer says a careful yes.")),
+        StageInfo(2, Tr("Hochhaus", "High-Rise"), maxFloor = 25, requirement = Tr("300 Bewohner", "300 residents"), population = 300,
             lobbyArt = "lobby_stage2_hochhaus",
-            unlocks = "Neu: der Kopierraum der Ewigkeit. Wer reingeht, kommt mit 400 Kopien wieder raus."),
-        StageInfo(3, "Wolkenkratzer", maxFloor = 50, requirement = "1.000 Bewohner, Laune 60 %", population = 1_000,
+            unlocks = Tr("Neu: der Kopierraum der Ewigkeit. Wer reingeht, kommt mit 400 Kopien wieder raus.", "New: the Copy Room of Eternity. Whoever goes in comes out with 400 copies.")),
+        StageInfo(3, Tr("Wolkenkratzer", "Skyscraper"), maxFloor = 50, requirement = Tr("1.000 Bewohner, Laune 60 %", "1,000 residents, 60 % mood"), population = 1_000,
             lobbyArt = "lobby_stage3_wolkenkratzer",
-            unlocks = "Neu: Sicherheitsdienst. Die Herren tragen Sonnenbrillen. Auch nachts."),
-        StageInfo(4, "Mega-Tower", maxFloor = 75, requirement = "3.000 Bewohner, Sicherheitsdienst", population = 3_000,
+            unlocks = Tr("Neu: Sicherheitsdienst. Die Herren tragen Sonnenbrillen. Auch nachts.", "New: security. The gentlemen wear sunglasses. At night too.")),
+        StageInfo(4, Tr("Mega-Tower", "Mega Tower"), maxFloor = 75, requirement = Tr("3.000 Bewohner, Sicherheitsdienst", "3,000 residents, security"), population = 3_000,
             lobbyArt = "lobby_stage4_megatower",
-            unlocks = "Neu: Teleporter. Kommt meistens dort an, wo man hinwollte."),
-        StageInfo(5, "CrazyTower", maxFloor = 100, requirement = "6.000 Bewohner, VIP-Besuch überlebt", population = 6_000,
+            unlocks = Tr("Neu: Teleporter. Kommt meistens dort an, wo man hinwollte.", "New: teleporter. Usually arrives where you wanted to go.")),
+        StageInfo(5, Tr("CrazyTower", "CrazyTower"), maxFloor = 100, requirement = Tr("6.000 Bewohner, VIP-Besuch überlebt", "6,000 residents, a happy VIP"), population = 6_000,
             lobbyArt = "lobby_stage5_crazytower",
-            unlocks = "Neu: Ufo-Landeplatz. Die Botschaft von Gliese 581 hat schon angefragt."),
+            unlocks = Tr("Neu: Ufo-Landeplatz. Die Botschaft von Gliese 581 hat schon angefragt.", "New: UFO landing pad. The Embassy of Gliese 581 has already asked.")),
     )
 
     /** The highest stage. */

@@ -18,6 +18,7 @@ import crazytower.core.ecs.Route
 import crazytower.core.nav.Leg
 import crazytower.core.transport.Elevators
 import crazytower.core.transport.Car
+import crazytower.core.tr
 import crazytower.game.ui.chamferPath
 import crazytower.game.ui.formatMoney
 import crazytower.game.ui.label
@@ -187,6 +188,9 @@ class TowerView(
         drawLot()
     }
 
+    /** Writes the signs in the tower again, after the language changed. */
+    fun relabel() = drawLot()
+
     /** Lot markers, the plot that is for sale next and the locked basement. Redrawn when the lot changes. */
     private fun drawLot() {
         drawnLot = sim.lotWidth
@@ -199,11 +203,11 @@ class TowerView(
             val end = Metrics.x(next.width)
             lotMarks.solidRect(end - right, 6.0, Theme.GOLD.withAd(0.35)).xy(right, -6.0)
             lotMarks.solidRect(4.0, 16.0, Theme.GOLD.withAd(0.5)).xy(end - 2, -16.0)
-            val sign = lotMarks.text("ZU VERKAUFEN · ab ${next.stars} Sternen", textSize = 22.0, color = Theme.GOLD, font = Theme.bodyBold)
+            val sign = lotMarks.text(tr("ZU VERKAUFEN · ab ${next.stars} Sternen", "FOR SALE · from ${next.stars} stars"), textSize = 22.0, color = Theme.GOLD, font = Theme.bodyBold)
             sign.xy(right + (end - right - sign.width) / 2, -Metrics.FEET - 36.0)
         }
         if (!sim.basementOpen) {
-            val sign = lotMarks.text("Keller ab ${Lot.BASEMENT_STARS} Sternen", textSize = 22.0, color = Theme.TEXT_DIM, font = Theme.bodyBold)
+            val sign = lotMarks.text(tr("Keller ab ${Lot.BASEMENT_STARS} Sternen", "Basement from ${Lot.BASEMENT_STARS} stars"), textSize = 22.0, color = Theme.TEXT_DIM, font = Theme.bodyBold)
             sign.xy((right - sign.width) / 2, 40.0)
         }
     }
@@ -265,6 +269,15 @@ class TowerView(
 
     companion object {
         val PARTS = listOf("Räume", "Aufzüge", "Leute", "Rest")
+
+        /** "3 Etagen" or "3 floors". */
+        fun floors(n: Int): String = if (n == 1) tr("1 Etage", "1 floor") else tr("$n Etagen", "$n floors")
+
+        fun removeText(floorCount: Int, refund: Long): String =
+            tr("${floors(floorCount)} abbauen · ${formatMoney(refund)} zurück", "Remove ${floors(floorCount)} · ${formatMoney(refund)} back")
+
+        fun shortenedText(name: String, floorCount: Int, refund: Long): String =
+            tr("$name um ${floors(floorCount)} gekürzt, ${formatMoney(refund)} zurück", "$name shortened by ${floors(floorCount)}, ${formatMoney(refund)} back")
     }
 
     private class Floater(val view: Text, var age: Double)
@@ -573,7 +586,7 @@ class TowerView(
             }
             HandleKind.ADD_CABIN -> {
                 val result = sim.addCabin(car)
-                game.say(if (result.ok) "Neue Kabine, ${formatMoney(Elevators.CABIN_COST)}" else result.reason)
+                game.say(if (result.ok) tr("Neue Kabine, ", "New cabin, ") + formatMoney(Elevators.CABIN_COST) else result.reason)
                 Sfx.play(if (result.ok) Sfx.BUILD else Sfx.ERROR)
             }
             HandleKind.REMOVE_CABIN -> if (sim.removeCabin(car)) Sfx.play(Sfx.DEMOLISH)
@@ -600,13 +613,13 @@ class TowerView(
             when {
                 removed.isNotEmpty() -> {
                     showGhost(removed.map { Ghost(it.floor, it.x, it.width) }, Theme.ALARM, 0.25)
-                    ghostInfo = "${removed.size} ${if (removed.size == 1) "Etage" else "Etagen"} abbauen · ${formatMoney(removed.sumOf { sim.refundFor(it) })} zurück" to true
+                    ghostInfo = removeText(removed.size, removed.sumOf { sim.refundFor(it) }) to true
                 }
                 plan != null -> {
                     showGhost(plan.pieces.map { Ghost(it.floor, it.x, it.width) }, if (plan.check.ok) Theme.SELECT else Theme.ALARM, 0.2)
-                    ghostInfo = if (plan.check.ok) "${plan.type.name} · +${plan.pieces.size} Etagen · ${formatMoney(plan.cost)} · Loslassen zum Bauen" to true else plan.check.reason to false
+                    ghostInfo = if (plan.check.ok) "${plan.type.name} · +${floors(plan.pieces.size)} · ${formatMoney(plan.cost)} · " + tr("Loslassen zum Bauen", "Release to build") to true else plan.check.reason to false
                 }
-                else -> ghostInfo = "Nach oben oder unten ziehen zum Verlängern oder Kürzen" to true
+                else -> ghostInfo = tr("Nach oben oder unten ziehen zum Verlängern oder Kürzen", "Drag up or down to extend or shorten") to true
             }
             return
         }
@@ -618,11 +631,11 @@ class TowerView(
                     val end = grabbedEnd!!
                     if (modules.isEmpty()) {
                         showGhost(listOf(Ghost(end.floor, end.x, end.width)), Theme.SELECT, 0.1)
-                        ghostInfo = "Ende gegriffen · ziehen zum Verlängern oder Kürzen" to true
+                        ghostInfo = tr("Ende gegriffen · ziehen zum Verlängern oder Kürzen", "End grabbed · drag to extend or shorten") to true
                     } else {
                         showGhost(modules.map { Ghost(it.floor, it.x, it.width) }, Theme.ALARM, 0.25)
                         val refund = modules.sumOf { sim.refundFor(it) }
-                        ghostInfo = "${modules.size} ${if (modules.size == 1) "Etage" else "Etagen"} abbauen · ${formatMoney(refund)} zurück" to true
+                        ghostInfo = removeText(modules.size, refund) to true
                     }
                 }
                 tool.type.stretchable || tool.type.fillsGap || tool.type.role.isWay -> {
@@ -637,7 +650,7 @@ class TowerView(
                     val check = sim.checkPlace(tool.type, h.floor, x)
                     showGhost(listOf(Ghost(h.floor, x, tool.type.width)), if (check.ok) Theme.SELECT else Theme.ALARM, 0.2)
                     ghostInfo = if (check.ok) {
-                        "${tool.type.name} · ${formatMoney(tool.type.cost)} · Klicken zum Bauen" to true
+                        "${tool.type.name} · ${formatMoney(tool.type.cost)} · " + tr("Klicken zum Bauen", "Click to build") to true
                     } else {
                         check.reason to false
                     }
@@ -651,7 +664,7 @@ class TowerView(
                     ghostInfo = blocked.reason to false
                 } else {
                     showGhost(listOf(Ghost(room.floor, room.x, room.width)), Theme.ALARM, 0.25)
-                    ghostInfo = "${room.type.name} abreißen · ${formatMoney(sim.refundFor(room))} zurück" to true
+                    ghostInfo = tr("${room.type.name} abreißen · ${formatMoney(sim.refundFor(room))} zurück", "Tear down ${room.type.name} · ${formatMoney(sim.refundFor(room))} back") to true
                 }
             }
         }
@@ -682,7 +695,7 @@ class TowerView(
         val anchor = pressHover ?: h
         return if (type.stretchable) {
             if (!Tower.isLobbyFloor(anchor.floor)) {
-                return BuildPlan(type, emptyList(), 0, PlaceCheck.no("Lobby nur im Erdgeschoss und alle ${Tower.SKY_LOBBY_EVERY} Etagen"))
+                return BuildPlan(type, emptyList(), 0, PlaceCheck.no(tr("Lobby nur im Erdgeschoss und alle ${Tower.SKY_LOBBY_EVERY} Etagen", "Lobbies only on the ground floor and every ${Tower.SKY_LOBBY_EVERY} floors")))
             }
             val from = floor(anchor.segment).toInt()
             val to = floor(h.segment).toInt()
@@ -700,11 +713,15 @@ class TowerView(
 
     private fun planText(plan: BuildPlan): String {
         val size = if (plan.type.perSegment) {
-            "${plan.pieces.sumOf { it.width }} Felder"
+            tr("${plan.pieces.sumOf { it.width }} Felder", "${plan.pieces.sumOf { it.width }} tiles")
         } else {
-            "${plan.pieces.size} ${if (plan.pieces.size == 1) "Etage" else "Etagen"}"
+            floors(plan.pieces.size)
         }
-        val hint = if (plan.type.fillsGap) "Klicken zum Füllen" else if (pressHover == null) "Ziehen zum Bauen" else "Loslassen zum Bauen"
+        val hint = when {
+            plan.type.fillsGap -> tr("Klicken zum Füllen", "Click to fill")
+            pressHover == null -> tr("Ziehen zum Bauen", "Drag to build")
+            else -> tr("Loslassen zum Bauen", "Release to build")
+        }
         return "${plan.type.name} · $size · ${formatMoney(plan.cost)} · $hint"
     }
 
@@ -885,7 +902,7 @@ class TowerView(
                     if (modules.isNotEmpty()) {
                         val refund = sim.demolishAll(modules)
                         Sfx.play(Sfx.DEMOLISH)
-                        game.say("${tool.type.name} um ${modules.size} ${if (modules.size == 1) "Etage" else "Etagen"} gekürzt, ${formatMoney(refund)} zurück")
+                        game.say(shortenedText(tool.type.name.toString(), modules.size, refund))
                     } else {
                         val plan = planFor(tool.type, h)
                         if (plan.pieces.isNotEmpty()) build(plan)
@@ -907,7 +924,7 @@ class TowerView(
                 } else if (room != null) {
                     val refund = sim.demolish(room.id)
                     Sfx.play(Sfx.DEMOLISH)
-                    game.say("${room.type.name} abgerissen, ${formatMoney(refund)} zurück")
+                    game.say(tr("${room.type.name} abgerissen, ${formatMoney(refund)} zurück", "${room.type.name} torn down, ${formatMoney(refund)} back"))
                 }
             }
             null -> select(h)
@@ -920,7 +937,7 @@ class TowerView(
             removed.isNotEmpty() -> {
                 val refund = sim.demolishAll(removed)
                 Sfx.play(Sfx.DEMOLISH)
-                game.say("${end.type.name} um ${removed.size} ${if (removed.size == 1) "Etage" else "Etagen"} gekürzt, ${formatMoney(refund)} zurück")
+                game.say(shortenedText(end.type.name.toString(), removed.size, refund))
             }
             plan != null -> build(plan)
         }
