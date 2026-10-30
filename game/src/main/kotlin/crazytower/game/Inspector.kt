@@ -1,6 +1,5 @@
 package crazytower.game
 
-import crazytower.core.Loc
 import crazytower.core.RoomRole
 import crazytower.core.Simulation
 import crazytower.core.transport.Elevators
@@ -61,6 +60,7 @@ class Inspector(private val sim: Simulation, private val game: GameController, p
         var art: String? = null
         var look: String? = null
         var quirk: String? = null
+        var problem: crazytower.core.RoomProblem? = null
         when (sel) {
             is Selection.RoomSel -> {
                 val room = sim.tower.room(sel.roomId) ?: return
@@ -70,6 +70,7 @@ class Inspector(private val sim: Simulation, private val game: GameController, p
                 art = RoomLooks.art(sim, room)
                 lines += info.lines
                 quirk = info.quirk
+                problem = sim.roomProblems[room.id]
             }
             is Selection.PersonSel -> with(sim.world) {
                 val e = sel.entity
@@ -103,6 +104,15 @@ class Inspector(private val sim: Simulation, private val game: GameController, p
             label(value, 14.0, Theme.TEXT, Theme.bodyBold).xy(120.0, y - 1)
             y += 22.0
         }
+        if (problem != null) {
+            // why nobody moves in: the reason behind the badge over the room
+            val text = wrap(problem.hint, 40)
+            val height = 30.0 + text.size * 16.0
+            val box = Panel(panelWidth - 32, height, Theme.BUTTON, 6.0).addTo(this).also { it.xy(16.0, y + 4) }
+            box.label((if (problem.far) "Warum leer? " else "Achtung: ") + problem.title, 12.0, Theme.ALARM, Theme.bodyBold).xy(10.0, 6.0)
+            text.forEachIndexed { i, line -> box.label(line, 12.0, Theme.TEXT).xy(10.0, 24.0 + i * 16.0) }
+            y += height + 10.0
+        }
         if (quirk != null) {
             val box = Panel(panelWidth - 32, 56.0, Theme.BUTTON, 6.0).addTo(this).also { it.xy(16.0, y + 4) }
             box.label("Macke", 12.0, Theme.ALARM, Theme.bodyBold).xy(10.0, 6.0)
@@ -130,6 +140,22 @@ class Inspector(private val sim: Simulation, private val game: GameController, p
         panelHeight = y + 8
         bg.resize(panelWidth, panelHeight)
     }
+}
+
+/** Breaks [text] into lines of at most about [width] characters, at spaces. */
+fun wrap(text: String, width: Int): List<String> {
+    val lines = ArrayList<String>()
+    var line = ""
+    for (word in text.split(' ')) {
+        if (line.isNotEmpty() && line.length + 1 + word.length > width) {
+            lines += line
+            line = word
+        } else {
+            line = if (line.isEmpty()) word else "$line $word"
+        }
+    }
+    if (line.isNotEmpty()) lines += line
+    return lines
 }
 
 fun floorName(floor: Int): String = when {
@@ -194,7 +220,7 @@ object RoomInfo {
             room.type.role.rentable -> {
                 lines += "Status" to if (room.type.role == RoomRole.HOTEL) "Frei und sauber" else "Zu vermieten"
                 lines += "Hinweis" to when {
-                    sim.nav.findPath(Loc(0, 0f), room.center) == null -> "Nicht erreichbar"
+                    sim.roomProblems[room.id] != null -> "Niemand zieht ein"
                     room.type.role == RoomRole.HOTEL -> "Check-in ${Simulation.CHECK_IN_FROM}–${Simulation.CHECK_IN_UNTIL} Uhr"
                     else -> "Mieter kommen bald"
                 }
