@@ -38,7 +38,7 @@ enum class RoomRole {
     /** Teleporters connect to each other, wherever they are. */
     TELEPORTER,
 
-    /** Underground car park; earns parking fees for the cars of the people in the tower. */
+    /** One underground parking space for one car; earns parking fees, and luxury offices need some. */
     PARKING,
 
     /** Guests stay one night and pay when they check out; afterwards the room needs cleaning. */
@@ -84,6 +84,8 @@ data class RoomType(
     val capacity: Int = 0,
     val description: Tr = Tr("", ""),
     val stretchable: Boolean = false,
+    /** Dragging sideways builds a row of these, see [Simulation.planRow]. */
+    val dragRow: Boolean = false,
     /** Fills the whole gap it is clicked into, see [Simulation.planGap]. */
     val fillsGap: Boolean = false,
     val express: Boolean = false,
@@ -177,6 +179,7 @@ object Catalog {
         effects = listOf(
             Tr("nur feine Mieter, die sehr viel Miete zahlen", "only posh tenants who pay a lot of rent"),
             Tr("unter ${Simulation.LUXURY_MOOD.toInt()} % Laune nur die halbe Miete", "half the rent below ${Simulation.LUXURY_MOOD.toInt()} % mood"),
+            Tr("braucht ${Simulation.LUXURY_SPACES} eigene Parkplätze im Keller", "needs ${Simulation.LUXURY_SPACES} parking spaces of its own in the basement"),
             Tr("Unterhalt 2.000 \$ pro Tag", "upkeep \$2,000 a day"),
         ),
     )
@@ -243,18 +246,24 @@ object Catalog {
     )
 
     val PARKING = RoomType(
-        id = "parking", name = Tr("Parkhaus", "Car park"), category = Category.SPECIAL, role = RoomRole.PARKING,
-        width = 6, cost = 60_000, minStars = Lot.BASEMENT_STARS, basementOnly = true, art = "special_parking",
-        description = Tr("Ein Auto parkt seit 1987 quer.", "One car has been parked sideways since 1987."),
+        id = "parking_space", name = Tr("Parkplatz", "Parking space"), category = Category.SPECIAL, role = RoomRole.PARKING,
+        width = 2, cost = 1_500, minStars = Lot.BASEMENT_STARS, basementOnly = true, art = "parking_space", dragRow = true, upkeep = 10,
+        description = Tr(
+            "Ein Platz für genau ein Auto. Waagerecht ziehen für eine ganze Reihe.",
+            "Room for exactly one car. Drag sideways for a whole row.",
+        ),
         effects = listOf(
             Tr(
-                "${Simulation.CARS_PER_PARKING} Plätze, gebucht von Büros (${Simulation.CARS_PER_OFFICE} Autos) und Wohnungen (${Simulation.CARS_PER_HOME})",
-                "${Simulation.CARS_PER_PARKING} spaces, booked by offices (${Simulation.CARS_PER_OFFICE} cars) and flats (${Simulation.CARS_PER_HOME})",
+                "1 Auto; Büros bringen ${Simulation.CARS_PER_OFFICE}, Wohnungen ${Simulation.CARS_PER_HOME}, Luxusbüros brauchen ${Simulation.LUXURY_SPACES}",
+                "1 car; offices bring ${Simulation.CARS_PER_OFFICE}, flats ${Simulation.CARS_PER_HOME}, luxury offices need ${Simulation.LUXURY_SPACES}",
             ),
-            Tr("${Simulation.PARKING_FEE} \$ pro gebuchtem Platz und Tag", "\$${Simulation.PARKING_FEE} per booked space and day"),
-            Tr("nur im Keller, nur so viele wie gebraucht", "basement only, only as many as needed"),
+            Tr("${Simulation.PARKING_FEE} \$ pro geparktem Auto und Tag", "\$${Simulation.PARKING_FEE} per parked car and day"),
+            Tr("nur im Keller, nur so viele wie Autos", "basement only, only as many as there are cars"),
         ),
     )
+
+    /** The old car park for 40 cars; saves that still have one get single spaces instead. */
+    const val OLD_CAR_PARK = "parking"
 
     val roomTypes: List<RoomType> =
         listOf(LOBBY, CORRIDOR, FILLER, STAIRS, ELEVATOR, EXPRESS, OFFICE, LUXURY_OFFICE, HOME, HOTEL, HOUSEKEEPING, FOOD, COPYROOM, SECURITY, TELEPORTER, UFO_PAD, PARKING)

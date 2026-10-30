@@ -41,15 +41,17 @@ class ScheduleSystem(
 
         if (entity has Away) {
             if (!inside) return
+            // luxury tenants drive in and come up from their parking space
+            val car = sim.carSpot(room)
             val fromLeft = sim.random.nextBoolean()
-            pos.floor = GROUND_FLOOR
-            pos.x = if (fromLeft) 0f else sim.lotWidth - 0.01f
+            pos.floor = car?.floor ?: GROUND_FLOOR
+            pos.x = car?.x ?: if (fromLeft) 0f else sim.lotWidth - 0.01f
             entity.configure { drop(it, Away) }
             sim.goTo(entity, sim.spotIn(room), Activity.ARRIVING)
             return
         }
         if (!inside) {
-            sim.goTo(entity, sim.streetExit(pos.x), Activity.LEAVING)
+            sim.goTo(entity, sim.carSpot(room) ?: sim.streetExit(pos.x), Activity.LEAVING)
             return
         }
         if (schedule.ateOnDay != clock.day && Routine.mealTime(member.resident, schedule.plan, schedule.offset, clock)) {

@@ -60,9 +60,8 @@ object TestTower {
             sim.moveIn(room, tenant, announce = false)
             if (room.type.role == RoomRole.HOME) room.sold = true
         }
-        // car parks once the tenants are in and want spaces
-        var x = 8
-        while (sim.basementOpen && sim.build(Catalog.PARKING, -1, x).ok) x += 6
+        // parking spaces once the tenants are in and want them
+        if (sim.basementOpen) sim.build(sim.planRow(Catalog.PARKING, -1, 0, width - 1))
         if (stage >= 5) sim.vipSurvived = true
         sim.money = MONEY
         sim.eventsEnabled = true
@@ -121,9 +120,11 @@ object TestTower {
             for (x in LOCAL_X[zone % 2]) sim.build(sim.planColumn(Catalog.ELEVATOR, x, bottom, zoneTop))
         }
         moveEveryoneIn(sim, Stages.last)
-        // the basement: car parks as long as the tenants want spaces, offices in the rest
+        // the basement: parking spaces as long as the tenants want them, offices in the rest
         for (floor in -1 downTo Tower.MIN_FLOOR) {
-            fillFloor(sim, floor, width) { _ -> if (sim.checkPlace(Catalog.PARKING, floor, 0).ok) Catalog.PARKING else Catalog.OFFICE }
+            val row = sim.planRow(Catalog.PARKING, floor, 0, width - 1)
+            if (row.check.ok) sim.build(row)
+            fillFloor(sim, floor, width, start = row.pieces.size * Catalog.PARKING.width) { _ -> Catalog.OFFICE }
         }
         sim.build(sim.planColumn(Catalog.ELEVATOR, LOCAL_X[1][0], Tower.MIN_FLOOR, GROUND_FLOOR))
         moveEveryoneIn(sim, Stages.last)
@@ -141,11 +142,11 @@ object TestTower {
     }
 
     /**
-     * Rooms of six from the left, [pick] chooses each one. The narrow rest at the right end
+     * Rooms of six from the left (from [start]), [pick] chooses each one. The narrow rest at the right end
      * becomes corridor, so the floor above has something to stand on, with a [teleporter] in it.
      */
-    private fun fillFloor(sim: Simulation, floor: Int, width: Int, teleporter: Boolean = false, pick: (Int) -> RoomType) {
-        var x = 0
+    private fun fillFloor(sim: Simulation, floor: Int, width: Int, teleporter: Boolean = false, start: Int = 0, pick: (Int) -> RoomType) {
+        var x = start
         var i = 0
         while (x + 6 <= width) {
             val type = pick(i)
