@@ -167,6 +167,7 @@ object RoomInfo {
     private val PEOPLE get() = tr("Leute", "People")
     private val STATUS get() = tr("Status", "Status")
     private val HINT get() = tr("Hinweis", "Note")
+    private val PARKING get() = tr("Parkplätze", "Parking")
 
     fun describe(sim: Simulation, room: crazytower.core.Room): RoomCard {
         val where = "${floorName(room.floor)} · " + tr("${room.width} Felder breit", "${room.width} tiles wide")
@@ -215,6 +216,9 @@ object RoomInfo {
                     tr("Miete", "Rent") to formatMoney((tenant.rentPerDay * sim.starBonus).toLong()) + tr(" nach Feierabend", " after work")
                 }
                 lines += if (room.type.role == RoomRole.HOME) tr("Bewohner", "Residents") to "${room.type.capacity}" else PEOPLE to "${room.type.capacity}"
+                if (room.type.luxury) {
+                    lines += PARKING to if (sim.hasParking(room)) tr("${Simulation.LUXURY_SPACES} eigene", "${Simulation.LUXURY_SPACES} of its own") else tr("fehlen, nur halbe Miete", "missing, only half the rent")
+                }
                 RoomCard(tenant.name.toString(), where, lines, tenant.quirk.toString())
             }
             room.type.role.rentable -> {
@@ -225,6 +229,11 @@ object RoomInfo {
                     else -> tr("Mieter kommen bald", "Tenants coming soon")
                 }
                 RoomCard(room.type.name.toString(), where, lines, null)
+            }
+            room.type.role == RoomRole.PARKING -> {
+                lines += STATUS to if (sim.isTaken(room)) tr("Besetzt", "Taken") else tr("Frei", "Free")
+                lines += PARKING to tr("${sim.parkingSpaces} Plätze für ${sim.carsWanted} Autos", "${sim.parkingSpaces} spaces for ${sim.carsWanted} cars")
+                RoomCard(room.type.name.toString(), where, lines, room.type.description.toString())
             }
             else -> RoomCard(room.type.name.toString(), where, lines, null)
         }

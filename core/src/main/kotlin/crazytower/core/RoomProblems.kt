@@ -50,6 +50,20 @@ object RoomProblems {
                 ),
                 far = true,
             )
+            room.type.luxury && !sim.hasParking(room) -> RoomProblem(
+                Tr("Keine Parkplätze", "No parking"),
+                if (sim.basementOpen) {
+                    Tr(
+                        "Feine Mieter kommen nur mit ${Simulation.LUXURY_SPACES} eigenen Parkplätzen. Bau mehr Parkplätze im Keller.",
+                        "Posh tenants only come with ${Simulation.LUXURY_SPACES} parking spaces of their own. Build more spaces in the basement.",
+                    )
+                } else {
+                    Tr(
+                        "Feine Mieter kommen nur mit ${Simulation.LUXURY_SPACES} eigenen Parkplätzen, und der Keller öffnet erst ab ${Lot.BASEMENT_STARS} Sternen.",
+                        "Posh tenants only come with ${Simulation.LUXURY_SPACES} parking spaces of their own, and the basement only opens at ${Lot.BASEMENT_STARS} stars.",
+                    )
+                },
+            )
             room.type.role == RoomRole.HOTEL && room.dirty &&
                 sim.tower.allRooms.none { it.type.role == RoomRole.HOUSEKEEPING && it.tenant != null } -> RoomProblem(
                 Tr("Ungeputzt", "Not cleaned"),

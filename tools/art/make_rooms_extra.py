@@ -349,6 +349,28 @@ def special_parking():
     return r.save()
 
 
+def parking_bay(car=None):
+    """One parking space, two segments wide, with a car in it or empty."""
+    r = Room(2, (110, 112, 120), floor=(64, 66, 74), ceiling=(50, 52, 62))
+    d = r.d
+    r.box(4, 20, 18, 150, (150, 150, 156))
+    d.rectangle([6, 120, 20, 132], fill=(240, 200, 60))
+    for x in (28, 180):
+        d.line([x, H - 22, x + 10, H], fill=(240, 240, 230), width=4)
+    r.sign(120, 30, "P", bg=(60, 110, 220), size=22)
+    if car is None:
+        d.text((70, 140), "FREI", fill=(240, 240, 230), font=font(18))
+        return r.save()
+    x = 46
+    r.box(x, 132, 110, 30, car)
+    r.box(x + 18, 110, 70, 26, shade(car, 0.85))
+    d.rectangle([x + 24, 114, x + 82, 132], fill=(170, 210, 235))
+    for wx in (x + 22, x + 88):
+        d.ellipse([wx - 11, 153, wx + 11, 175], fill=INK)
+        d.ellipse([wx - 4, 160, wx + 4, 168], fill=(180, 180, 190))
+    return r.save()
+
+
 ROOMS = {
     "corridor": corridor, "stairs": stairs, "elevator_shaft": elevator,
     "home_empty": home_empty, "home_family": home_family, "home_students": home_students,
@@ -357,6 +379,8 @@ ROOMS = {
     "food_empty": food_empty, "food_imbiss": food_imbiss, "food_sushi": food_sushi, "food_cafe": food_cafe,
     "special_security": special_security, "special_teleporter": special_teleporter, "special_ufo": special_ufo,
     "special_parking": special_parking,
+    "parking_space": lambda: parking_bay((220, 70, 70)), "parking_space_blue": lambda: parking_bay((70, 140, 220)),
+    "parking_space_yellow": lambda: parking_bay((240, 200, 60)), "parking_space_empty": lambda: parking_bay(),
 }
 
 

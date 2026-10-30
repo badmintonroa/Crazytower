@@ -34,17 +34,17 @@ class LotTest {
     }
 
     @Test
-    fun aCarParkOnlyGoesUndergroundAndEarnsFees() {
+    fun aParkingSpaceOnlyGoesUndergroundAndEarnsFees() {
         val sim = Simulation(startMoney = 10_000_000)
         assertEquals("Erst ab 4 Sternen", sim.checkPlace(Catalog.PARKING, -1, 10).reason)
         sim.stars = 4
-        assertEquals("Parkhaus nur im Keller", sim.checkPlace(Catalog.PARKING, 1, 10).reason)
-        assertEquals("Noch 20 Autos zu wenig für ein weiteres Parkhaus. Mehr Büros und Wohnungen!", sim.checkPlace(Catalog.PARKING, -1, 10).reason)
-        rentOffices(sim, 7) // 21 cars
+        assertEquals("Parkplatz nur im Keller", sim.checkPlace(Catalog.PARKING, 1, 10).reason)
+        assertFalse(sim.checkPlace(Catalog.PARKING, -1, 10).ok, "no car, no space")
+        rentOffices(sim, 1) // 3 cars
         assertTrue(sim.build(Catalog.PARKING, -1, 10).ok)
-        assertEquals(21, sim.parkedCars)
-        assertEquals((21 * Simulation.PARKING_FEE * sim.starBonus).toLong(), sim.parkingFees())
-        assertFalse(sim.checkPlace(Catalog.PARKING, -1, 16).ok, "the first car park is far from full")
+        assertEquals(1, sim.parkedCars)
+        assertEquals((Simulation.PARKING_FEE * sim.starBonus).toLong(), sim.parkingFees())
+        assertEquals(2, sim.carsWithoutSpace)
     }
 
     private fun rentOffices(sim: Simulation, count: Int) {

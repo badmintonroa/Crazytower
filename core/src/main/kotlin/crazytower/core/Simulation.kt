@@ -183,10 +183,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
                 else tr("Schon $max ${type.name}, mehr gehen nicht", "Already $max of ${type.name}, no more allowed"),
             )
         }
-        if (type.role == RoomRole.PARKING) {
-            val missing = parkingSpaces + MIN_BOOKINGS - carsWanted
-            if (missing > 0) return PlaceCheck.no(tr("Noch $missing Autos zu wenig für ein weiteres Parkhaus. Mehr Büros und Wohnungen!", "$missing cars short of another car park. More offices and flats!"))
-        }
+        if (type.role == RoomRole.PARKING && carsWithoutSpace <= 0) return NO_CAR
         if (x >= 0 && x + width > lotWidth) {
             val next = Lot.next(bestStars)
             return PlaceCheck.no(if (next != null) tr("Grundstück wird erst ab ${next.stars} Sternen breiter", "The lot grows at ${next.stars} stars") else tr("Außerhalb des Grundstücks", "Outside the lot"))
@@ -276,6 +273,32 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
                 ?: if (cost > money) PlaceCheck.no(NO_MONEY) else PlaceCheck.OK
         }
         return BuildPlan(type, listOf(piece), cost, check)
+    }
+
+    /**
+     * The rooms of [type] a sideways drag along [floor] from segment [from] to [to] would add,
+     * side by side, stepping over what is already built there. Parking spaces stop at the
+     * number of cars that still look for one.
+     */
+    fun planRow(type: RoomType, floor: Int, from: Int, to: Int): BuildPlan {
+        val lo = minOf(from, to).coerceIn(0, lotWidth - 1)
+        val hi = maxOf(from, to).coerceIn(0, lotWidth - 1)
+        val limit = if (type.role == RoomRole.PARKING) carsWithoutSpace else Int.MAX_VALUE
+        var check = checkRules(type, floor, lo, type.width)
+        val pieces = ArrayList<BuildPlan.Piece>()
+        var x = lo
+        while (check.ok && x + type.width - 1 <= hi && pieces.size < limit) {
+            if (tower.canPlace(type, floor, x).ok) {
+                pieces += BuildPlan.Piece(floor, x, type.width)
+                x += type.width
+            } else {
+                x++
+            }
+        }
+        val cost = pieces.sumOf { type.price(it.width) }
+        if (check.ok && pieces.isEmpty()) check = tower.canPlace(type, floor, lo).takeUnless { it.ok } ?: PlaceCheck.no(tr("Hier ist kein Platz", "There is no room here"))
+        if (check.ok && cost > money) check = PlaceCheck.no(NO_MONEY)
+        return BuildPlan(type, pieces, cost, check)
     }
 
     /**
@@ -538,6 +561,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     private fun rentFor(room: Room, tenant: TenantKind): Long {
         val mood = moodOf(room) ?: 70f
         val full = (tenant.rentPerDay * starBonus).toLong()
+        if (room.type.luxury && !hasParking(room)) return full / 2
         return if (mood < (if (room.type.luxury) LUXURY_MOOD else UNHAPPY)) full / 2 else full
     }
 
@@ -667,9 +691,13 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
 
     private fun floorLimit(maxFloor: Int): String = tr("Stufe $stage erlaubt nur $maxFloor Etagen", "Stage $stage only allows $maxFloor floors")
 
-    /** Parking spaces the rented offices and occupied flats want to book. */
+    /**
+     * Cars that want a space: those of the rented offices and occupied flats, plus the spaces
+     * every luxury office keeps for itself, rented or not, so they can be built in advance.
+     */
     val carsWanted: Int get() = tower.allRooms.sumOf {
         when {
+            it.type.luxury -> LUXURY_SPACES
             it.tenant == null -> 0
             it.type.role == RoomRole.OFFICE -> CARS_PER_OFFICE
             it.type.role == RoomRole.HOME -> CARS_PER_HOME
@@ -677,11 +705,50 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         }
     }
 
-    /** Spaces in all car parks. */
-    val parkingSpaces: Int get() = tower.allRooms.count { it.type.role == RoomRole.PARKING } * CARS_PER_PARKING
+    /** One space per parking room. */
+    val parkingSpaces: Int get() = tower.allRooms.count { it.type.role == RoomRole.PARKING }
 
-    /** Booked spaces: as many as are wanted, as long as there are spaces. */
-    val parkedCars: Int get() = minOf(parkingSpaces, carsWanted)
+    /** How many more parking spaces may be built: one for every car that has none yet. */
+    val carsWithoutSpace: Int get() = carsWanted - parkingSpaces
+
+    /**
+     * Cars that pay for their space. The luxury offices get theirs first, rented before empty
+     * ones, see [hasParking]; spaces kept for an empty luxury office earn nothing.
+     */
+    val parkedCars: Int get() {
+        val luxury = tower.allRooms.filter { it.type.luxury }
+        val spaces = parkingSpaces
+        val forLuxury = minOf(spaces, luxury.size * LUXURY_SPACES)
+        val rentedLuxury = minOf(forLuxury, luxury.count { it.tenant != null } * LUXURY_SPACES)
+        return rentedLuxury + minOf(spaces - forLuxury, carsWanted - luxury.size * LUXURY_SPACES)
+    }
+
+    /** Whether a car stands in the parking space [space]: the oldest spaces fill up first. */
+    fun isTaken(space: Room): Boolean =
+        tower.allRooms.count { it.type.role == RoomRole.PARKING && it.id < space.id } < parkedCars
+
+    /**
+     * Where the people of [room] get out of their car in the morning and back in at night: a
+     * parking space, for luxury offices that have theirs and can be reached from the basement.
+     * Everybody else takes the street.
+     */
+    fun carSpot(room: Room): Loc? {
+        if (!room.type.luxury || !hasParking(room)) return null
+        val spaces = tower.allRooms.filter { it.type.role == RoomRole.PARKING }
+        if (spaces.isEmpty()) return null
+        val spot = spotIn(spaces[random.nextInt(spaces.size)])
+        return spot.takeIf { nav.travelMinutes(it, room.center) != null }
+    }
+
+    /**
+     * Whether the luxury office [room] has its [LUXURY_SPACES] spaces. They go to the luxury
+     * offices first, rented ones before empty ones, the oldest first; the rest of the cars share what is left.
+     */
+    fun hasParking(room: Room): Boolean {
+        if (!room.type.luxury) return true
+        val order = tower.allRooms.filter { it.type.luxury }.sortedWith(compareBy({ it.tenant == null }, { it.id }))
+        return parkingSpaces >= (order.indexOf(room) + 1) * LUXURY_SPACES
+    }
 
     /** Daily parking fees for [parkedCars]. */
     fun parkingFees(): Long = (parkedCars * PARKING_FEE * starBonus).toLong()
@@ -767,7 +834,8 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         stars = save.stars
         bestStars = maxOf(save.bestStars, save.stars)
         vipSurvived = save.vipSurvived
-        for (saved in save.rooms) {
+        val oldCarParks = save.rooms.filter { it.type == Catalog.OLD_CAR_PARK }
+        for (saved in save.rooms - oldCarParks.toSet()) {
             val room = tower.placeUnchecked(Catalog.type(saved.type), saved.floor, saved.x, saved.id, saved.width ?: Catalog.type(saved.type).width)
             val tenant = saved.tenant?.let { Tenants.byId(it) }
             if (tenant != null) {
@@ -780,6 +848,12 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             room.sold = saved.sold || saved.salePaid > 0
             room.cabins = saved.cabins
             room.dirty = saved.dirty
+        }
+        // the old car parks for 40 cars become rows of single spaces, once all saved ids are taken
+        for (saved in oldCarParks) {
+            for (x in saved.x until saved.x + (saved.width ?: 6) step Catalog.PARKING.width) {
+                tower.placeUnchecked(Catalog.PARKING, saved.floor, x).since = saved.since
+            }
         }
         for (item in save.news.asReversed()) {
             news.post(item.text, item.floor?.let { Loc(it, item.x ?: 0f) }, item.important)
@@ -907,6 +981,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         val VIP_NAME = Tr("Frau Dr. Wichtig", "Dr. Bigwig")
 
         private val NO_MONEY: String get() = tr("Zu wenig Geld", "Not enough money")
+        private val NO_CAR: PlaceCheck get() = PlaceCheck.no(tr("Jedes Auto hat schon einen Parkplatz. Mehr Büros, Wohnungen oder Luxusbüros!", "Every car has a space already. More offices, flats or luxury offices!"))
 
         const val START_MONEY = 120_000L
 
@@ -952,16 +1027,14 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         /** Luxury tenants pay only half below this mood. */
         const val LUXURY_MOOD = 70f
 
-        /** Cars one car park holds, people per car, and the daily fee per parked car. */
-        const val CARS_PER_PARKING = 40
+        /** Parking spaces a luxury office needs before posh tenants move in and pay the full rent. */
+        const val LUXURY_SPACES = 4
 
         /** The widest gap the gap filler closes; anything wider takes a room. */
         const val MAX_GAP = 5
         const val CARS_PER_OFFICE = 3
         const val CARS_PER_HOME = 1
 
-        /** A new car park needs at least this many cars that find no space yet. */
-        const val MIN_BOOKINGS = CARS_PER_PARKING / 2
 
         /** What the special rooms do every night. */
         const val COPYROOM_MOOD = 5f

@@ -672,7 +672,7 @@ class TowerView(
                         ghostInfo = removeText(modules.size, refund) to true
                     }
                 }
-                tool.type.stretchable || tool.type.fillsGap || tool.type.role.isWay -> {
+                tool.type.stretchable || tool.type.fillsGap || tool.type.dragRow || tool.type.role.isWay -> {
                     val plan = planFor(tool.type, h)
                     val color = if (plan.check.ok) Theme.SELECT else Theme.ALARM
                     val pieces = plan.pieces.ifEmpty { listOf(BuildPlan.Piece(h.floor, BuildRules.snapX(h.segment, tool.type.width, sim.lotWidth), tool.type.width)) }
@@ -727,6 +727,13 @@ class TowerView(
     private fun planFor(type: RoomType, h: Hover): BuildPlan {
         if (type.fillsGap) return sim.planGap(h.floor, floor(h.segment).toInt())
         val anchor = pressHover ?: h
+        if (type.dragRow) {
+            val from = floor(anchor.segment).toInt()
+            val to = floor(h.segment).toInt()
+            if (pressHover != null && from != to) return sim.planRow(type, anchor.floor, from, to)
+            val x = BuildRules.snapX(h.segment, type.width, sim.lotWidth)
+            return sim.planRow(type, anchor.floor, x, x + type.width - 1)
+        }
         return if (type.stretchable) {
             if (!Tower.isLobbyFloor(anchor.floor)) {
                 return BuildPlan(type, emptyList(), 0, PlaceCheck.no(tr("Lobby nur im Erdgeschoss und alle ${Tower.SKY_LOBBY_EVERY} Etagen", "Lobbies only on the ground floor and every ${Tower.SKY_LOBBY_EVERY} floors")))
@@ -748,6 +755,8 @@ class TowerView(
     private fun planText(plan: BuildPlan): String {
         val size = if (plan.type.perSegment) {
             tr("${plan.pieces.sumOf { it.width }} Felder", "${plan.pieces.sumOf { it.width }} tiles")
+        } else if (plan.type.dragRow) {
+            "${plan.pieces.size}×"
         } else {
             floors(plan.pieces.size)
         }
@@ -942,7 +951,7 @@ class TowerView(
                         if (plan.pieces.isNotEmpty()) build(plan)
                     }
                 }
-                tool.type.stretchable || tool.type.fillsGap || tool.type.role.isWay -> build(planFor(tool.type, h))
+                tool.type.stretchable || tool.type.fillsGap || tool.type.dragRow || tool.type.role.isWay -> build(planFor(tool.type, h))
                 else -> {
                     val x = BuildRules.snapX(h.segment, tool.type.width, sim.lotWidth)
                     val result = sim.build(tool.type, h.floor, x)
