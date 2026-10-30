@@ -119,6 +119,9 @@ class EventSystem(
         if (hour == lastHour) return
         lastHour = hour
         sim.checkStage()
-        if (sim.eventsEnabled) crazytower.core.Events.roll(sim)
+        if (sim.eventsEnabled) {
+            crazytower.core.Events.roll(sim)
+            crazytower.core.Vips.roll(sim)
+        }
     }
 }

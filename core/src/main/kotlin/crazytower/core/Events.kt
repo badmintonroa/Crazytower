@@ -1,13 +1,9 @@
 package crazytower.core
 
 import crazytower.core.ecs.Away
-import crazytower.core.ecs.Goal
 import crazytower.core.ecs.Member
-import crazytower.core.ecs.Person
 import crazytower.core.ecs.Position
 import crazytower.core.ecs.Schedule
-import crazytower.core.ecs.Vip
-import crazytower.core.ecs.Visitor
 
 /**
  * Absurd things that happen to the tower. The player can't prevent them, only live with them
@@ -107,7 +103,7 @@ object Events {
         },
         TowerEvent("vip", 4, minStage = 4) {
             if (vipSurvived || vipOnTheWay) return@TowerEvent false
-            spawnVip()
+            spawnVip(Vips.byId("wichtig"))
         },
         TowerEvent("ufo", 2, minStage = 5) {
             val pad = tower.allRooms.firstOrNull { it.type == Catalog.UFO_PAD }
@@ -157,18 +153,3 @@ private fun Simulation.changeMood(delta: Float, where: (MoodTarget) -> Boolean) 
 }
 
 private class MoodTarget(val floor: Int, val roomId: Int)
-
-/** Sends a VIP to the highest rented room. Surviving the visit unlocks stage 5. */
-private fun Simulation.spawnVip(): Boolean {
-    val target = tower.allRooms.filter { it.tenant != null }.maxByOrNull { it.floor } ?: return false
-    world.entity {
-        it += Position(GROUND_FLOOR, 0f)
-        it += Person("Frau Dr. Wichtig", "npc_vip")
-        it += Visitor(stopsLeft = 0)
-        it += Vip(since = clock.totalMinutes)
-        it += Goal(spotIn(target))
-    }
-    news.post("VIP-Besuch! Frau Dr. Wichtig will zu ${target.tenant!!.name} in die ${Simulation.floorLabel(target.floor)}. Bitte nichts kaputt machen.",
-        target.center, important = true)
-    return true
-}
