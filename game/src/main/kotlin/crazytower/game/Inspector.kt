@@ -210,6 +210,7 @@ object PersonInfo {
     fun role(sim: Simulation, e: com.github.quillraven.fleks.Entity): String = with(sim.world) {
         val member = e.getOrNull(Member)
         when {
+            e has crazytower.core.ecs.Vip -> "VIP-Besuch"
             e has Visitor -> "Besucher"
             member != null && member.resident -> "Wohnt hier"
             member != null -> "Arbeitet hier"
@@ -237,6 +238,12 @@ object PersonInfo {
     }
 
     fun extra(sim: Simulation, e: com.github.quillraven.fleks.Entity): List<Pair<String, String>> = with(sim.world) {
+        e.getOrNull(crazytower.core.ecs.Vip)?.let { vip ->
+            return listOfNotNull(
+                sim.tower.room(vip.roomId)?.tenant?.let { "Besuch bei" to it.name.take(24) },
+                "Unterwegs" to "${(sim.clock.totalMinutes - vip.since).toInt()} Min.",
+            )
+        }
         val member = e.getOrNull(Member) ?: return emptyList()
         val schedule = e[Schedule]
         val room = sim.tower.room(member.roomId)

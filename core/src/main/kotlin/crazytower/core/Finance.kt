@@ -7,6 +7,7 @@ enum class MoneyKind(val label: String, val income: Boolean) {
     SALE("Wohnungsverkauf", true),
     FEES("Hausgeld", true),
     GUESTS("Gäste", true),
+    VIP("VIP-Trinkgeld", true),
     HOTEL("Hotel", true),
     PARKING("Parkgebühren", true),
     LUCK("Glück", true),
