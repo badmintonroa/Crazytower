@@ -82,8 +82,8 @@ class SimulationTest {
 
     @Test
     fun flatsPayOffAtOnceAndOfficesOvertakeThemWithinAWeek() {
-        val flats = Tenants.candidates(RoomRole.HOME, 0, 0)
-        val offices = Tenants.candidates(RoomRole.OFFICE, 0, 0)
+        val flats = Tenants.candidates(Catalog.HOME, 0, 0)
+        val offices = Tenants.candidates(Catalog.OFFICE, 0, 0)
         assertTrue(flats.all { it.salePrice <= Catalog.HOME.cost }, "a flat never sells for more than it costs")
         fun flat(days: Int, tenant: TenantKind) = tenant.salePrice - Catalog.HOME.cost + Simulation.HOME_FEE * days
         fun office(days: Int, tenant: TenantKind) = tenant.rentPerDay * days - Catalog.OFFICE.cost

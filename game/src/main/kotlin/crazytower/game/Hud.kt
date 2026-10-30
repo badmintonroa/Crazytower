@@ -276,7 +276,7 @@ class Hud(
 
     /** Who a room of [type] brings into the tower and how it pays, for the tenants that would come now. */
     private fun roomInfo(type: RoomType): List<String> {
-        val tenants = Tenants.candidates(type.role, sim.stars, sim.stage)
+        val tenants = Tenants.candidates(type, sim.stars, sim.stage)
         fun range(values: List<Long>, bonus: Double = sim.starBonus): String {
             if (values.isEmpty()) return "–"
             val low = (values.min() * bonus).toLong()
@@ -289,7 +289,11 @@ class Hud(
                 "Verkauf einmalig: ${range(tenants.map { it.salePrice }, bonus = 1.0)}",
                 "dann ${formatMoney((Simulation.HOME_FEE * sim.starBonus).toLong())} Hausgeld pro Tag",
             )
-            RoomRole.OFFICE -> listOf(
+            RoomRole.OFFICE -> if (type.luxury) listOf(
+                "${type.capacity} Angestellte, nur feine Mieter",
+                "Miete pro Arbeitstag: ${range(tenants.map { it.rentPerDay })}",
+                "halbe Miete unter ${Simulation.LUXURY_MOOD.toInt()} % Laune, ${formatMoney(type.upkeep ?: 0)} Unterhalt",
+            ) else listOf(
                 "${type.capacity} Angestellte, kommen zur Arbeit",
                 "Miete pro Arbeitstag: ${range(tenants.map { it.rentPerDay })}",
                 "mehr Sterne bringen bessere Mieter",
@@ -299,6 +303,12 @@ class Hud(
                 "Miete pro Tag: ${range(tenants.map { it.rentPerDay })}",
                 "plus ${formatMoney(Simulation.MEAL_PRICE)}–${formatMoney(Simulation.VISITOR_MEAL_PRICE)} pro Essen",
             )
+            RoomRole.HOTEL -> listOf(
+                "${type.capacity} Gäste, ab ${Simulation.CHECK_IN_FROM} Uhr, eine Nacht",
+                "pro Nacht: ${range(tenants.map { it.rentPerDay })}",
+                "danach schmutzig, braucht Reinigungsdienst",
+            )
+            RoomRole.HOUSEKEEPING -> type.effects
             RoomRole.PARKING -> type.effects + "gebucht: ${sim.parkedCars} von ${sim.carsWanted} Autos, ${sim.parkingSpaces} Plätze"
             RoomRole.ELEVATOR -> listOf(
                 "Unterhalt pro Tag: ${formatMoney(Simulation.UPKEEP.getValue(RoomRole.ELEVATOR))} pro Etage",

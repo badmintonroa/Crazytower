@@ -23,10 +23,10 @@ class TenantTest {
 
     @Test
     fun specialTenantsOnlyComeWithStars() {
-        val early = Tenants.candidates(RoomRole.OFFICE, stars = 1, stage = 1).map { it.id }
+        val early = Tenants.candidates(Catalog.OFFICE, stars = 1, stage = 1).map { it.id }
         assertTrue("vampire" !in early)
         assertTrue("clown" !in early, "the clowns only come through events")
-        val late = Tenants.candidates(RoomRole.OFFICE, stars = 5, stage = 5).map { it.id }
+        val late = Tenants.candidates(Catalog.OFFICE, stars = 5, stage = 5).map { it.id }
         assertTrue("alien" in late)
     }
 
