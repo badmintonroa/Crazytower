@@ -32,6 +32,9 @@ class GameController(val sim: Simulation) {
 
     /** Starts a ready-made tower of the given stage; set by the game screen. */
     var onTestTower: (Int) -> Unit = {}
+
+    /** Saves (unless it is a test tower) and goes back to the title screen; set by the game screen. */
+    var onMainMenu: (() -> Unit)? = null
     var toast: String? = null
         private set
     private var toastLeft = 0.0

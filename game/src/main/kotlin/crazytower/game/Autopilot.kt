@@ -36,10 +36,15 @@ object Autopilot {
         if (System.getenv("CRAZYTOWER_OPTIONS") != null) game.optionsOpen = true
         System.getenv("CRAZYTOWER_CATEGORY")?.let { name -> Category.entries.firstOrNull { it.name == name }?.let { game.openCategory(it) } }
         System.getenv("CRAZYTOWER_CELEBRATE")?.let { hud.celebrate(stage = it == "stage") }
-        var frames = 0
+        screenshotAfter(root, target, 20)
+    }
+
+    /** Saves a screenshot of [root]'s stage to [target] after [frames] frames and quits. */
+    fun screenshotAfter(root: SContainer, target: String, frames: Int) {
+        var count = 0
         root.addUpdater {
-            frames++
-            if (frames == 20) {
+            count++
+            if (count == frames) {
                 root.launchScreenshot(target)
             }
         }

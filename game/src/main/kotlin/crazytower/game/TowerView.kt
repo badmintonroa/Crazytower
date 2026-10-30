@@ -34,7 +34,9 @@ import korlibs.math.geom.Anchor
 import korlibs.math.geom.Point
 import korlibs.math.geom.Size
 import korlibs.math.interpolation.toRatio
+import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
@@ -70,6 +72,8 @@ class TowerView(
     private val assets: Assets,
     private var screenWidth: Double,
     private var screenHeight: Double,
+    /** False on the title screen: the tower is only shown, mouse and keys do nothing. */
+    interactive: Boolean = true,
 ) : Container() {
     /** Everything that moves with the camera. */
     val world = container()
@@ -141,7 +145,7 @@ class TowerView(
         drawBackdrop()
         world.x = screenWidth / 2 - Metrics.x(sim.lotWidth / 2)
         world.y = screenHeight - 170.0
-        setupInput()
+        if (interactive) setupInput()
     }
 
     // ---------------------------------------------------------------- backdrop
@@ -816,6 +820,26 @@ class TowerView(
         screenHeight = height
         hit.size(width, height)
         clampCamera()
+    }
+
+    /**
+     * The title screen camera: the built part of the tower fills [width] around [centerX]
+     * and the view drifts from the lobby up to the roof and back down every [period] seconds.
+     */
+    fun showcase(seconds: Double, centerX: Double, width: Double, period: Double) {
+        val rooms = sim.tower.allRooms
+        if (rooms.isEmpty()) return
+        val left = rooms.minOf { it.x }
+        val right = rooms.maxOf { it.right }
+        val top = rooms.maxOf { it.floor }
+        zoom = (width / Metrics.x(right - left)).coerceIn(0.6, 1.1)
+        world.scale = zoom
+        world.x = centerX - Metrics.x((left + right) / 2.0) * zoom
+        // the ground a little above the bottom edge, or the top floor a little below the top edge
+        val atGround = screenHeight - 110.0
+        val atRoof = 90.0 - Metrics.floorTop(top) * zoom
+        val phase = (1 - cos(2 * PI * seconds / period)) / 2
+        world.y = if (atRoof <= atGround) atGround else atGround + (atRoof - atGround) * phase
     }
 
     /** Moves the camera so that [loc] is in the middle of the screen. */
