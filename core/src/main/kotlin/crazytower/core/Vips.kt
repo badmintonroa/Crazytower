@@ -125,22 +125,26 @@ object Vips {
         val hotels = sim.tower.allRooms.count { it.type.role == RoomRole.HOTEL }
         val tidy = if (hotels == 0) 1f else 1f - sim.dirtyRooms.size.toFloat() / hotels
         val whim = (sim.random.nextFloat() * 2f - 1f) * WHIM
-        val score = (0.4f * tower + 0.3f * roomMood + 0.2f * travel + 0.1f * tidy + whim).coerceIn(0f, 1f)
+        val score = (0.3f * tower + 0.2f * roomMood + 0.4f * travel + 0.1f * tidy + whim).coerceIn(0f, 1f)
         // the worst part, weighted like the score
         val complaint = listOf(
-            0.4f * (1f - tower) to tr("Die Laune im Turm ist im Keller.", "The mood in the tower is rock bottom."),
-            0.3f * (1f - roomMood) to tr("Bei ${room?.tenant?.name ?: "den Mietern"} herrscht dicke Luft.", "There is tension in the air at ${room?.tenant?.name ?: "the tenants"}."),
-            0.2f * (1f - travel) to tr("Der Weg nach oben hat ewig gedauert.", "The way up took forever."),
+            0.3f * (1f - tower) to tr("Die Laune im Turm ist im Keller.", "The mood in the tower is rock bottom."),
+            0.2f * (1f - roomMood) to tr("Bei ${room?.tenant?.name ?: "den Mietern"} herrscht dicke Luft.", "There is tension in the air at ${room?.tenant?.name ?: "the tenants"}."),
+            0.4f * (1f - travel) to tr("Der Weg nach oben hat ewig gedauert.", "The way up took forever."),
             0.1f * (1f - tidy) to tr("Überall ungeputzte Hotelzimmer.", "Dirty hotel rooms everywhere."),
         ).maxBy { it.first }.takeIf { it.first > 0.05f }?.second
         return VipVerdict(score, complaint)
     }
 
-    /** A happy VIP leaves thousands per star, an unhappy one a little change. */
-    fun tip(stars: Int, verdict: VipVerdict, random: kotlin.random.Random): Long {
+    /**
+     * A happy VIP leaves thousands per star, or a share of what the tower earned [yesterday] if
+     * that is more, so she still matters in a big tower. An unhappy one leaves a little change.
+     */
+    fun tip(stars: Int, verdict: VipVerdict, random: kotlin.random.Random, yesterday: Long = 0): Long {
         val s = stars.coerceAtLeast(1)
         return if (verdict.happy) {
-            (TIP_PER_STAR * s * (0.5 + verdict.score)).toLong() / 100 * 100
+            val base = maxOf(TIP_PER_STAR * s, (yesterday * TIP_SHARE).toLong())
+            (base * (0.5 + verdict.score)).toLong() / 100 * 100
         } else {
             1L + random.nextLong(STINGY_PER_STAR * s)
         }
@@ -175,9 +179,11 @@ object Vips {
     /** From this score on a VIP is happy and generous. */
     const val HAPPY_SCORE = 0.6f
     const val TIP_PER_STAR = 6_000L
+    /** Share of the day's income a happy VIP leaves in a big tower. */
+    const val TIP_SHARE = 0.15
     const val STINGY_PER_STAR = 30L
     const val QUICK_MINUTES = 15.0
-    const val SLOW_MINUTES = 75.0
+    const val SLOW_MINUTES = 90.0
     const val WHIM = 0.1f
 }
 

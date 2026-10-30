@@ -9,6 +9,7 @@ Voraussetzung: JDK 21.
 ```bash
 ./gradlew :game:run          # Spiel starten
 ./gradlew :core:test         # Simulations-Tests
+./gradlew :core:playthrough --args="49 42"   # Bot spielt 49 Tage mit Seed 42 und protokolliert jeden Tag
 ```
 
 ## Startbildschirm
@@ -55,8 +56,9 @@ Jede Figur ist eine Entität mit `Position` und `Goal`. Das `PathfindingSystem` 
 ## Tagesablauf und Wirtschaft (ab M5)
 
 - Jeder Mieter bringt Leute mit (Büro 6, Wohnung 3, Imbiss 3). Sie haben eine Schicht: Tag (9–17), Spät (14–22) oder Nacht (22–6). Angestellte kommen zur Schicht, Bewohner sind während ihrer Schicht unterwegs und sonst zu Hause. Büros haben am Wochenende zu.
-- Mittag- und Abendessen gibt es im nächsten Imbiss, das bringt Umsatz und gute Laune. Lange Wartezeiten am Aufzug und unerreichbare Ziele drücken die Laune.
-- Um Mitternacht: Miete rein (halbe Miete bei schlechter Laune), Unterhalt raus, sehr unzufriedene Mieter ziehen aus, die Sterne werden neu vergeben.
+- Laune: Ohne Extras pendelt sie sich bei 55 % ein. Wer heute oder gestern im Imbiss gegessen hat, landet 15 Punkte höher, der Kopierraum gibt Büroleuten 5 Punkte, der Ufo-Landeplatz allen 3. Lange Wartezeiten am Aufzug und unerreichbare Ziele drücken sie für eine Weile. Die Sterne 3, 4 und 5 brauchen 60, 64 und 68 % Laune, und solange die Laune darunter liegt, ziehen jede Nacht die unzufriedensten Mieter aus.
+- Um Mitternacht: Miete rein (halbe Miete bei schlechter Laune), Unterhalt raus, sehr unzufriedene Mieter ziehen aus und nennen dabei den echten Grund (Aufzug, kein Weg, kein Essen), die Sterne werden neu vergeben.
+- Geld: Miete und Gebühren steigen um 10 % pro Stern. Vermietete Büros und Imbisse kosten jeden Tag 15 % ihrer Grundmiete an Betriebskosten, auch am Wochenende. Ein normales Büro kostet ab 3 Sternen mehr (18.000, 24.000, 30.000 $), der Abriss erstattet ein Viertel dessen, was es beim Bau gekostet hat.
 - Tag und Nacht: Himmel und Räume wechseln mit der Uhrzeit (Nacht-Atlas), unzufriedene Räume verwahrlosen sichtbar (Rundown-Atlas).
 
 ## Stufen, Ereignisse, Spielstand (ab M6)
@@ -65,7 +67,7 @@ Jede Figur ist eine Entität mit `Position` und `Goal`. Das `PathfindingSystem` 
 | --- | --- | --- | --- | --- |
 | 1 | Bruchbude | 10 | Start | Wege, Büros, Wohnungen, Imbiss |
 | 2 | Hochhaus | 25 | 300 Bewohner | Kopierraum der Ewigkeit |
-| 3 | Wolkenkratzer | 50 | 1.000 Bewohner, Laune 60 % | Sicherheitsdienst |
+| 3 | Wolkenkratzer | 50 | 1.000 Bewohner, Laune 65 % | Sicherheitsdienst |
 | 4 | Mega-Tower | 75 | 3.000 Bewohner, Sicherheitsdienst | Teleporter |
 | 5 | CrazyTower | 100 | 6.000 Bewohner, VIP-Besuch überlebt | Ufo-Landeplatz |
 
@@ -73,6 +75,6 @@ Jede Stufe hat eine eigene Lobby-Grafik. Zur vollen Stunde kann etwas Absurdes p
 
 ### VIP-Besuche
 
-Ab 3 Sternen schauen ab und zu VIPs vorbei (zwischen 9 und 19 Uhr, höchstens alle 12 Stunden, mit jedem Stern öfter): Baron von Goldzahn, Zirkusdirektor Tröt-Maximus, Graf Zahlula, ab 4 Sternen Dr. Dividende, Dr. Hämisch und Prof. Morgen, ab 5 Sternen Botschafter Zorg. Dazu kommen erfundene deutsche Streamer, die unterwegs live gehen und ein paar Fans mitbringen: xXBerndZocktXx, ASMR-Annika und Vlog-Vanessa, ab 4 Sternen Speedrun-Sören und Mukbang-Mehmet, ab 5 Sternen Oma Gisela Gaming. Sie besuchen einen vermieteten Raum, am liebsten ihre Lieblingsmieter (Zahlula die Vampir-Versicherung, Tröt-Maximus die Clowns). Am Ziel urteilen sie über die Laune im Turm, die Laune im besuchten Raum, wie lange der Weg gedauert hat und wie sauber die Hotelzimmer sind. Gefällt es ihnen, lassen sie ein dickes Trinkgeld da (6.000 $ pro Stern und mehr), sonst nur Kleingeld und eine Beschwerde im Ticker, die verrät, was gestört hat. Das Trinkgeld steht im Finanzfenster unter „VIP-Trinkgeld“ (`core/.../Vips.kt`).
+Ab 3 Sternen schauen ab und zu VIPs vorbei (zwischen 9 und 19 Uhr, höchstens alle 12 Stunden, mit jedem Stern öfter): Baron von Goldzahn, Zirkusdirektor Tröt-Maximus, Graf Zahlula, ab 4 Sternen Dr. Dividende, Dr. Hämisch und Prof. Morgen, ab 5 Sternen Botschafter Zorg. Dazu kommen erfundene deutsche Streamer, die unterwegs live gehen und ein paar Fans mitbringen: xXBerndZocktXx, ASMR-Annika und Vlog-Vanessa, ab 4 Sternen Speedrun-Sören und Mukbang-Mehmet, ab 5 Sternen Oma Gisela Gaming. Sie besuchen einen vermieteten Raum, am liebsten ihre Lieblingsmieter (Zahlula die Vampir-Versicherung, Tröt-Maximus die Clowns). Am Ziel urteilen sie über die Laune im Turm, die Laune im besuchten Raum, wie lange der Weg gedauert hat und wie sauber die Hotelzimmer sind. Der Weg zählt dabei am meisten: ab 90 Minuten gibt es dafür keine Punkte mehr. Gefällt es ihnen, lassen sie ein dickes Trinkgeld da (6.000 $ pro Stern oder 15 % der gestrigen Tageseinnahmen, was mehr ist), sonst nur Kleingeld und eine Beschwerde im Ticker, die verrät, was gestört hat. Das Trinkgeld steht im Finanzfenster unter „VIP-Trinkgeld“ (`core/.../Vips.kt`).
 
 `F5` speichert, `F9` lädt (`~/.crazytower/spielstand.json`).

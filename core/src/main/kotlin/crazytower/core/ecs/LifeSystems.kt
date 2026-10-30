@@ -59,6 +59,7 @@ class ScheduleSystem(
                 sim.goTo(entity, sim.spotIn(food), Activity.TO_MEAL)
                 return
             }
+            if (schedule.grievance == null) schedule.grievance = Grievance.NO_FOOD
         }
         val atRoom = pos.floor == room.floor && pos.x >= room.x && pos.x <= room.right
         if (!atRoom) {
@@ -66,8 +67,11 @@ class ScheduleSystem(
             return
         }
         // At the room: stay a while, now and then shuffle to another spot or visit the corridor.
+        // Meanwhile the mood settles towards what the tower offers them: a long wait drags it
+        // down for a while, a meal and the special rooms lift what it settles to.
         schedule.activity = Activity.AT_ROOM
-        schedule.mood = (schedule.mood + 0.4f).coerceAtMost(MOOD_CEILING)
+        schedule.mood += (sim.moodTarget(schedule, member.resident) - schedule.mood) * MOOD_SETTLE
+        if (schedule.mood >= MOOD_BASE) schedule.grievance = null
         when (sim.random.nextInt(10)) {
             0 -> sim.goTo(entity, sim.spotIn(room), Activity.WANDERING)
             else -> entity.configure { it += Idle(clock.totalMinutes + 15 + sim.random.nextInt(45)) }
@@ -75,8 +79,11 @@ class ScheduleSystem(
     }
 
     companion object {
-        /** Staying at the room slowly calms people down, but never above this. */
-        const val MOOD_CEILING = 80f
+        /** The mood people settle to at their room when the tower offers them nothing. */
+        const val MOOD_BASE = 55f
+
+        /** Share of the way to the mood they settle to, on each look around the room. */
+        const val MOOD_SETTLE = 0.1f
 
         /** Ticks between two looks at the clock for people outside the tower (ten ticks are a game minute). */
         const val AWAY_CHECK_TICKS = 10

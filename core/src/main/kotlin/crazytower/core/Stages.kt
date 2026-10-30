@@ -26,7 +26,7 @@ object Stages {
         StageInfo(2, Tr("Hochhaus", "High-Rise"), maxFloor = 25, requirement = Tr("300 Bewohner", "300 residents"), population = 300,
             lobbyArt = "lobby_stage2_hochhaus",
             unlocks = Tr("Neu: der Kopierraum der Ewigkeit. Wer reingeht, kommt mit 400 Kopien wieder raus.", "New: the Copy Room of Eternity. Whoever goes in comes out with 400 copies.")),
-        StageInfo(3, Tr("Wolkenkratzer", "Skyscraper"), maxFloor = 50, requirement = Tr("1.000 Bewohner, Laune 60 %", "1,000 residents, 60 % mood"), population = 1_000,
+        StageInfo(3, Tr("Wolkenkratzer", "Skyscraper"), maxFloor = 50, requirement = Tr("1.000 Bewohner, Laune ${STAGE3_MOOD.toInt()} %", "1,000 residents, ${STAGE3_MOOD.toInt()} % mood"), population = 1_000,
             lobbyArt = "lobby_stage3_wolkenkratzer",
             unlocks = Tr("Neu: Sicherheitsdienst. Die Herren tragen Sonnenbrillen. Auch nachts.", "New: security. The gentlemen wear sunglasses. At night too.")),
         StageInfo(4, Tr("Mega-Tower", "Mega Tower"), maxFloor = 75, requirement = Tr("3.000 Bewohner, Sicherheitsdienst", "3,000 residents, security"), population = 3_000,
@@ -36,6 +36,9 @@ object Stages {
             lobbyArt = "lobby_stage5_crazytower",
             unlocks = Tr("Neu: Ufo-Landeplatz. Die Botschaft von Gliese 581 hat schon angefragt.", "New: UFO landing pad. The Embassy of Gliese 581 has already asked.")),
     )
+
+    /** The mood stage 3 asks for. */
+    const val STAGE3_MOOD = 65f
 
     /** The highest stage. */
     val last: Int get() = all.last().number
@@ -47,7 +50,7 @@ object Stages {
         val info = info(stage)
         if (sim.population < info.population) return false
         return when (stage) {
-            3 -> sim.satisfaction >= 60f
+            3 -> sim.satisfaction >= STAGE3_MOOD
             4 -> sim.tower.allRooms.any { it.type.role == RoomRole.SECURITY }
             5 -> sim.vipSurvived
             else -> true

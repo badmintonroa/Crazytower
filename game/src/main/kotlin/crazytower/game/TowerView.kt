@@ -684,7 +684,7 @@ class TowerView(
                     val check = sim.checkPlace(tool.type, h.floor, x)
                     showGhost(listOf(Ghost(h.floor, x, tool.type.width)), if (check.ok) Theme.SELECT else Theme.ALARM, 0.2)
                     ghostInfo = if (check.ok) {
-                        "${tool.type.name} · ${formatMoney(tool.type.cost)} · " + tr("Klicken zum Bauen", "Click to build") to true
+                        "${tool.type.name} · ${formatMoney(sim.priceAt(tool.type, h.floor, x))} · " + tr("Klicken zum Bauen", "Click to build") to true
                     } else {
                         check.reason to false
                     }

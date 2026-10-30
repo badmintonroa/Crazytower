@@ -15,12 +15,16 @@ object RoomProblems {
 
     /**
      * What keeps tenants out of [room], or null if it is just a matter of time.
-     * Expects an empty rentable room; the way there is looked up, so call it sparingly.
+     * Expects an empty rentable room. [minutes] is the way from the street; looking it up is a
+     * search, so for many rooms pass it from [crazytower.core.nav.NavGraph.travelMinutesFrom].
      */
-    fun of(sim: Simulation, room: Room): RoomProblem? {
+    fun of(
+        sim: Simulation,
+        room: Room,
         // people come in from whichever end of the street is closer
-        val street = sim.streetExit(room.centerX)
-        val minutes = sim.nav.travelMinutes(street, room.center)
+        street: Loc = sim.streetExit(room.centerX),
+        minutes: Float? = sim.nav.travelMinutes(street, room.center),
+    ): RoomProblem? {
         return when {
             minutes == null && !sim.nav.hasLinksNear(room.center) -> RoomProblem(
                 Tr("Kein Weg hierher", "No way here"),

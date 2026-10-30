@@ -126,6 +126,72 @@ class NavGraph(private val tower: Tower, private val providers: List<LinkProvide
     fun travelMinutes(from: Loc, to: Loc): Float? = findPath(from, to)?.let { lastCost }
 
     /**
+     * [travelMinutes] from [from] to many goals with one search instead of one per goal: the
+     * returned function answers for any goal. Use it right away, it does not notice when the
+     * tower changes or the queues move.
+     */
+    fun travelMinutesFrom(from: Loc): (Loc) -> Float? {
+        val started = System.nanoTime()
+        try {
+            ensureBuilt()
+            val startKey = spanKey(from) ?: return { null }
+            val reached = explore(from, startKey)
+            return { to ->
+                val goalKey = spanKey(to)
+                when (goalKey) {
+                    null -> null
+                    startKey -> walkCost(from.x, to.x)
+                    else -> nodesBySpan[goalKey].orEmpty().minOfOrNull { reached[it.id] + walkCost(it.loc.x, to.x) }?.takeIf { it.isFinite() }
+                }
+            }
+        } finally {
+            searchNanos += System.nanoTime() - started
+            searches++
+        }
+    }
+
+    /** Dijkstra from [from] to every node; the cheapest cost per node, infinite where there is no way. */
+    private fun explore(from: Loc, startKey: Long): FloatArray {
+        if (++generation == Int.MAX_VALUE) {
+            seen.fill(0); closed.fill(0); generation = 1
+        }
+        val gen = generation
+        open.clear()
+        fun relax(state: Int, cost: Float) {
+            if (seen[state] != gen || cost < best[state]) {
+                seen[state] = gen
+                best[state] = cost
+                open.push(state, cost)
+            }
+        }
+        for (n in nodesBySpan[startKey].orEmpty()) relax(n.id * CLIMBS, walkCost(from.x, n.loc.x))
+        val reached = FloatArray(nodes.size) { Float.POSITIVE_INFINITY }
+        while (open.isNotEmpty()) {
+            val current = open.pop()
+            if (closed[current] == gen) continue
+            closed[current] = gen
+            val cost = best[current]
+            val nodeId = current / CLIMBS
+            if (cost < reached[nodeId]) reached[nodeId] = cost
+            val climbed = current % CLIMBS
+            for (e in outStart[nodeId] until outStart[nodeId + 1]) {
+                val link = outLink[e]
+                val next = outTo[e]
+                val leg = link.leg
+                val nowClimbed = if (leg is Leg.Stairs) climbed + abs(leg.toFloor - leg.fromFloor) else 0
+                if (nowClimbed > NavCosts.MAX_STAIRS_FLOORS) continue
+                val arrival = nodes[next]
+                val afterLink = cost + link.cost()
+                relax(next * CLIMBS + nowClimbed, afterLink)
+                for (other in peers[next]) {
+                    if (other != next && other != nodeId) relax(other * CLIMBS + nowClimbed, afterLink + walkCost(arrival.loc.x, nodes[other].loc.x))
+                }
+            }
+        }
+        return reached
+    }
+
+    /**
      * Whether [to] could be reached from [from] if people climbed any number of stairs, for
      * telling the player why [findPath] found nothing.
      */
