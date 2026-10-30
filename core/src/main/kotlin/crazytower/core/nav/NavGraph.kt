@@ -2,7 +2,6 @@ package crazytower.core.nav
 
 import crazytower.core.Loc
 import crazytower.core.Tower
-import java.util.PriorityQueue
 import kotlin.math.abs
 import kotlin.math.floor
 
@@ -32,21 +31,45 @@ class NavGraph(private val tower: Tower, private val providers: List<LinkProvide
 
     private var builtVersion = -1
     private val nodes = ArrayList<Node>()
-    private val outgoing = HashMap<Int, MutableList<Pair<Int, Link>>>()
     private val nodesBySpan = HashMap<Long, MutableList<Node>>()
     private val spansByFloor = HashMap<Int, List<IntRange>>()
+
+    // The graph again in flat arrays, so the search does without maps and boxed numbers.
+    // Links leaving node n are outTo/outLink[outStart[n] until outStart[n + 1]].
+    private var outStart = IntArray(1)
+    private var outTo = IntArray(0)
+    private var outLink = emptyArray<Link>()
+
+    /** For every node, the other nodes in its walkable span. */
+    private var peers = emptyArray<IntArray>()
 
     private fun ensureBuilt() {
         if (builtVersion == tower.version) return
         builtVersion = tower.version
-        nodes.clear(); outgoing.clear(); nodesBySpan.clear(); spansByFloor.clear()
+        nodes.clear(); nodesBySpan.clear(); spansByFloor.clear()
+        val edges = ArrayList<Triple<Int, Int, Link>>()
         for (provider in providers) {
             for (link in provider.links(tower)) {
                 val a = nodeFor(link.from) ?: continue
                 val b = nodeFor(link.to) ?: continue
-                outgoing.getOrPut(a.id) { ArrayList() } += b.id to link
+                edges += Triple(a.id, b.id, link)
             }
         }
+        // order by start node, keeping the providers' order within a node
+        edges.sortBy { it.first }
+        outStart = IntArray(nodes.size + 1)
+        for ((a, _, _) in edges) outStart[a + 1]++
+        for (i in 1..nodes.size) outStart[i] += outStart[i - 1]
+        outTo = IntArray(edges.size) { edges[it].second }
+        outLink = Array(edges.size) { edges[it].third }
+        peers = Array(nodes.size) { n -> nodesBySpan.getValue(nodes[n].spanKey).map { it.id }.toIntArray() }
+        val states = nodes.size * CLIMBS + 1
+        best = FloatArray(states)
+        cameFrom = IntArray(states)
+        cameBy = arrayOfNulls(states)
+        seen = IntArray(states)
+        closed = IntArray(states)
+        generation = 0
     }
 
     private fun spans(floor: Int) = spansByFloor.getOrPut(floor) { tower.walkableSpans(floor) }
@@ -74,6 +97,12 @@ class NavGraph(private val tower: Tower, private val providers: List<LinkProvide
         return spanKey(loc) != null
     }
 
+    /** Nanoseconds spent in [findPath] and how many searches there were, for the profiler. */
+    var searchNanos: Long = 0
+        private set
+    var searches: Long = 0
+        private set
+
     /**
      * Finds the cheapest route from [from] to [to], or null if there is none.
      * The result never contains a zero-length walk. Nobody climbs more than
@@ -81,72 +110,96 @@ class NavGraph(private val tower: Tower, private val providers: List<LinkProvide
      * between lets them catch their breath.
      */
     fun findPath(from: Loc, to: Loc): List<Leg>? {
+        val started = System.nanoTime()
+        try {
+            return search(from, to)
+        } finally {
+            searchNanos += System.nanoTime() - started
+            searches++
+        }
+    }
+
+    // Search state, reused between searches. A state is a node plus the floors climbed on foot
+    // since the last ride: node * CLIMBS + climbed; the last state stands for the goal. An entry
+    // only counts when its [seen] stamp is the current [generation], so nothing has to be cleared.
+    private var best = FloatArray(1)
+    private var cameFrom = IntArray(1) // previous state, or START
+    private var cameBy = arrayOfNulls<Link>(1) // link used to get here, null for walking
+    private var seen = IntArray(1)
+    private var closed = IntArray(1)
+    private var generation = 0
+    private val open = StateHeap()
+
+    private fun search(from: Loc, to: Loc): List<Leg>? {
         ensureBuilt()
         val startKey = spanKey(from) ?: return null
         val goalKey = spanKey(to) ?: return null
         if (startKey == goalKey) return listOfNotNull(walk(from, to.x))
 
-        // A search state is a node plus the floors climbed on foot since the last ride.
-        // Node ids >= 0 are graph nodes; GOAL is a virtual node standing for `to`.
-        val climbs = NavCosts.MAX_STAIRS_FLOORS + 1
-        fun state(node: Int, climbed: Int) = node * climbs + climbed
-        fun nodeOf(state: Int) = state / climbs
-        fun climbedOf(state: Int) = state % climbs
-        val goal = -1
-        val start = -2
-        val best = HashMap<Int, Float>()
-        val cameFrom = HashMap<Int, Pair<Int, Link?>>() // state -> (previous state or START, link used)
-        val open = PriorityQueue<Pair<Int, Float>>(compareBy { it.second })
+        val goal = nodes.size * CLIMBS
+        if (++generation == Int.MAX_VALUE) {
+            seen.fill(0); closed.fill(0); generation = 1
+        }
+        val gen = generation
+        open.clear()
 
-        fun h(loc: Loc) = abs(loc.floor - to.floor) * NavCosts.FASTEST_PER_FLOOR
-        fun relax(state: Int, previous: Int, link: Link?, cost: Float, loc: Loc) {
-            if (cost < (best[state] ?: Float.MAX_VALUE)) {
+        fun h(floor: Int) = abs(floor - to.floor) * NavCosts.FASTEST_PER_FLOOR
+        fun relax(state: Int, previous: Int, link: Link?, cost: Float, floor: Int) {
+            if (seen[state] != gen || cost < best[state]) {
+                seen[state] = gen
                 best[state] = cost
-                cameFrom[state] = previous to link
-                open += state to cost + h(loc)
+                cameFrom[state] = previous
+                cameBy[state] = link
+                open.push(state, cost + h(floor))
             }
         }
 
-        for (n in nodesBySpan[startKey].orEmpty()) relax(state(n.id, 0), start, null, walkCost(from.x, n.loc.x), n.loc)
+        for (n in nodesBySpan[startKey].orEmpty()) relax(n.id * CLIMBS, START, null, walkCost(from.x, n.loc.x), n.loc.floor)
 
         while (open.isNotEmpty()) {
-            val (current, _) = open.poll()
+            val current = open.pop()
             if (current == goal) break
-            val cost = best.getValue(current)
-            val node = nodes[nodeOf(current)]
-            val climbed = climbedOf(current)
-            if (node.spanKey == goalKey) relax(goal, current, null, cost + walkCost(node.loc.x, to.x), to)
-            for ((next, link) in outgoing[node.id].orEmpty()) {
+            if (closed[current] == gen) continue // already expanded with a better cost
+            closed[current] = gen
+            val cost = best[current]
+            val nodeId = current / CLIMBS
+            val node = nodes[nodeId]
+            val climbed = current % CLIMBS
+            if (node.spanKey == goalKey) relax(goal, current, null, cost + walkCost(node.loc.x, to.x), to.floor)
+            for (e in outStart[nodeId] until outStart[nodeId + 1]) {
+                val link = outLink[e]
+                val next = outTo[e]
                 val leg = link.leg
                 val nowClimbed = if (leg is Leg.Stairs) climbed + abs(leg.toFloor - leg.fromFloor) else 0
                 if (nowClimbed > NavCosts.MAX_STAIRS_FLOORS) continue
                 val arrival = nodes[next]
                 val afterLink = cost + link.cost()
-                val arrived = state(next, nowClimbed)
-                relax(arrived, current, link, afterLink, arrival.loc)
+                val arrived = next * CLIMBS + nowClimbed
+                relax(arrived, current, link, afterLink, arrival.loc.floor)
                 // walking from the arrival point to the other nodes of that span
-                for (other in nodesBySpan[arrival.spanKey].orEmpty()) {
-                    if (other.id != next && other.id != node.id) {
-                        relax(state(other.id, nowClimbed), arrived, null, afterLink + walkCost(arrival.loc.x, other.loc.x), other.loc)
+                for (other in peers[next]) {
+                    if (other != next && other != nodeId) {
+                        val loc = nodes[other].loc
+                        relax(other * CLIMBS + nowClimbed, arrived, null, afterLink + walkCost(arrival.loc.x, loc.x), loc.floor)
                     }
                 }
             }
         }
-        if (goal !in cameFrom) return null
+        if (seen[goal] != gen) return null
 
         // Rebuild the chain of states, then turn it into legs.
-        val chain = ArrayList<Pair<Int, Link?>>()
+        val chain = ArrayList<Int>()
         var cursor = goal
-        while (cursor != start) {
-            val (previous, link) = cameFrom.getValue(cursor)
-            chain += cursor to link
-            cursor = previous
+        while (cursor != START) {
+            chain += cursor
+            cursor = cameFrom[cursor]
         }
         chain.reverse()
         val legs = ArrayList<Leg>()
         var position = from
-        for ((state, link) in chain) {
-            val loc = if (state == goal) to else nodes[nodeOf(state)].loc
+        for (state in chain) {
+            val loc = if (state == goal) to else nodes[state / CLIMBS].loc
+            val link = cameBy[state]
             if (link != null) {
                 legs += link.leg
             } else {
@@ -161,4 +214,58 @@ class NavGraph(private val tower: Tower, private val providers: List<LinkProvide
         if (abs(from.x - toX) < 0.01f) null else Leg.Walk(from.floor, toX)
 
     private fun walkCost(fromX: Float, toX: Float) = abs(fromX - toX) / NavCosts.WALK_SPEED
+
+    private companion object {
+        const val CLIMBS = NavCosts.MAX_STAIRS_FLOORS + 1
+        const val START = -1
+    }
+}
+
+/** A binary min-heap of search states by priority, without boxing. */
+private class StateHeap {
+    private var states = IntArray(256)
+    private var priorities = FloatArray(256)
+    private var size = 0
+
+    fun clear() { size = 0 }
+    fun isNotEmpty() = size > 0
+
+    fun push(state: Int, priority: Float) {
+        if (size == states.size) {
+            states = states.copyOf(size * 2)
+            priorities = priorities.copyOf(size * 2)
+        }
+        var i = size++
+        while (i > 0) {
+            val parent = (i - 1) / 2
+            if (priorities[parent] <= priority) break
+            states[i] = states[parent]
+            priorities[i] = priorities[parent]
+            i = parent
+        }
+        states[i] = state
+        priorities[i] = priority
+    }
+
+    fun pop(): Int {
+        val top = states[0]
+        size--
+        if (size > 0) {
+            val state = states[size]
+            val priority = priorities[size]
+            var i = 0
+            while (true) {
+                var child = 2 * i + 1
+                if (child >= size) break
+                if (child + 1 < size && priorities[child + 1] < priorities[child]) child++
+                if (priorities[child] >= priority) break
+                states[i] = states[child]
+                priorities[i] = priorities[child]
+                i = child
+            }
+            states[i] = state
+            priorities[i] = priority
+        }
+        return top
+    }
 }

@@ -209,16 +209,58 @@ class TowerView(
     /** Mirrors the simulation into views. Called once per frame with the real seconds since the last one. */
     fun sync(dtSeconds: Double = 0.0) {
         val dark = DayLight.isDark(sim.clock.minuteOfDay)
+        var t = System.nanoTime()
+        fun lap(part: Int) {
+            val now = System.nanoTime()
+            partNanos[part] = now - t
+            t = now
+        }
         if (drawnVersion != sim.tower.version || drawnLooks != sim.looksVersion || drawnDark != dark || ++artCheck % 60 == 0) {
             drawnDark = dark
             rebuildRooms()
         }
         if (drawnLot != sim.lotWidth) drawLot()
         syncSky()
+        cull()
+        lap(0)
         syncCars()
+        lap(1)
         syncPeople()
+        lap(2)
         syncOverlay()
         syncMoney(dtSeconds)
+        lap(3)
+    }
+
+    /** Floors on screen, with one floor to spare above and below. */
+    private var shownFloors = IntRange.EMPTY
+    private var culledVersion = -1
+
+    /**
+     * KorGE draws every visible view, on screen or not. A full tower has thousands of rooms and
+     * people, so everything outside the floors on screen is switched off.
+     */
+    private fun cull() {
+        val top = -world.y / zoom
+        val bottom = (screenHeight - world.y) / zoom
+        val floors = (floor(-bottom / Metrics.FLOOR).toInt() - 1)..(floor(-top / Metrics.FLOOR).toInt() + 1)
+        if (floors == shownFloors && culledVersion == drawnRoomsVersion) return
+        shownFloors = floors
+        culledVersion = drawnRoomsVersion
+        for ((id, view) in roomViews) view.visible = (roomFloors[id] ?: 0) in floors
+    }
+
+    /** Nanoseconds of the last [sync], per part in [PARTS], for the debug overlay. */
+    val partNanos = LongArray(PARTS.size)
+
+    /** People drawn in the last frame. */
+    var peopleShown = 0
+        private set
+
+    val roomCount: Int get() = roomViews.size
+
+    companion object {
+        val PARTS = listOf("Räume", "Aufzüge", "Leute", "Rest")
     }
 
     private class Floater(val view: Text, var age: Double)
@@ -251,7 +293,14 @@ class TowerView(
         }
     }
 
+    /** Floor of every room view, for [cull]. */
+    private val roomFloors = HashMap<Int, Int>()
+
+    /** Counts up whenever room views were made or thrown away. */
+    private var drawnRoomsVersion = 0
+
     private fun rebuildRooms() {
+        drawnRoomsVersion++
         drawnVersion = sim.tower.version
         drawnLooks = sim.looksVersion
         val alive = sim.tower.allRooms.associateBy { it.id }
@@ -263,6 +312,7 @@ class TowerView(
                 roomViews.remove(room.id)?.removeFromParent()
                 roomViews[room.id] = createRoomView(room)
                 roomArt[room.id] = art
+                roomFloors[room.id] = room.floor
             }
         }
     }
@@ -369,6 +419,7 @@ class TowerView(
     }
 
     private fun syncPeople() {
+        peopleShown = 0
         val seen = HashSet<Int>()
         val queues = elevatorQueues()
         val family = sim.world.family { all(Person, Position) }
@@ -378,6 +429,11 @@ class TowerView(
             seen += entity.id
             val view = personViews.getOrPut(entity.id) {
                 peopleLayer.image(assets.person(person.look, 0), Anchor.BOTTOM_CENTER) { smoothing = false }
+            }
+            // off screen: not drawn, and not worth placing either
+            if (pos.floor !in shownFloors) {
+                view.visible = false
+                return@forEach
             }
             val moving = entity has Route
             val frame = if (moving) 1 + (floor(pos.x * 3).toInt() and 1) else 0
@@ -404,6 +460,7 @@ class TowerView(
             // with a thinner crowd only every second or fourth person is drawn, but never the selected one
             val shown = (entity.id % 4) < Options.current.crowd * 4 || (game.selection as? Selection.PersonSel)?.entity == entity
             view.visible = shown && PeopleVisibility.isVisible(sim, entity)
+            if (view.visible) peopleShown++
         }
         personViews.keys.filter { it !in seen }.forEach { personViews.remove(it)?.removeFromParent() }
     }

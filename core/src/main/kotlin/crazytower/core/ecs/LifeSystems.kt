@@ -17,7 +17,16 @@ import crazytower.core.Simulation
 class ScheduleSystem(
     private val sim: Simulation = inject(),
 ) : IteratingSystem(family { all(Member, Schedule, Position).none(Goal, Route, Idle, Riding, Stuck) }) {
+    private var tick = 0
+
+    override fun onTick() {
+        tick++
+        super.onTick()
+    }
+
     override fun onTickEntity(entity: Entity) {
+        // people outside look at the clock once a game minute, not every tick: there are thousands of them
+        if (entity has Away && (tick + entity.id) % AWAY_CHECK_TICKS != 0) return
         val member = entity[Member]
         val schedule = entity[Schedule]
         val room = sim.tower.room(member.roomId)
@@ -68,6 +77,9 @@ class ScheduleSystem(
     companion object {
         /** Staying at the room slowly calms people down, but never above this. */
         const val MOOD_CEILING = 80f
+
+        /** Ticks between two looks at the clock for people outside the tower (ten ticks are a game minute). */
+        const val AWAY_CHECK_TICKS = 10
     }
 }
 

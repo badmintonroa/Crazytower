@@ -71,8 +71,14 @@ class ElevatorSystem(
 ) : IteratingSystem(family { all(Position, Route).none(Riding) }) {
     private val elevators get() = sim.elevators
 
+    /** The cars by id for this tick, so the people at the doors find theirs without a map lookup. */
+    private var carById = arrayOfNulls<Car>(0)
+
     override fun onTick() {
         elevators.sync()
+        val cars = elevators.cars.values
+        carById = arrayOfNulls((cars.maxOfOrNull { it.id } ?: 0) + 1)
+        for (car in cars) carById[car.id] = car
         for (car in elevators.removed) dropEveryone(car)
         elevators.removed.clear()
         for (car in elevators.cars.values) car.waiting.clear()
@@ -86,7 +92,7 @@ class ElevatorSystem(
     override fun onTickEntity(entity: Entity) {
         // the family can hand out somebody whose route was just taken away; they plan again
         val leg = entity.getOrNull(Route)?.legs?.firstOrNull() as? Leg.Ride ?: return
-        val car = elevators.cars[leg.shaftId]
+        val car = carById.getOrNull(leg.shaftId)
         if (car == null || leg.fromFloor !in car.floors || leg.toFloor !in car.floors) {
             entity.configure { drop(it, Route) } // plan again
             return

@@ -2,6 +2,7 @@ package crazytower.core
 
 import com.github.quillraven.fleks.Entity
 import com.github.quillraven.fleks.World
+import com.github.quillraven.fleks.World.Companion.family
 import com.github.quillraven.fleks.configureWorld
 import crazytower.core.ecs.Activity
 import crazytower.core.ecs.Away
@@ -78,8 +79,26 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
 
     val starBonus: Double get() = 1.0 + 0.2 * (stars - 1).coerceAtLeast(0)
 
+    /** Who belongs to which room, kept up to date by the family hooks below, so asking is cheap. */
+    private val roomMembers = HashMap<Int, MutableList<Entity>>()
+    private val memberRoom = HashMap<Entity, Int>()
+
     val world: World = configureWorld(entityCapacity = 2048) {
         injectables { add(this@Simulation) }
+        families {
+            val members = family { all(Member) }
+            onAdd(members) { entity ->
+                val roomId = entity[Member].roomId
+                memberRoom[entity] = roomId
+                roomMembers.getOrPut(roomId) { ArrayList() } += entity
+            }
+            onRemove(members) { entity ->
+                val roomId = memberRoom.remove(entity) ?: return@onRemove
+                val list = roomMembers[roomId] ?: return@onRemove
+                list -= entity
+                if (list.isEmpty()) roomMembers.remove(roomId)
+            }
+        }
         systems {
             add(IdleSystem())
             add(TenantSystem())
@@ -96,13 +115,29 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         }
     }
 
+    /** Time per system, for the debug overlay. */
+    val profiler = Profiler(world.systems.map { it::class.simpleName.orEmpty().removeSuffix("System") }, nav)
+
+    init {
+        // the systems are run one by one in [step], so each can be timed
+        for (system in world.systems) system.enabled = false
+    }
+
     /** Advances the simulation by [minutes] game minutes in fixed steps. */
     fun step(minutes: Double) {
         var left = minutes
+        val systems = world.systems
+        val nanos = profiler.nanos
         while (left > 0) {
             val dt = minOf(left, STEP_MINUTES)
             clock.advance(dt)
-            world.update(dt.toFloat())
+            world.update(dt.toFloat()) // sets the delta time; every system is switched off there
+            for (i in systems.indices) {
+                val started = System.nanoTime()
+                systems[i].onUpdate()
+                nanos[i] += System.nanoTime() - started
+            }
+            profiler.ticks++
             left -= dt
         }
     }
@@ -393,11 +428,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     private val members = world.family { all(Member) }
 
     /** Everybody who belongs to [roomId]. */
-    fun membersOf(roomId: Int): List<Entity> {
-        val result = ArrayList<Entity>()
-        members.forEach { if (it[Member].roomId == roomId) result += it }
-        return result
-    }
+    fun membersOf(roomId: Int): List<Entity> = roomMembers[roomId]?.toList().orEmpty()
 
     private fun removeMembers(roomId: Int) = with(world) {
         for (e in membersOf(roomId)) e.remove()
@@ -405,8 +436,10 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
 
     /** Average mood of the members of [room], or null when nobody belongs to it. */
     fun moodOf(room: Room): Float? = with(world) {
-        val list = membersOf(room.id)
-        if (list.isEmpty()) null else list.map { it[Schedule].mood }.average().toFloat()
+        val list = roomMembers[room.id] ?: return@with null
+        var sum = 0.0
+        for (e in list) sum += e[Schedule].mood
+        (sum / list.size).toFloat()
     }
 
     /** Average mood of everybody in the tower, 0..100. */

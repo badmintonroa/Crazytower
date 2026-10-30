@@ -12,3 +12,9 @@ dependencies {
 }
 
 tasks.test { useJUnitPlatform() }
+
+// headless benchmark of the maximum test tower: ./gradlew :core:bench --args="24"
+tasks.register<JavaExec>("bench") {
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("crazytower.core.BenchmarkKt")
+}
