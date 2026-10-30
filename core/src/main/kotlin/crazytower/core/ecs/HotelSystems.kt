@@ -24,7 +24,7 @@ class HousekeepingSystem(
         if (untilCheck > 0f) return
         untilCheck = CHECK_EVERY
         // staff who went home or got sent elsewhere drop their job, so somebody else takes it
-        cleaners.forEach { if (it[Schedule].activity != Activity.TO_CLEAN) it.configure { e -> e -= Cleaning } }
+        cleaners.forEach { if (it[Schedule].activity != Activity.TO_CLEAN) it.configure { e -> drop(e, Cleaning) } }
         val dirty = sim.dirtyRooms.toMutableList()
         if (dirty.isEmpty()) return
         cleaners.forEach { e -> dirty.removeAll { it.id == e[Cleaning].roomId } }
@@ -36,7 +36,7 @@ class HousekeepingSystem(
                 val target = dirty.minBy { distance(service, it) }
                 dirty -= target
                 member.configure {
-                    it -= Idle
+                    drop(it, Idle)
                     it += Cleaning(target.id)
                 }
                 sim.goTo(member, sim.spotIn(target), Activity.TO_CLEAN)

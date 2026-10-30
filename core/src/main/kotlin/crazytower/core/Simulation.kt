@@ -761,7 +761,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
                 }
                 Activity.TO_CLEAN -> {
                     val target = entity.getOrNull(Cleaning)?.let { tower.room(it.roomId) }
-                    entity.configure { it -= Cleaning }
+                    entity.configure { drop(it, Cleaning) }
                     if (target != null && target.dirty) {
                         schedule.activity = Activity.CLEANING
                         entity.configure { it += Idle(clock.totalMinutes + CLEAN_MINUTES) }

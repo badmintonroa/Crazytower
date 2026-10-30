@@ -152,7 +152,7 @@ object TestTower {
     private fun moveEveryoneIn(sim: Simulation, stage: Int) {
         for (room in sim.tower.allRooms) {
             if (room.tenant != null || room.type.capacity == 0) continue
-            val candidates = Tenants.candidates(room.type.role, sim.stars, stage)
+            val candidates = Tenants.candidates(room.type, sim.stars, stage)
             if (candidates.isEmpty()) continue
             sim.moveIn(room, candidates[sim.random.nextInt(candidates.size)], announce = false)
             if (room.type.role == RoomRole.HOME) room.sold = true
