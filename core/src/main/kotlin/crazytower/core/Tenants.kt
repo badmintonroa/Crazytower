@@ -190,6 +190,10 @@ object Tenants {
         TenantKind("ghost", Tr("Ein freundliches Gespenst", "A Friendly Ghost"), RoomRole.HOME, "home_ghost", "npc_ghost",
             salePrice = 0, eventOnly = true, plan = plan(Tr("täglich 23–4 Uhr (Spuken)", "daily 11 pm–4 am (haunting)"), WorkPlan.DAILY, 23, 4), quirk = Tr("Zahlt keine Miete. Ist ja tot.", "Pays no rent. Being dead and all.")),
 
+        TenantKind("exchange", Tr("Austausch-Aliens von Gliese", "Exchange Aliens from Gliese"), RoomRole.HOME, "home_empty", "npc_alien",
+            salePrice = 0, eventOnly = true, plan = plan(Tr("täglich 10–16 Uhr (Erde besichtigen)", "daily 10 am–4 pm (sightseeing on Earth)"), WorkPlan.DAILY, 10, 16),
+            quirk = Tr("Halten den Kühlschrank für ein Raumschiff.", "Think the fridge is a spaceship.")),
+
         // Hotel guests: out during the day, they pay [rentPerDay] per night when they check out
         TenantKind("business", Tr("Herr Eilig auf Geschäftsreise", "Mr Hurry on a Business Trip"), RoomRole.HOTEL, "home_empty", "npc_office_blazer",
             crew = listOf("npc_office_blazer", "npc_office_sleeves"),

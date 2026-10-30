@@ -8,6 +8,8 @@ import com.github.quillraven.fleks.World.Companion.inject
 import crazytower.core.GROUND_FLOOR
 import crazytower.core.Routine
 import crazytower.core.Simulation
+import crazytower.core.evacuated
+import crazytower.core.tickEvents
 
 /**
  * The daily routine of everybody who works or lives in the tower: come in, work or stay
@@ -39,6 +41,11 @@ class ScheduleSystem(
         val inside = Routine.wantsInside(member.resident, schedule.plan, schedule.crew, schedule.seed, schedule.offset, clock)
         val pos = entity[Position]
 
+        // fire alarm: out of the tower and stay out
+        if (sim.evacuated) {
+            if (entity hasNo Away && schedule.activity != Activity.LEAVING) sim.goTo(entity, sim.streetExit(pos.x), Activity.LEAVING)
+            return
+        }
         if (entity has Away) {
             if (!inside) return
             // luxury tenants drive in and come up from their parking space
@@ -116,17 +123,26 @@ class EconomySystem(
     }
 }
 
-/** Every game hour: maybe an absurd event, and a look whether the tower reached the next stage. */
+/**
+ * Every game minute the running events, every game hour maybe a new absurd event, and a look
+ * whether the tower reached the next stage.
+ */
 class EventSystem(
     private val sim: Simulation = inject(),
 ) : IntervalSystem() {
     private var lastHour = -1
+    private var lastMinute = -1
 
     override fun onTick() {
-        val hour = (sim.clock.totalMinutes / 60).toInt()
+        val minute = sim.clock.totalMinutes.toInt()
+        if (minute == lastMinute) return
+        lastMinute = minute
+        val hour = minute / 60
         if (lastHour < 0) lastHour = hour
-        if (hour == lastHour) return
+        val newHour = hour != lastHour
         lastHour = hour
+        sim.tickEvents(newHour)
+        if (!newHour) return
         sim.checkStage()
         if (sim.eventsEnabled) {
             crazytower.core.Events.roll(sim)

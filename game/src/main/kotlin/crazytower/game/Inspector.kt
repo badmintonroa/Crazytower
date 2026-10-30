@@ -1,6 +1,11 @@
 package crazytower.game
 
+import crazytower.core.ActiveEvent
 import crazytower.core.RoomRole
+import crazytower.core.eventsAt
+import crazytower.core.kind
+import crazytower.core.remedyBlocked
+import crazytower.core.useRemedy
 import crazytower.core.Simulation
 import crazytower.core.transport.Elevators
 import crazytower.core.ecs.Activity
@@ -65,6 +70,7 @@ class Inspector(private val sim: Simulation, private val game: GameController, p
         var look: String? = null
         var quirk: String? = null
         var problem: crazytower.core.RoomProblem? = null
+        var events: List<ActiveEvent> = emptyList()
         when (sel) {
             is Selection.RoomSel -> {
                 val room = sim.tower.room(sel.roomId) ?: return
@@ -75,6 +81,7 @@ class Inspector(private val sim: Simulation, private val game: GameController, p
                 lines += info.lines
                 quirk = info.quirk
                 problem = sim.roomProblems[room.id]
+                events = sim.eventsAt(room)
             }
             is Selection.PersonSel -> with(sim.world) {
                 val e = sel.entity
@@ -115,6 +122,34 @@ class Inspector(private val sim: Simulation, private val game: GameController, p
                 .xy(10.0, 6.0).fitWidth(panelWidth - 52)
             val text = box.wrappedLabel(problem.hint.toString(), panelWidth - 52, 12.0, Theme.TEXT).xy(10.0, 24.0)
             val height = maxOf(56.0, text.height + 32.0)
+            box.resize(panelWidth - 32, height)
+            y += height + 10.0
+        }
+        for (event in events) {
+            // what is going on, how long it lasts, and the remedy as a button
+            val kind = event.kind
+            val box = Panel(panelWidth - 32, 56.0, Theme.BUTTON, 6.0).addTo(this).also { it.xy(16.0, y + 4) }
+            box.label(kind.title.toString(), 12.0, Theme.ALARM, Theme.bodyBold).xy(10.0, 6.0).fitWidth(panelWidth - 52)
+            val left = (event.ends - sim.clock.totalMinutes).coerceAtLeast(0.0).toInt()
+            val time = if (left >= 120) tr("noch ${left / 60} Std.", "${left / 60} h left") else tr("noch $left Min.", "$left min. left")
+            val text = box.wrappedLabel("${kind.hint} ($time)", panelWidth - 52, 12.0, Theme.TEXT).xy(10.0, 24.0)
+            var height = maxOf(56.0, text.height + 32.0)
+            val remedy = kind.remedy
+            if (remedy != null) {
+                val title = remedy.label.toString() + if (remedy.cost > 0) " (${formatMoney(remedy.cost)})" else ""
+                val blocked = sim.remedyBlocked(event)
+                TextButton(panelWidth - 52, 34.0, title, 13.0) {
+                    val result = sim.useRemedy(event)
+                    game.say(if (result.ok) remedy.done.toString() else result.reason)
+                    Sfx.play(if (result.ok) Sfx.BUILD else Sfx.ERROR)
+                    shown = null
+                }.addTo(box).xy(10.0, height - 4).also { it.enabled = blocked == null }
+                height += 34.0
+                if (blocked != null) {
+                    box.label(blocked, 11.0, Theme.TEXT_DIM).xy(10.0, height).fitWidth(panelWidth - 52)
+                    height += 18.0
+                }
+            }
             box.resize(panelWidth - 32, height)
             y += height + 10.0
         }

@@ -19,6 +19,8 @@ data class SaveGame(
     val earnedToday: Long,
     val rooms: List<SavedRoom>,
     val news: List<SavedNews>,
+    val activeEvents: List<ActiveEvent> = emptyList(),
+    val lastOpenDay: Double? = null,
 ) {
     fun toJson(): String = json.encodeToString(serializer(), this)
 

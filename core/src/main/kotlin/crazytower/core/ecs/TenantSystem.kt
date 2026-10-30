@@ -6,6 +6,7 @@ import crazytower.core.RoomProblems
 import crazytower.core.RoomRole
 import crazytower.core.Simulation
 import crazytower.core.Tenants
+import crazytower.core.moveInBlocked
 
 /**
  * Lets tenants move into empty offices, homes and restaurants. A room only gets rented once
@@ -40,6 +41,8 @@ class TenantSystem(
                 problems[room.id] = problem
                 continue
             }
+            // termites at work
+            if (sim.moveInBlocked(room)) continue
             if (now - room.since < VACANCY_MINUTES || sim.random.nextFloat() > MOVE_IN_CHANCE) continue
             // only a few buyers a day for flats that were never sold
             if (room.type.role == RoomRole.HOME && !room.sold && sim.flatsSoldToday >= sim.flatBuyersPerDay) continue

@@ -1,6 +1,12 @@
 package crazytower.game
 
 import crazytower.core.Catalog
+import crazytower.core.ActiveEvent
+import crazytower.core.Events
+import crazytower.core.Lasting
+import crazytower.core.startEvent
+import crazytower.core.eventsAt
+import crazytower.core.whereOf
 import crazytower.core.Category
 import crazytower.core.GROUND_FLOOR
 import crazytower.core.Loc
@@ -16,7 +22,7 @@ import kotlin.system.exitProcess
 
 /**
  * Development helper: with CRAZYTOWER_SCREENSHOT=<file.png> the game builds a demo tower,
- * lets it run for a while, saves a screenshot and quits (CRAZYTOWER_FINANCE=1 opens the finance window, CRAZYTOWER_OPTIONS=1 the options, CRAZYTOWER_CELEBRATE=star or stage the celebration). Used to check the rendering
+ * lets it run for a while, saves a screenshot and quits (CRAZYTOWER_FINANCE=1 opens the finance window, CRAZYTOWER_OPTIONS=1 the options, CRAZYTOWER_CELEBRATE=star or stage the celebration, CRAZYTOWER_EVENT=<id> starts an event). Used to check the rendering
  * on machines without a screen.
  */
 object Autopilot {
@@ -32,6 +38,19 @@ object Autopilot {
         val role = System.getenv("CRAZYTOWER_SELECT")?.let { name -> RoomRole.entries.firstOrNull { it.name == name } }
         game.selection = sim.tower.allRooms.firstOrNull { role == null || it.type.role == role }?.let { Selection.RoomSel(it.id) }
         tower.lookAt(Loc(2, sim.lotWidth / 2f))
+        // CRAZYTOWER_EVENT=<id> starts that event (if it fits the tower) and selects where it happens
+        System.getenv("CRAZYTOWER_EVENT")?.let { id ->
+            val started = Events.all.firstOrNull { it.id == id }?.apply?.invoke(sim) == true
+            // events that need no place in the tower start anyway, e.g. the moon without teleporters
+            if (!started && Lasting.exists(id)) {
+                val now = sim.clock.totalMinutes
+                sim.startEvent(ActiveEvent(id, now, now + 120), Lasting.kind(id).title.toString())
+            }
+            sim.activeEvents.firstOrNull()?.let { event ->
+                sim.tower.allRooms.firstOrNull { sim.eventsAt(it).isNotEmpty() }?.let { game.selection = Selection.RoomSel(it.id) }
+                sim.whereOf(event)?.let { tower.lookAt(Loc(maxOf(2, it.floor - 1), it.x)) }
+            }
+        }
         if (System.getenv("CRAZYTOWER_FINANCE") != null) game.financeOpen = true
         if (System.getenv("CRAZYTOWER_OPTIONS") != null) game.optionsOpen = true
         System.getenv("CRAZYTOWER_CATEGORY")?.let { name -> Category.entries.firstOrNull { it.name == name }?.let { game.openCategory(it) } }

@@ -37,6 +37,9 @@ class Car(val id: Int, val x: Int, var bottom: Int, var top: Int, val express: B
     /** The shaft doesn't move before this game minute (weddings, blackouts). */
     var blockedUntil: Double = 0.0
 
+    /** The cabins crawl until this game minute (karaoke). */
+    var slowUntil: Double = 0.0
+
     /** People waiting in front of the doors, per floor. Refreshed every tick by the elevator system. */
     val waiting = HashMap<Int, MutableList<Entity>>()
 
@@ -171,6 +174,9 @@ class Elevators(private val tower: Tower) : LinkProvider {
         const val DOOR_MINUTES = 0.5f
         const val MAX_CABINS = 12
         const val CABIN_COST = 4_000L
+
+        /** Karaoke makes the cabins this many times slower. */
+        const val KARAOKE_SLOWDOWN = 3f
 
         /** How many cabins a shaft may have at a star rating: two more per star, twelve at five stars. */
         fun maxCabins(stars: Int): Int = if (stars >= 5) MAX_CABINS else (stars * 2).coerceIn(2, 8)

@@ -70,6 +70,12 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     /** Absurd events every hour; tests that count money switch them off. */
     var eventsEnabled: Boolean = true
 
+    /** Events that last a while, see [Lasting]. */
+    val activeEvents = ArrayList<ActiveEvent>()
+
+    /** When the player last held an open day; once a week is allowed. */
+    var lastOpenDay: Double = -Lasting.OPEN_DAY_COOLDOWN
+
     /** Changes the money and writes it into the books. */
     fun book(amount: Long, kind: MoneyKind, label: String, where: Loc? = null) {
         if (amount == 0L) return
@@ -562,6 +568,8 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             val end = tenant.plan.lastEnd(now) ?: continue
             if (end <= room.paidUntil) continue
             room.paidUntil = end.toDouble()
+            // buried under socks: no work, no rent
+            if (rentBlocked(room)) continue
             book(rentFor(room, tenant), if (room.type.role == RoomRole.FOOD) MoneyKind.FOOD else MoneyKind.RENT, tenant.name.toString(), room.center)
         }
     }
@@ -587,7 +595,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     /** Hotel rooms that wait for the cleaning staff. */
     val dirtyRooms: List<Room> get() = tower.allRooms.filter { it.dirty }
 
-    private fun rentFor(room: Room, tenant: TenantKind): Long {
+    internal fun rentFor(room: Room, tenant: TenantKind): Long {
         val mood = moodOf(room) ?: 70f
         val full = (tenant.rentPerDay * starBonus).toLong()
         if (room.type.luxury && !hasParking(room)) return full / 2
@@ -864,6 +872,8 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             )
         },
         news = news.latest.map { SavedNews(it.text, it.where?.floor, it.where?.x, it.important) },
+        activeEvents = activeEvents.toList(),
+        lastOpenDay = lastOpenDay,
     )
 
     private fun restore(save: SaveGame) {
@@ -897,6 +907,11 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         }
         for (item in save.news.asReversed()) {
             news.post(item.text, item.floor?.let { Loc(it, item.x ?: 0f) }, item.important)
+        }
+        lastOpenDay = save.lastOpenDay ?: lastOpenDay
+        for (event in save.activeEvents.filter { Lasting.exists(it.id) }) {
+            activeEvents += event
+            event.kind.resume(this, event)
         }
     }
 
@@ -932,7 +947,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
                 Activity.TO_MEAL -> {
                     schedule.activity = Activity.EATING
                     schedule.fedOnDay = clock.day
-                    earn(MEAL_PRICE)
+                    earn(MEAL_PRICE * visitorBoost)
                     entity.configure { it += Idle(clock.totalMinutes + 15 + random.nextInt(15)) }
                 }
                 Activity.TO_CLEAN -> {
@@ -954,7 +969,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         }
         if (visitor != null && !visitor.leaving) {
             val room = tower.roomAt(entity[Position].floor, entity[Position].x.toInt())
-            if (room?.type?.role == RoomRole.FOOD && room.tenant != null) earn(VISITOR_MEAL_PRICE)
+            if (room?.type?.role == RoomRole.FOOD && room.tenant != null) earn(VISITOR_MEAL_PRICE * visitorBoost)
         }
         when {
             visitor != null && visitor.leaving -> entity.remove()

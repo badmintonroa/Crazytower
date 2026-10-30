@@ -158,7 +158,8 @@ class ElevatorSystem(
             cabin.direction = sign(nearest - cabin.position).toInt()
             if (cabin.direction == 0) return
         }
-        val step = deltaTime / car.minutesPerFloor
+        val slow = if (sim.clock.totalMinutes < car.slowUntil) Elevators.KARAOKE_SLOWDOWN else 1f
+        val step = deltaTime / (car.minutesPerFloor * slow)
         val next = if (cabin.direction > 0) ceil(cabin.position + 0.001f).toInt() else floor(cabin.position - 0.001f).toInt()
         cabin.position = if (next in calls && abs(next - cabin.position) <= step) {
             next.toFloat()
