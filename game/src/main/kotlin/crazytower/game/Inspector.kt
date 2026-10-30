@@ -1,6 +1,5 @@
 package crazytower.game
 
-import crazytower.core.Loc
 import crazytower.core.RoomRole
 import crazytower.core.Simulation
 import crazytower.core.transport.Elevators
@@ -65,6 +64,7 @@ class Inspector(private val sim: Simulation, private val game: GameController, p
         var art: String? = null
         var look: String? = null
         var quirk: String? = null
+        var problem: crazytower.core.RoomProblem? = null
         when (sel) {
             is Selection.RoomSel -> {
                 val room = sim.tower.room(sel.roomId) ?: return
@@ -74,6 +74,7 @@ class Inspector(private val sim: Simulation, private val game: GameController, p
                 art = RoomLooks.art(sim, room)
                 lines += info.lines
                 quirk = info.quirk
+                problem = sim.roomProblems[room.id]
             }
             is Selection.PersonSel -> with(sim.world) {
                 val e = sel.entity
@@ -106,6 +107,16 @@ class Inspector(private val sim: Simulation, private val game: GameController, p
             label(key, 12.0, Theme.TEXT_DIM).xy(16.0, y).fitWidth(VALUE_X - 22.0)
             label(value, 14.0, Theme.TEXT, Theme.bodyBold).xy(VALUE_X, y - 1).fitWidth(panelWidth - VALUE_X - 14.0)
             y += 22.0
+        }
+        if (problem != null) {
+            // why nobody moves in: the reason behind the badge over the room
+            val box = Panel(panelWidth - 32, 56.0, Theme.BUTTON, 6.0).addTo(this).also { it.xy(16.0, y + 4) }
+            box.label((if (problem.far) tr("Warum leer? ", "Why empty? ") else tr("Achtung: ", "Watch out: ")) + problem.title, 12.0, Theme.ALARM, Theme.bodyBold)
+                .xy(10.0, 6.0).fitWidth(panelWidth - 52)
+            val text = box.wrappedLabel(problem.hint.toString(), panelWidth - 52, 12.0, Theme.TEXT).xy(10.0, 24.0)
+            val height = maxOf(56.0, text.height + 32.0)
+            box.resize(panelWidth - 32, height)
+            y += height + 10.0
         }
         if (quirk != null) {
             // long quirks wrap, and the box grows with them
@@ -209,7 +220,7 @@ object RoomInfo {
             room.type.role.rentable -> {
                 lines += STATUS to if (room.type.role == RoomRole.HOTEL) tr("Frei und sauber", "Free and clean") else tr("Zu vermieten", "For rent")
                 lines += HINT to when {
-                    sim.nav.findPath(Loc(0, 0f), room.center) == null -> tr("Nicht erreichbar", "Can't be reached")
+                    sim.roomProblems[room.id] != null -> tr("Niemand zieht ein", "Nobody moves in")
                     room.type.role == RoomRole.HOTEL -> tr("Check-in ${Simulation.CHECK_IN_FROM}–${Simulation.CHECK_IN_UNTIL} Uhr", "Check-in ${Simulation.CHECK_IN_FROM}:00–${Simulation.CHECK_IN_UNTIL}:00")
                     else -> tr("Mieter kommen bald", "Tenants coming soon")
                 }
@@ -225,6 +236,7 @@ object PersonInfo {
     fun role(sim: Simulation, e: com.github.quillraven.fleks.Entity): String = with(sim.world) {
         val member = e.getOrNull(Member)
         when {
+            e has crazytower.core.ecs.Vip -> tr("VIP-Besuch", "VIP visit")
             e has Visitor -> tr("Besucher", "Visitor")
             member != null && member.resident -> tr("Wohnt hier", "Lives here")
             member != null -> tr("Arbeitet hier", "Works here")
@@ -252,6 +264,12 @@ object PersonInfo {
     }
 
     fun extra(sim: Simulation, e: com.github.quillraven.fleks.Entity): List<Pair<String, String>> = with(sim.world) {
+        e.getOrNull(crazytower.core.ecs.Vip)?.let { vip ->
+            return listOfNotNull(
+                sim.tower.room(vip.roomId)?.tenant?.let { tr("Besuch bei", "Visiting") to it.name.toString() },
+                tr("Unterwegs", "On the way") to tr("${(sim.clock.totalMinutes - vip.since).toInt()} Min.", "${(sim.clock.totalMinutes - vip.since).toInt()} min."),
+            )
+        }
         val member = e.getOrNull(Member) ?: return emptyList()
         val schedule = e[Schedule]
         val room = sim.tower.room(member.roomId)

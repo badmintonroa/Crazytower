@@ -7,6 +7,7 @@ enum class MoneyKind(private val text: Tr, val income: Boolean) {
     SALE(Tr("Wohnungsverkauf", "Flat sales"), true),
     FEES(Tr("Hausgeld", "Service charges"), true),
     GUESTS(Tr("Gäste", "Guests"), true),
+    VIP(Tr("VIP-Trinkgeld", "VIP tips"), true),
     HOTEL(Tr("Hotel", "Hotel"), true),
     PARKING(Tr("Parkgebühren", "Parking fees"), true),
     LUCK(Tr("Glück", "Luck"), true),

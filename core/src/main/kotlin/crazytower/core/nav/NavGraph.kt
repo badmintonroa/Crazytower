@@ -119,6 +119,44 @@ class NavGraph(private val tower: Tower, private val providers: List<LinkProvide
         }
     }
 
+    /**
+     * Minutes the cheapest route from [from] to [to] takes, waiting for elevators included,
+     * or null if there is none. Rooms whose way from the street takes too long find no tenants.
+     */
+    fun travelMinutes(from: Loc, to: Loc): Float? = findPath(from, to)?.let { lastCost }
+
+    /**
+     * Whether [to] could be reached from [from] if people climbed any number of stairs, for
+     * telling the player why [findPath] found nothing.
+     */
+    fun connectedByAnyStairs(from: Loc, to: Loc): Boolean {
+        ensureBuilt()
+        val startKey = spanKey(from) ?: return false
+        val goalKey = spanKey(to) ?: return false
+        if (startKey == goalKey) return true
+        val visited = BooleanArray(nodes.size)
+        val queue = ArrayDeque<Int>()
+        for (n in nodesBySpan[startKey].orEmpty()) { visited[n.id] = true; queue += n.id }
+        while (queue.isNotEmpty()) {
+            val id = queue.removeFirst()
+            if (nodes[id].spanKey == goalKey) return true
+            for (e in outStart[id] until outStart[id + 1]) {
+                for (other in peers[outTo[e]]) if (!visited[other]) { visited[other] = true; queue += other }
+            }
+        }
+        return false
+    }
+
+    /** Whether any staircase, elevator stop or teleporter can be walked to from [loc]. */
+    fun hasLinksNear(loc: Loc): Boolean {
+        ensureBuilt()
+        val key = spanKey(loc) ?: return false
+        return nodesBySpan[key].orEmpty().isNotEmpty()
+    }
+
+    /** Cost of the path the last successful [search] found. */
+    private var lastCost = 0f
+
     // Search state, reused between searches. A state is a node plus the floors climbed on foot
     // since the last ride: node * CLIMBS + climbed; the last state stands for the goal. An entry
     // only counts when its [seen] stamp is the current [generation], so nothing has to be cleared.
@@ -134,7 +172,10 @@ class NavGraph(private val tower: Tower, private val providers: List<LinkProvide
         ensureBuilt()
         val startKey = spanKey(from) ?: return null
         val goalKey = spanKey(to) ?: return null
-        if (startKey == goalKey) return listOfNotNull(walk(from, to.x))
+        if (startKey == goalKey) {
+            lastCost = walkCost(from.x, to.x)
+            return listOfNotNull(walk(from, to.x))
+        }
 
         val goal = nodes.size * CLIMBS
         if (++generation == Int.MAX_VALUE) {
@@ -186,6 +227,7 @@ class NavGraph(private val tower: Tower, private val providers: List<LinkProvide
             }
         }
         if (seen[goal] != gen) return null
+        lastCost = best[goal]
 
         // Rebuild the chain of states, then turn it into legs.
         val chain = ArrayList<Int>()

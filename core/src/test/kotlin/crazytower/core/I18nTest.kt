@@ -16,7 +16,8 @@ class I18nTest {
         val texts = Catalog.roomTypes.flatMap { listOf(it.name, it.description) + it.effects } +
             Tenants.all.flatMap { listOf(it.name, it.quirk, it.plan.label) } +
             Stages.all.flatMap { listOf(it.name, it.requirement) } + Stages.all.drop(1).map { it.unlocks } +
-            Simulation.MOVE_OUT_REASONS
+            Simulation.MOVE_OUT_REASONS +
+            Vips.all.flatMap { listOf(it.name, it.arrives, it.generous, it.stingy, it.givesUp) }
         for (text in texts.filter { it.de.isNotEmpty() }) {
             assertTrue(text.en.isNotBlank(), "no English for \"${text.de}\"")
         }

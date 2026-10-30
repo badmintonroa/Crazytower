@@ -58,6 +58,9 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     val elevators = Elevators(tower)
     val nav = NavGraph(tower, listOf(StairsLinks, TeleporterLinks, elevators))
     val news = NewsFeed()
+
+    /** Empty rooms nobody will move into, and why. Kept up to date by the tenant system. */
+    val roomProblems = HashMap<Int, RoomProblem>()
     var money: Long = startMoney
         internal set // test towers
 
@@ -723,6 +726,10 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
 
     val vipOnTheWay: Boolean get() = world.family { all(Vip) }.numEntities > 0
 
+    /** When the last VIP arrived or gave up, so they don't come one after the other. */
+    var lastVipVisit: Double = -Vips.COOLDOWN_MINUTES
+        internal set
+
     /** Checks whether the tower reached the next stage. Called every game hour. */
     fun checkStage() {
         if (stage >= Stages.last || !Stages.reached(this, stage + 1)) return
@@ -827,13 +834,9 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             }
             return@with
         }
-        if (entity has Vip) {
-            vipSurvived = true
-            news.post(
-                tr("$VIP_NAME ist angekommen und nickt anerkennend. Der Turm ist bereit für Größeres.", "$VIP_NAME has arrived and nods approvingly. The tower is ready for bigger things."),
-                Loc(entity[Position].floor, entity[Position].x), important = true,
-            )
+        entity.getOrNull(Vip)?.let { vip ->
             entity.configure { drop(it, Vip) }
+            vipArrived(vip, Loc(entity[Position].floor, entity[Position].x))
         }
         if (visitor != null && !visitor.leaving) {
             val room = tower.roomAt(entity[Position].floor, entity[Position].x.toInt())
@@ -845,6 +848,22 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         }
     }
 
+    /** A VIP got to her room: she judges the tower and tips, a lot or very little. */
+    private fun vipArrived(vip: Vip, where: Loc) {
+        val guest = Vips.byId(vip.guestId)
+        val room = tower.room(vip.roomId)
+        lastVipVisit = clock.totalMinutes
+        if (guest.id == "wichtig") {
+            vipSurvived = true
+            news.post(tr("$VIP_NAME ist angekommen und nickt anerkennend. Der Turm ist bereit für Größeres.", "$VIP_NAME has arrived and nods approvingly. The tower is ready for bigger things."), where, important = true)
+        }
+        val verdict = Vips.judge(this, room, clock.totalMinutes - vip.since)
+        val tip = Vips.tip(stars, verdict, random)
+        book(tip, MoneyKind.VIP, guest.name.toString(), where)
+        val text = Vips.line(if (verdict.happy) guest.generous else guest.stingy, room, tip)
+        news.post(if (verdict.happy || verdict.complaint == null) text else "$text ${verdict.complaint}", where, important = true)
+    }
+
     /** Called when a person could not find a way to its goal for a while. */
     fun onGaveUp(entity: Entity) = with(world) {
         entity.getOrNull(Schedule)?.let {
@@ -854,9 +873,10 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             entity.configure { e -> e += Away(clock.totalMinutes) }
             return@with
         }
-        if (entity has Vip) {
-            news.post(tr("$VIP_NAME hat den Weg nicht gefunden und reist beleidigt ab. Vielleicht ein Aufzug mehr?", "$VIP_NAME could not find the way and leaves in a huff. Maybe one more elevator?"), important = true)
+        entity.getOrNull(Vip)?.let { vip ->
             entity.configure { drop(it, Vip) }
+            lastVipVisit = clock.totalMinutes
+            news.post(Vips.byId(vip.guestId).givesUp.toString(), important = true)
         }
         val visitor = entity.getOrNull(Visitor) ?: return@with
         if (visitor.leaving) entity.remove() else visitor.stopsLeft = 0

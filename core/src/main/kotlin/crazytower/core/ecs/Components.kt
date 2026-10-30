@@ -116,8 +116,11 @@ data class Away(val since: Double) : Component<Away> {
     companion object : ComponentType<Away>()
 }
 
-/** A very important visitor. If she reaches her goal in time, the tower is ready for stage 5. */
-data class Vip(val since: Double) : Component<Vip> {
+/**
+ * A very important visitor on the way to the room [roomId]. When she gets there she judges the
+ * tower and tips (see crazytower.core.Vips); Frau Dr. Wichtig also gets the tower ready for stage 5.
+ */
+data class Vip(val since: Double, val guestId: String = "wichtig", val roomId: Int = -1) : Component<Vip> {
     override fun type() = Vip
     companion object : ComponentType<Vip>()
 }
