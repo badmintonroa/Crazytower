@@ -13,6 +13,7 @@ import crazytower.core.ecs.Visitor
  *
  * @param likes tenant id the guest would rather visit, if the tower has one
  * @param recurring false for Frau Dr. Wichtig, who comes once by event and unlocks stage 5
+ * @param fans sightseers who follow the guest into the tower (streamers bring their chat)
  */
 class VipGuest(
     val id: String,
@@ -25,6 +26,7 @@ class VipGuest(
     val givesUp: String,
     val likes: String? = null,
     val recurring: Boolean = true,
+    val fans: Int = 0,
 )
 
 /** How a VIP liked the tower: [score] 0..1 and, when it was not great, what bothered her most. */
@@ -69,6 +71,37 @@ object Vips {
             generous = "Prof. Morgen hinterlässt {amount} \$. Im Jahr 2087 ist das Kleingeld, sagt er.",
             stingy = "Prof. Morgen lässt {amount} \$ da. In der Zukunft hat ihm der Turm besser gefallen.",
             givesUp = "Prof. Morgen hat den Weg nicht gefunden und reist zurück in die Zukunft. Gestern."),
+        // Streamers: they go live on the way and bring a few fans along
+        VipGuest("bernd", "xXBerndZocktXx", "npc_student_gamer", minStars = 3, fans = 4,
+            arrives = "xXBerndZocktXx geht live: \"Leute, heute besuchen wir {room}! Abo dalassen!\" Seine Fans stehen schon in der Lobby.",
+            generous = "Der Chat von xXBerndZocktXx spammt Herzchen: {amount} \$ an Spenden landen in der Turmkasse. Pog!",
+            stingy = "xXBerndZocktXx sagt \"Content war mid\" und lässt {amount} \$ in Bits da.",
+            givesUp = "xXBerndZocktXx hat den Weg nicht gefunden und macht daraus ein acht Stunden langes Rage-Video."),
+        VipGuest("annika", "ASMR-Annika", "npc_student_artist", minStars = 3, fans = 2,
+            arrives = "ASMR-Annika flüstert ins Mikro, während sie zu {room} schleicht. Ihre Fans sind sehr leise.",
+            generous = "ASMR-Annika flüstert \"danke\" und lässt {amount} \$ da. Ganz leise.",
+            stingy = "ASMR-Annika flüstert \"viel zu laut hier\" und lässt {amount} \$ da.",
+            givesUp = "ASMR-Annika hat keinen Weg gefunden und ist geflüstert gegangen."),
+        VipGuest("vanessa", "Vlog-Vanessa", "npc_tourist", minStars = 3, fans = 3,
+            arrives = "Vlog-Vanessa dreht eine Room-Tour bei {room}. Mit Ringlicht. Und Fans.",
+            generous = "Vlog-Vanessa: \"Absolut aesthetic!\" {amount} \$ Kooperationsgeld für den Turm.",
+            stingy = "Vlog-Vanessa: \"Leider gar nicht aesthetic.\" Sie lässt {amount} \$ und einen Rabattcode da.",
+            givesUp = "Vlog-Vanessa hat sich verlaufen. Das Video heißt jetzt \"GEFANGEN IM TURM (gone wrong)\"."),
+        VipGuest("soeren", "Speedrun-Sören", "npc_student_hoodie", minStars = 4, fans = 3,
+            arrives = "Speedrun-Sören will {room} in Weltrekordzeit erreichen. Der Timer läuft, der Chat zählt mit.",
+            generous = "Neuer Weltrekord! Speedrun-Sören lässt {amount} \$ da und einen Ausdruck seiner Splits.",
+            stingy = "Kein persönlicher Rekord. Speedrun-Sören resettet und lässt {amount} \$ da.",
+            givesUp = "Speedrun-Sören hat keinen Weg gefunden. Run ungültig, Reset."),
+        VipGuest("mehmet", "Mukbang-Mehmet", "npc_student_party", minStars = 4, fans = 3,
+            arrives = "Mukbang-Mehmet isst sich live durch den Turm und will zu {room}. Er hat drei Teller dabei.",
+            generous = "Mukbang-Mehmet ist satt und glücklich. Sein Chat spendet {amount} \$.",
+            stingy = "Mukbang-Mehmet: \"Geschmacklich eine Drei von Zehn.\" Er lässt {amount} \$ da.",
+            givesUp = "Mukbang-Mehmet hat den Weg nicht gefunden und isst stattdessen draußen einen Döner. Live."),
+        VipGuest("gisela", "Oma Gisela Gaming", "npc_retiree", minStars = 5, fans = 5,
+            arrives = "Oma Gisela Gaming, die älteste Streamerin Deutschlands, besucht {room}. Ihr Chat schreibt nur in Großbuchstaben.",
+            generous = "Oma Gisela verteilt {amount} \$ und Kekse. Der Chat dreht durch.",
+            stingy = "Oma Gisela lässt {amount} \$ da. \"Früher waren Türme besser.\"",
+            givesUp = "Oma Gisela Gaming findet keinen Weg und streamt jetzt vom Parkplatz."),
         VipGuest("zorg", "Botschafter Zorg", "npc_alien", minStars = 5, likes = "alien",
             arrives = "Botschafter Zorg von Gliese 581 inspiziert {room}. Er will den Chef des Planeten sprechen.",
             generous = "Zorg ist erfreut. Er lässt {amount} \$ in Gold da und einen Gutschein für eine Entführung.",
@@ -161,6 +194,7 @@ fun Simulation.spawnVip(guest: VipGuest, target: Room? = null): Boolean {
         it += Vip(since = clock.totalMinutes, guestId = guest.id, roomId = room.id)
         it += Goal(spotIn(room))
     }
+    repeat(guest.fans) { spawnVisitor() }
     news.post(Vips.line(guest.arrives, room), room.center, important = true)
     return true
 }

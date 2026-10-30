@@ -77,6 +77,17 @@ class VipTest {
     }
 
     @Test
+    fun streamersBringTheirFans() {
+        val (sim, office) = towerWithOffice(mood = 100f)
+        val guest = Vips.byId("bernd")
+        assertTrue(guest.fans > 0)
+        assertTrue(sim.spawnVip(guest, office))
+        val visitors = sim.world.family { all(crazytower.core.ecs.Visitor) }.numEntities
+        assertEquals(guest.fans + 1, visitors, "the streamer and the fans")
+        assertTrue(sim.news.latest.first().text.contains("live"))
+    }
+
+    @Test
     fun theTipGrowsWithStarsAndScore() {
         val random = Random(1)
         val good = VipVerdict(0.9f, null)
