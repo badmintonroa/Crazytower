@@ -298,8 +298,8 @@ class Hud(
                     built -> tr("SCHON GEBAUT", "ALREADY BUILT")
                     !unlocked && sim.stage < type.minStage -> tr("AB STUFE ${type.minStage}", "FROM STAGE ${type.minStage}")
                     !unlocked -> tr("AB ${type.minStars} STERNEN", "FROM ${type.minStars} STARS")
-                    type.perSegment -> tr("${formatMoney(type.cost)}/FELD", "${formatMoney(type.cost)}/TILE")
-                    else -> formatMoney(type.cost)
+                    type.perSegment -> tr("${formatMoney(sim.listPrice(type, 1))}/FELD", "${formatMoney(sim.listPrice(type, 1))}/TILE")
+                    else -> formatMoney(sim.listPrice(type))
                 },
                 13.0, Theme.TEXT, Theme.bodyBold,
             ).also { it.xy(92.0, 33.0) }.fitWidth(buttonWidth - 100.0)

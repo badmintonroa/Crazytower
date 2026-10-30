@@ -32,6 +32,8 @@ object Events {
             val home = rentedRooms(RoomRole.HOME).filter { it.tenant?.id != "ghost" }.randomOrNull(random) ?: return@TowerEvent false
             val old = home.tenant!!.name
             moveIn(home, Tenants.byId("ghost"), announce = false)
+            // the owners fled without a word: nobody is owed the purchase price any more
+            home.salePaid = 0
             news.post(tr("Bei $old spukt es. $old ist ausgezogen, das Gespenst bleibt und zahlt keine Miete.", "$old's flat is haunted. $old moved out, the ghost stays and pays no rent."), home.center, important = true)
             true
         },

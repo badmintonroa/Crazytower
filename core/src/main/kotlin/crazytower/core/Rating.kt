@@ -7,9 +7,9 @@ object Rating {
     val steps = listOf(
         Step(1, 10, 0f, needsFood = false),
         Step(2, 40, 50f, needsFood = false),
-        Step(3, 150, 55f, needsFood = true),
-        Step(4, 500, 60f, needsFood = true),
-        Step(5, 1500, 65f, needsFood = true),
+        Step(3, 150, 60f, needsFood = true),
+        Step(4, 500, 64f, needsFood = true),
+        Step(5, 1500, 68f, needsFood = true),
     )
 
     fun stars(population: Int, satisfaction: Float, hasFood: Boolean): Int {

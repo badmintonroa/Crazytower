@@ -18,3 +18,8 @@ tasks.register<JavaExec>("bench") {
     classpath = sourceSets["test"].runtimeClasspath
     mainClass.set("crazytower.core.BenchmarkKt")
 }
+
+tasks.register<JavaExec>("playthrough") {
+    classpath = sourceSets["test"].output + sourceSets["main"].output + configurations["testCompileClasspath"]
+    mainClass.set("crazytower.core.PlaythroughKt")
+}

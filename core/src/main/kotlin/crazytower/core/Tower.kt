@@ -19,6 +19,9 @@ class Room(val id: Int, val type: RoomType, val floor: Int, val x: Int, val widt
     /** Homes: what the residents paid for the flat; half of it goes back when they leave unhappy. */
     var salePaid: Long = 0
 
+    /** What the room cost when it was built, for rooms whose price changes over time; 0 for the list price. */
+    var paid: Long = 0
+
     /** Homes: the flat was sold once. Later residents buy it from the previous ones, not from the tower. */
     var sold: Boolean = false
 
