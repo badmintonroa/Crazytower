@@ -184,7 +184,7 @@ object Catalog {
 
     val LUXURY_OFFICE = RoomType(
         id = "luxury_office", name = Tr("Luxusbüro", "Luxury office"), category = Category.OFFICES, role = RoomRole.OFFICE,
-        width = 12, cost = 150_000, minStage = 4, art = "office_empty", capacity = 10, luxury = true, upkeep = 2_000,
+        width = 12, cost = 150_000, minStage = 4, art = "office_luxury_empty", capacity = 10, luxury = true, upkeep = 2_000,
         description = Tr("Marmor, Kunst an der Wand und ein Aquarium mit Anwalt.", "Marble, art on the walls and an aquarium with a lawyer in it."),
         effects = listOf(
             Tr("nur feine Mieter, die sehr viel Miete zahlen", "only posh tenants who pay a lot of rent"),
@@ -195,7 +195,7 @@ object Catalog {
     )
     val HOTEL = RoomType(
         id = "hotel", name = Tr("Hotelzimmer", "Hotel room"), category = Category.HOMES, role = RoomRole.HOTEL,
-        width = 6, cost = 40_000, minStage = 3, art = "home_empty", capacity = 2,
+        width = 6, cost = 40_000, minStage = 3, art = "hotel_empty", capacity = 2,
         description = Tr("Frische Handtücher, gelegentlich.", "Fresh towels, occasionally."),
         effects = listOf(
             Tr("Gäste checken ab 14 Uhr ein, zahlen beim Auschecken", "guests check in from 2 pm, pay on check-out"),
@@ -205,7 +205,7 @@ object Catalog {
     )
     val HOUSEKEEPING = RoomType(
         id = "housekeeping", name = Tr("Reinigungsdienst", "Housekeeping"), category = Category.HOMES, role = RoomRole.HOUSEKEEPING,
-        width = 6, cost = 60_000, minStage = 3, art = "home_empty", capacity = 2,
+        width = 6, cost = 60_000, minStage = 3, art = "housekeeping_empty", capacity = 2,
         description = Tr("Wischt alles weg. Auch Erinnerungen.", "Wipes everything away. Memories too."),
         effects = listOf(
             Tr("das Personal läuft zu schmutzigen Hotelzimmern", "the staff walk to dirty hotel rooms"),

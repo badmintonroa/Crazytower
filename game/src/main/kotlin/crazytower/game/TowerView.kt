@@ -403,7 +403,8 @@ class TowerView(
         val view = layer.container { xy(Metrics.x(room.x), Metrics.floorTop(room.floor)) }
         val key = artFor(room)
         val art = assets.room(key)
-        val tileSegments = 6
+        // most art covers 6 segments, the luxury offices have pictures 12 segments wide
+        val tileSegments = (art.width / Assets.ROOM_ART_SEGMENT).coerceAtLeast(1)
         val tiles = (room.width + tileSegments - 1) / tileSegments
         // rooms without night art are dimmed so they don't glow in the dark
         val dimmed = DayLight.isDark(sim.clock.minuteOfDay) && !key.endsWith("_night")
