@@ -58,6 +58,9 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     val elevators = Elevators(tower)
     val nav = NavGraph(tower, listOf(StairsLinks, TeleporterLinks, elevators))
     val news = NewsFeed()
+
+    /** Empty rooms nobody will move into, and why. Kept up to date by the tenant system. */
+    val roomProblems = HashMap<Int, RoomProblem>()
     var money: Long = startMoney
         internal set // test towers
 

@@ -18,11 +18,13 @@ import crazytower.core.ecs.Route
 import crazytower.core.nav.Leg
 import crazytower.core.transport.Elevators
 import crazytower.core.transport.Car
+import crazytower.game.ui.Icons
 import crazytower.game.ui.chamferPath
 import crazytower.game.ui.formatMoney
 import crazytower.game.ui.label
 import korlibs.event.Key
 import korlibs.event.MouseButton
+import korlibs.image.color.Colors
 import korlibs.image.color.RGBA
 import korlibs.korge.input.keys
 import korlibs.korge.input.onDown
@@ -89,6 +91,10 @@ class TowerView(
     private val carsLayer = world.container()
     private val peopleLayer = world.container()
     private val overlay = world.container()
+    /** Exclamation marks and angry faces over rooms nobody moves into. */
+    private val problemLayer = world.container()
+    private val problemViews = HashMap<Int, View>()
+    private var problemTime = 0.0
 
     private val roomViews = HashMap<Int, View>()
     private val roomArt = HashMap<Int, String>()
@@ -232,6 +238,7 @@ class TowerView(
         syncPeople()
         lap(2)
         syncOverlay()
+        syncProblems(dtSeconds)
         syncMoney(dtSeconds)
         lap(3)
     }
@@ -404,17 +411,19 @@ class TowerView(
     /**
      * Where the people waiting for an elevator stand: in a line in front of the doors, the
      * first one closest, like in SimTower. Long lines continue on the other side of the shaft.
-     * Maps entity id to x in segments and whether they face left.
+     * Maps entity id to x in segments, whether they face left and how many minutes they have waited.
      */
-    private fun elevatorQueues(): Map<Int, Pair<Float, Boolean>> {
-        val spots = HashMap<Int, Pair<Float, Boolean>>()
+    private fun elevatorQueues(): Map<Int, QueueSpot> {
+        val spots = HashMap<Int, QueueSpot>()
+        val now = sim.clock.totalMinutes
         for (car in sim.elevators.cars.values) {
             for (line in car.waiting.values) {
                 line.sortedBy { car.waitingSince[it] ?: 0.0 }.forEachIndexed { i, entity ->
+                    val waited = now - (car.waitingSince[entity] ?: now)
                     spots[entity.id] = if (i < QUEUE_SIDE) {
-                        car.x - QUEUE_GAP * (i + 0.6f) to false
+                        QueueSpot(car.x - QUEUE_GAP * (i + 0.6f), false, waited)
                     } else {
-                        car.x + 2 + QUEUE_GAP * (i - QUEUE_SIDE + 0.6f) to true
+                        QueueSpot(car.x + 2 + QUEUE_GAP * (i - QUEUE_SIDE + 0.6f), true, waited)
                     }
                 }
             }
@@ -446,10 +455,12 @@ class TowerView(
             // standing still in a room puts them behind a shaft; walking and queueing stays in front
             val layer = if (!moving && queued == null && entity hasNo Riding) insideLayer else peopleLayer
             if (view.parent !== layer) view.addTo(layer)
-            val facingLeft = queued?.second ?: pos.facingLeft
+            val facingLeft = queued?.facingLeft ?: pos.facingLeft
+            // the longer they wait for the elevator, the redder they get
+            view.colorMul = queued?.let { waitTint(it.waited) } ?: Colors.WHITE
             if (queued != null) {
                 view.bitmap = assets.person(person.look, 0)
-                view.x = Metrics.x(queued.first)
+                view.x = Metrics.x(queued.x)
             } else {
                 // people standing at the same spot stand a little apart
                 val queueing = !moving || (entity[Route].legs.firstOrNull() is Leg.Ride)
@@ -492,6 +503,29 @@ class TowerView(
         }
         syncHandles()
         updateGhost()
+    }
+
+    /**
+     * A badge bobs over every room the simulation knows nobody will move into. Clicking the
+     * room shows the reason in the inspector.
+     */
+    private fun syncProblems(dt: Double) {
+        problemTime += dt
+        val problems = sim.roomProblems
+        problemViews.keys.filter { it !in problems }.forEach { problemViews.remove(it)?.removeFromParent() }
+        for ((id, problem) in problems) {
+            val room = sim.tower.room(id) ?: continue
+            val key = if (problem.far) 1 else 0
+            var view = problemViews[id]
+            if (view == null || view.name != "$key") {
+                view?.removeFromParent()
+                view = Icons.problem(problemLayer, problem.far).also { it.name = "$key" }
+                problemViews[id] = view
+            }
+            view.visible = room.floor in shownFloors
+            view.x = Metrics.x(room.centerX)
+            view.y = Metrics.floorTop(room.floor) + 26.0 + kotlin.math.sin(problemTime * 3 + id) * 3
+        }
     }
 
     // ---------------------------------------------------------------- shaft handles
@@ -982,6 +1016,18 @@ class TowerView(
         }
     }
 }
+
+/** Where somebody stands in an elevator line, and since how many game minutes. */
+private class QueueSpot(val x: Float, val facingLeft: Boolean, val waited: Double)
+
+/** No tint while they are patient, then redder and redder until [FULL_RED_MINUTES]. */
+private fun waitTint(minutes: Double): RGBA {
+    val t = ((minutes - Simulation.PATIENCE_MINUTES) / (FULL_RED_MINUTES - Simulation.PATIENCE_MINUTES)).coerceIn(0.0, 1.0)
+    val other = (255 - t * 185).toInt()
+    return RGBA(255, other, other)
+}
+
+private const val FULL_RED_MINUTES = 15.0
 
 /** People in an elevator line stand this many segments apart; this many on the near side, the rest on the far side. */
 private const val QUEUE_GAP = 0.55f

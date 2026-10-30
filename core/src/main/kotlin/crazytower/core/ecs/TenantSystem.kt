@@ -2,16 +2,16 @@ package crazytower.core.ecs
 
 import com.github.quillraven.fleks.IntervalSystem
 import com.github.quillraven.fleks.World.Companion.inject
-import crazytower.core.GROUND_FLOOR
-import crazytower.core.Loc
+import crazytower.core.RoomProblems
 import crazytower.core.RoomRole
 import crazytower.core.Simulation
 import crazytower.core.Tenants
 
 /**
  * Lets tenants move into empty offices, homes and restaurants. A room only gets rented once
- * people can actually reach it from the street, so upper floors need stairs or an elevator.
- * New flats find only a few buyers a day.
+ * people can get there from the street in time, so upper floors need stairs or an elevator.
+ * New flats find only a few buyers a day. Whatever keeps a room empty for good ends up in
+ * [Simulation.roomProblems], for the exclamation marks over the rooms.
  */
 class TenantSystem(
     private val sim: Simulation = inject(),
@@ -23,17 +23,21 @@ class TenantSystem(
         if (untilCheck > 0f) return
         untilCheck = CHECK_EVERY
         val now = sim.clock.totalMinutes
-        val street = Loc(GROUND_FLOOR, 0f)
+        val problems = sim.roomProblems
+        problems.clear()
         for (room in sim.tower.allRooms) {
             if (!room.type.role.rentable || room.tenant != null) continue
+            val problem = RoomProblems.of(sim, room)
+            if (problem != null) {
+                problems[room.id] = problem
+                continue
+            }
             if (now - room.since < VACANCY_MINUTES || sim.random.nextFloat() > MOVE_IN_CHANCE) continue
             // only a few buyers a day for flats that were never sold
             if (room.type.role == RoomRole.HOME && !room.sold && sim.flatsSoldToday >= sim.flatBuyersPerDay) continue
             // hotel guests only take clean rooms, and only in the afternoon and evening
             if (room.type.role == RoomRole.HOTEL && (room.dirty || sim.clock.hour !in Simulation.CHECK_IN_FROM until Simulation.CHECK_IN_UNTIL)) continue
-            if (sim.nav.findPath(street, room.center) == null) continue
             val candidates = Tenants.candidates(room.type, sim.stars, sim.stage)
-            if (candidates.isEmpty()) continue
             if (room.type.role == RoomRole.HOTEL) {
                 // guests come and go, a repeat visit is fine
                 sim.moveIn(room, candidates[sim.random.nextInt(candidates.size)])

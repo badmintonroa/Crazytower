@@ -74,6 +74,49 @@ object Icons {
         }
     }
 
+    /**
+     * The badge over a room nobody moves into, centred on 0,0: an exclamation mark, or an
+     * angry face when the way there is the problem.
+     */
+    fun problem(parent: Container, angry: Boolean, size: Double = 34.0): Graphics = parent.graphics {
+        val r = size / 2
+        fun disc(cx: Double, cy: Double, radius: Double) {
+            val corners = 20
+            for (i in 0 until corners) {
+                val a = 2 * PI * i / corners
+                val pt = Point(cx + cos(a) * radius, cy + sin(a) * radius)
+                if (i == 0) moveTo(pt) else lineTo(pt)
+            }
+            close()
+        }
+        val ink = Theme.INK
+        fill(ink) { disc(0.0, 0.0, r + 2.5) }
+        if (angry) {
+            val s = r / 12.0
+            fun p(x: Double, y: Double) = Point(x * s, y * s)
+            fill(RGBA(232, 72, 52)) { disc(0.0, 0.0, r) }
+            fill(RGBA(255, 120, 90)) { disc(-3 * s, -4 * s, r * 0.55) }
+            fill(ink) {
+                // brows pulled down towards the nose
+                moveTo(p(-8.5, -6.0)); lineTo(p(-1.5, -2.5)); lineTo(p(-2.0, -0.8)); lineTo(p(-8.8, -4.0)); close()
+                moveTo(p(8.5, -6.0)); lineTo(p(1.5, -2.5)); lineTo(p(2.0, -0.8)); lineTo(p(8.8, -4.0)); close()
+            }
+            fill(ink) { disc(-4.2 * s, 1.2 * s, 1.7 * s); disc(4.2 * s, 1.2 * s, 1.7 * s) }
+            fill(ink) {
+                // a frown
+                moveTo(p(-6.0, 8.5)); lineTo(p(-3.0, 5.6)); lineTo(p(3.0, 5.6)); lineTo(p(6.0, 8.5))
+                lineTo(p(4.6, 9.4)); lineTo(p(2.4, 7.4)); lineTo(p(-2.4, 7.4)); lineTo(p(-4.6, 9.4)); close()
+            }
+        } else {
+            fill(Theme.GOLD) { disc(0.0, 0.0, r) }
+            fill(ink) {
+                moveTo(Point(-r * 0.16, -r * 0.62)); lineTo(Point(r * 0.16, -r * 0.62))
+                lineTo(Point(r * 0.1, r * 0.22)); lineTo(Point(-r * 0.1, r * 0.22)); close()
+                disc(0.0, r * 0.5, r * 0.14)
+            }
+        }
+    }
+
     /** Low-poly cog for the options button, centred in a 40 x 37 button face. */
     fun gear(parent: Container, color: RGBA): Graphics = parent.graphics {
         val teeth = 8
