@@ -20,11 +20,14 @@ data class WorkPlan(
     val lateUpTo: Int = 0,
     val wandering: Boolean = false,
 ) {
-    private val length: Int get() = ((to - from).mod(MINUTES)).let { if (it == 0) MINUTES else it }
+    private val length: Int = ((to - from).mod(MINUTES)).let { if (it == 0) MINUTES else it }
+
+    /** [days] as bits, asked for every person and tick, so without boxing. */
+    private val dayMask: Int = days.fold(0) { mask, d -> mask or (1 shl d) }
 
     /** Start of the block that begins on [day], in game minutes, or null when it is a day off. */
     fun startOn(day: Int): Int? {
-        if (day.mod(7) !in days) return null
+        if (dayMask and (1 shl day.mod(7)) == 0) return null
         val start = if (wandering) ((day * 7919L).mod(15L).toInt() + 3) * 60 else from
         return day * MINUTES + start
     }
@@ -45,13 +48,22 @@ data class WorkPlan(
     /** End of the latest block that ended at or before [minute], or null. Rent is paid then. */
     fun lastEnd(minute: Double): Int? {
         val day = (minute / MINUTES).toInt()
-        return (day - 2..day).mapNotNull { d -> startOn(d)?.plus(length) }.filter { it <= minute }.maxOrNull()
+        // asked for every room every game minute, so without lists
+        for (d in day downTo day - 2) {
+            val end = (startOn(d) ?: continue) + length
+            if (end <= minute) return end
+        }
+        return null
     }
 
     /** End of the next block that ends after [minute]. */
     fun nextEnd(minute: Double): Int? {
         val day = (minute / MINUTES).toInt()
-        return (day - 1..day + 7).mapNotNull { d -> startOn(d)?.plus(length) }.filter { it > minute }.minOrNull()
+        for (d in day - 1..day + 7) {
+            val end = (startOn(d) ?: continue) + length
+            if (end > minute) return end
+        }
+        return null
     }
 
     /** The middle of the block running at [minute], used for lunch breaks. */

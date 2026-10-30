@@ -13,6 +13,7 @@ import korlibs.korge.view.container
 import korlibs.korge.view.Views
 import korlibs.korge.view.addTo
 import korlibs.korge.view.addUpdater
+import korlibs.korge.view.xy
 import korlibs.korge.view.onStageResized
 
 /**
@@ -22,6 +23,7 @@ import korlibs.korge.view.onStageResized
 class GameScene(private val assets: Assets, private val loaded: Simulation? = null, private val test: Boolean = false) : Scene() {
     private lateinit var tower: TowerView
     private var hud: Hud? = null
+    private var debug: DebugOverlay? = null
 
     /**
      * Everything is laid out in layout units (800 high at 100 % interface size) inside this
@@ -39,6 +41,9 @@ class GameScene(private val assets: Assets, private val loaded: Simulation? = nu
         val (w, h) = fitScreen(views)
         tower = TowerView(sim, game, assets, w, h).addTo(screenRoot)
         val hud = layoutHud(sim, game, w, h)
+        val debug = DebugOverlay(sim, tower, views).addTo(this).xy(8.0, 80.0)
+        this@GameScene.debug = debug
+        System.getenv("CRAZYTOWER_SPEED")?.toIntOrNull()?.let { game.speed = it }
         Autopilot.attachIfRequested(this, sim, game, tower, hud)
         game.say(
             when {
@@ -72,17 +77,28 @@ class GameScene(private val assets: Assets, private val loaded: Simulation? = nu
                 if (restored == null) game.say(message) else sceneContainer.changeTo { GameScene(assets, restored) }
             }
             down(Key.F11) { Options.update { it.copy(fullscreen = !it.fullscreen) } }
+            down(Key.F3) { debug.toggle() }
         }
         var lastDay = sim.clock.day
         addUpdater { dt ->
+            val t0 = System.nanoTime()
             game.update(dt)
+            val t1 = System.nanoTime()
             tower.sync(dt.inWholeMilliseconds / 1000.0)
+            val t2 = System.nanoTime()
             this@GameScene.hud?.sync(dt.inWholeMilliseconds / 1000.0)
+            debug.add(t1 - t0, t2 - t1, System.nanoTime() - t2)
+            debug.frame(dt.inWholeMicroseconds / 1e6)
             if (sim.clock.day != lastDay) {
                 lastDay = sim.clock.day
                 autosave(sim, game)
             }
         }
+    }
+
+    override suspend fun sceneDestroy() {
+        debug?.dispose()
+        super.sceneDestroy()
     }
 
     private fun layoutHud(sim: Simulation, game: GameController, w: Double, h: Double): Hud {
