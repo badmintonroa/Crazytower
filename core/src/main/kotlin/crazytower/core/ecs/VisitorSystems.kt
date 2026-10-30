@@ -8,6 +8,8 @@ import com.github.quillraven.fleks.World.Companion.inject
 import crazytower.core.Loc
 import crazytower.core.RoomRole
 import crazytower.core.Simulation
+import crazytower.core.visitorBoost
+import crazytower.core.visitorsStopped
 
 /** Ends [Idle] once its time is up. */
 class IdleSystem(
@@ -31,8 +33,8 @@ class VisitorSpawnSystem(
         // one "lobby" per six segments, however the player has dragged them
         val lobbies = (sim.tower.allRooms.filter { it.type.role == RoomRole.LOBBY }.sumOf { it.width } + 5) / 6
         val hour = sim.clock.hour
-        val limit = maxVisitors(sim, lobbies)
-        if (lobbies == 0 || hour < 7 || hour >= 22 || visitors.numEntities >= limit) {
+        val limit = maxVisitors(sim, lobbies) * sim.visitorBoost
+        if (lobbies == 0 || hour < 7 || hour >= 22 || visitors.numEntities >= limit || sim.visitorsStopped) {
             cooldown = 5f
             return
         }

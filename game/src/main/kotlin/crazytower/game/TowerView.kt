@@ -19,6 +19,7 @@ import crazytower.core.nav.Leg
 import crazytower.core.transport.Elevators
 import crazytower.core.transport.Car
 import crazytower.core.tr
+import crazytower.core.whereOf
 import crazytower.game.ui.Icons
 import crazytower.game.ui.chamferPath
 import crazytower.game.ui.formatMoney
@@ -81,6 +82,10 @@ class TowerView(
     /** Everything that moves with the camera. */
     val world = container()
     private val sky = world.solidRect(1.0, 1.0, Theme.SKY)
+    /** Stars and the Earth while the tower is on the moon. */
+    private val moonSky = world.container { visible = false }
+    /** The city skyline, hidden on the moon. */
+    private val skyline = ArrayList<View>()
     private val backdrop = world.container()
     private val lotMarks = backdrop.container()
     private var drawnLot = -1
@@ -96,6 +101,9 @@ class TowerView(
     private val problemLayer = world.container()
     private val problemViews = HashMap<Int, View>()
     private var problemTime = 0.0
+    /** Badges over running events, and the giant cat on the roof. */
+    private val eventLayer = world.container()
+    private val eventViews = HashMap<String, View>()
 
     private val roomViews = HashMap<Int, View>()
     private val roomArt = HashMap<Int, String>()
@@ -161,6 +169,14 @@ class TowerView(
         val light = DayLight.light(sim.clock.minuteOfDay)
         sky.color = DayLight.skyColor(light)
         dusk.color = RGBA(10, 12, 30, ((1 - light) * 110).toInt())
+        val onMoon = sim.activeEvents.any { it.id == "moon" }
+        if (onMoon) {
+            if (moonSky.numChildren == 0) EventArt.moonSky(moonSky, Metrics.x(sim.lotWidth))
+            sky.color = RGBA(6, 6, 18)
+            dusk.color = RGBA(0, 0, 0, 0)
+        }
+        moonSky.visible = onMoon
+        skyline.forEach { it.visible = !onMoon }
     }
 
     private fun drawBackdrop() {
@@ -186,7 +202,7 @@ class TowerView(
                     lineTo(Point(x, 0.0))
                     close()
                 }
-            }.also { it.autoScaling = false }
+            }.also { it.autoScaling = false; skyline += it }
         }
         backdrop.solidRect(lotWidth + 8000, 3000.0, Theme.GROUND).xy(-4000.0, 0.0)
         backdrop.solidRect(lotWidth + 8000, 20.0, Theme.GROUND_DARK).xy(-4000.0, 6.0)
@@ -243,6 +259,7 @@ class TowerView(
         lap(2)
         syncOverlay()
         syncProblems(dtSeconds)
+        syncEvents()
         syncMoney(dtSeconds)
         lap(3)
     }
@@ -538,6 +555,28 @@ class TowerView(
             view.visible = room.floor in shownFloors
             view.x = Metrics.x(room.centerX)
             view.y = Metrics.floorTop(room.floor) + 26.0 + kotlin.math.sin(problemTime * 3 + id) * 3
+        }
+    }
+
+    /**
+     * A bobbing badge over every running event that has a place in the tower; clicking the room
+     * under it shows the event and its remedy in the inspector. The giant cat sits on the roof.
+     */
+    private fun syncEvents() {
+        val running = sim.activeEvents.associateBy { "${it.id}@${it.started}" }
+        eventViews.keys.filter { it !in running }.forEach { eventViews.remove(it)?.removeFromParent() }
+        for ((key, event) in running) {
+            val where = sim.whereOf(event) ?: continue
+            if (event.id == "giantcat") {
+                val cat = eventViews.getOrPut(key) { EventArt.giantCat(eventLayer) }
+                cat.x = Metrics.x(where.x)
+                cat.y = Metrics.floorTop(where.floor) + kotlin.math.sin(problemTime * 1.5) * 1.5
+                continue
+            }
+            val view = eventViews.getOrPut(key) { EventArt.badge(eventLayer) }
+            view.visible = where.floor in shownFloors
+            view.x = Metrics.x(where.x)
+            view.y = Metrics.floorTop(where.floor) + 26.0 + kotlin.math.sin(problemTime * 4 + event.started) * 3
         }
     }
 

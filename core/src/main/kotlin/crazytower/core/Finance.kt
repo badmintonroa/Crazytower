@@ -15,6 +15,7 @@ enum class MoneyKind(private val text: Tr, val income: Boolean) {
     UPKEEP(Tr("Unterhalt", "Upkeep"), false),
     REFUND(Tr("Rückzahlung", "Refunds"), false),
     FINE(Tr("Strafen", "Fines"), false),
+    EVENTS(Tr("Ereignisse", "Events"), false),
     ;
 
     val label: String get() = text.toString()

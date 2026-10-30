@@ -11,6 +11,7 @@ import crazytower.core.Simulation
 import crazytower.core.Stages
 import crazytower.core.Tenants
 import crazytower.core.formatMoneyRange
+import crazytower.core.startOpenDay
 import crazytower.core.tr
 import crazytower.game.ui.Button
 import crazytower.game.ui.Icons
@@ -72,6 +73,7 @@ class Hud(
     private var shownStars = -1
     private lateinit var clockText: Text
     private val speedButtons = ArrayList<Pair<Int, TextButton>>()
+    private lateinit var openDayButton: TextButton
     private val categoryButtons = HashMap<Category, Button>()
     private var flyoutKey: Triple<Category?, Int, Int>? = null
     private lateinit var tickerText: Text
@@ -132,7 +134,7 @@ class Hud(
             label(tr("Bewohner", "Residents"), 12.0, Theme.TEXT_DIM).xy(95.0, 14.0).fitWidth(POP_LABEL)
             moodText = label("", 12.0, Theme.TEXT_DIM).also { it.xy(95.0, 30.0) }
         }
-        val stageWidth = screenWidth - 24 - x - 150 - 10 - 254 - 10 - 60
+        val stageWidth = screenWidth - 24 - x - 150 - 10 - 254 - 10 - 60 - 10 - 60
         box(stageWidth) {
             stars = container { xy(16.0, 12.0) }
             starHint = label("", 11.0, Theme.GOLD).also { it.xy(16.0, 36.0) }
@@ -155,6 +157,17 @@ class Hud(
             }
         }
         box(60.0) {
+            // the open day: balloons for everybody, once a week
+            openDayButton = TextButton(40.0, 40.0, "", onPress = {
+                val result = sim.startOpenDay()
+                game.say(if (result.ok) tr("Tag der offenen Tür! Bis 22 Uhr kommen doppelt so viele Besucher.", "Open day! Twice the visitors until 10 pm.") else result.reason)
+                Sfx.play(if (result.ok) Sfx.BUILD else Sfx.ERROR)
+            })
+            balloon(openDayButton.content)
+            openDayButton.xy(10.0, 10.0)
+            addChild(openDayButton)
+        }
+        box(60.0) {
             val b = TextButton(40.0, 40.0, "", onPress = { game.optionsOpen = !game.optionsOpen })
             Icons.gear(b.content, Theme.TEXT)
             b.xy(10.0, 10.0)
@@ -168,6 +181,17 @@ class Hud(
             fill(Theme.alpha(Theme.ON_SELECT, 0.25)) { moveTo(Point(11.0, 0.0)); lineTo(Point(22.0, 6.0)); lineTo(Point(22.0, 17.0)); lineTo(Point(11.0, 23.0)); close() }
             fill(Theme.ON_SELECT) { moveTo(Point(10.0, 6.0)); lineTo(Point(12.0, 6.0)); lineTo(Point(12.0, 17.0)); lineTo(Point(10.0, 17.0)); close() }
         }.xy(x, y)
+    }
+
+    private fun balloon(c: Container) {
+        c.graphics {
+            fill(Theme.alpha(Theme.TEXT, 0.8)) { rect(19.5, 24.0, 1.5, 10.0) }
+            fill(Theme.ALARM) {
+                moveTo(Point(20.0, 6.0)); lineTo(Point(27.0, 10.0)); lineTo(Point(28.0, 17.0)); lineTo(Point(22.0, 24.0))
+                lineTo(Point(18.0, 24.0)); lineTo(Point(12.0, 17.0)); lineTo(Point(13.0, 10.0)); close()
+            }
+            fill(Theme.alpha(Theme.ON_SELECT, 0.35)) { moveTo(Point(16.0, 10.0)); lineTo(Point(19.0, 8.5)); lineTo(Point(17.0, 15.0)); close() }
+        }
     }
 
     private fun sun(c: Container, x: Double, y: Double) {
@@ -426,6 +450,7 @@ class Hud(
         clockText.text = sim.clock.format() + if (game.speed > 0 && game.nightBoost > 1) " »" else ""
         clockText.color = if (game.speed == 0) Theme.ALARM else Theme.TEXT
         speedButtons.forEach { (speed, b) -> b.selected = game.speed == speed }
+        openDayButton.selected = sim.activeEvents.any { it.id == "openday" }
         categoryButtons.forEach { (c, b) -> b.selected = game.category == c }
         refreshFlyout()
         inspector.sync()
