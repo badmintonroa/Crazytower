@@ -359,6 +359,86 @@
     "w": 576,
     "h": 192
    }
+  },
+  "parking_space.png": {
+   "frame": {
+    "x": 0,
+    "y": 1200,
+    "w": 192,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 192,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   }
+  },
+  "parking_space_blue.png": {
+   "frame": {
+    "x": 584,
+    "y": 1200,
+    "w": 192,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 192,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   }
+  },
+  "parking_space_yellow.png": {
+   "frame": {
+    "x": 1168,
+    "y": 1200,
+    "w": 192,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 192,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   }
+  },
+  "parking_space_empty.png": {
+   "frame": {
+    "x": 0,
+    "y": 1400,
+    "w": 192,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 192,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   }
   }
  },
  "meta": {
@@ -366,7 +446,7 @@
   "scale": "4",
   "size": {
    "w": 1752,
-   "h": 1200
+   "h": 1600
   }
  }
 }

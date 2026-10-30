@@ -11,6 +11,7 @@ import crazytower.core.ecs.EconomySystem
 import crazytower.core.ecs.ElevatorSystem
 import crazytower.core.ecs.drop
 import crazytower.core.ecs.Goal
+import crazytower.core.ecs.Grievance
 import crazytower.core.ecs.Member
 import crazytower.core.ecs.Riding
 import crazytower.core.ecs.Schedule
@@ -82,13 +83,13 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         finance.record(Payment(clock.totalMinutes, amount, kind, label, where))
     }
 
-    /** Rent and prices grow with the star rating: 20 % per star above the first. */
     /** What the next star still needs, e.g. "ein Imbiss"; empty at five stars. */
     val nextStarMissing: List<String> get() = Rating.missing(stars, population, satisfaction, hasFood)
 
     private val hasFood: Boolean get() = tower.allRooms.any { it.type.role == RoomRole.FOOD && it.tenant != null }
 
-    val starBonus: Double get() = 1.0 + 0.2 * (stars - 1).coerceAtLeast(0)
+    /** Rent and fees grow with the star rating: [STAR_BONUS] per star above the first. */
+    val starBonus: Double get() = 1.0 + STAR_BONUS * (stars - 1).coerceAtLeast(0)
 
     /** Who belongs to which room, kept up to date by the family hooks below, so asking is cheap. */
     private val roomMembers = HashMap<Int, MutableList<Entity>>()
@@ -189,10 +190,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
                 else tr("Schon $max ${type.name}, mehr gehen nicht", "Already $max of ${type.name}, no more allowed"),
             )
         }
-        if (type.role == RoomRole.PARKING) {
-            val missing = parkingSpaces + MIN_BOOKINGS - carsWanted
-            if (missing > 0) return PlaceCheck.no(tr("Noch $missing Autos zu wenig für ein weiteres Parkhaus. Mehr Büros und Wohnungen!", "$missing cars short of another car park. More offices and flats!"))
-        }
+        if (type.role == RoomRole.PARKING && carsWithoutSpace <= 0) return NO_CAR
         if (x >= 0 && x + width > lotWidth) {
             val next = Lot.next(bestStars)
             return PlaceCheck.no(if (next != null) tr("Grundstück wird erst ab ${next.stars} Sternen breiter", "The lot grows at ${next.stars} stars") else tr("Außerhalb des Grundstücks", "Outside the lot"))
@@ -208,9 +206,13 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         !(it.x == x && it.express == type.express && floor in it.bottom - 1..it.top + 1)
     }
 
+    /** What [type] costs right now, before any elevator surcharge: offices get dearer with the stars. */
+    fun listPrice(type: RoomType, width: Int = type.width): Long =
+        (type.price(width) * (1 + type.pricePerStar * (stars - 2).coerceAtLeast(0))).toLong()
+
     /** What building [type] at [x] on [floor] costs right now. Elevators get dearer with each shaft. */
     fun priceAt(type: RoomType, floor: Int, x: Int, width: Int = type.width): Long {
-        val base = type.price(width)
+        val base = listPrice(type, width)
         if (type.role != RoomRole.ELEVATOR) return base
         return (base * (1 + SHAFT_SURCHARGE * otherShafts(type, floor, x))).toLong()
     }
@@ -219,8 +221,10 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         val check = checkPlace(type, floor, x, width)
         if (!check.ok) return BuildResult(null, check.reason)
         val firstLobby = type.role == RoomRole.LOBBY && tower.allRooms.none { it.type.role == RoomRole.LOBBY }
+        val price = priceAt(type, floor, x, width)
         var room = tower.place(type, floor, x, width)
-        book(-priceAt(type, floor, x, width), MoneyKind.BUILD, type.name.toString(), Loc(floor, x + width / 2f))
+        book(-price, MoneyKind.BUILD, type.name.toString(), Loc(floor, x + width / 2f))
+        if (type.pricePerStar > 0) room.paid = price
         room.since = clock.totalMinutes
         if (type.role == RoomRole.LOBBY) room = tower.mergeLobbies() ?: room
         if (firstLobby) {
@@ -282,6 +286,32 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
                 ?: if (cost > money) PlaceCheck.no(NO_MONEY) else PlaceCheck.OK
         }
         return BuildPlan(type, listOf(piece), cost, check)
+    }
+
+    /**
+     * The rooms of [type] a sideways drag along [floor] from segment [from] to [to] would add,
+     * side by side, stepping over what is already built there. Parking spaces stop at the
+     * number of cars that still look for one.
+     */
+    fun planRow(type: RoomType, floor: Int, from: Int, to: Int): BuildPlan {
+        val lo = minOf(from, to).coerceIn(0, lotWidth - 1)
+        val hi = maxOf(from, to).coerceIn(0, lotWidth - 1)
+        val limit = if (type.role == RoomRole.PARKING) carsWithoutSpace else Int.MAX_VALUE
+        var check = checkRules(type, floor, lo, type.width)
+        val pieces = ArrayList<BuildPlan.Piece>()
+        var x = lo
+        while (check.ok && x + type.width - 1 <= hi && pieces.size < limit) {
+            if (tower.canPlace(type, floor, x).ok) {
+                pieces += BuildPlan.Piece(floor, x, type.width)
+                x += type.width
+            } else {
+                x++
+            }
+        }
+        val cost = pieces.sumOf { type.price(it.width) }
+        if (check.ok && pieces.isEmpty()) check = tower.canPlace(type, floor, lo).takeUnless { it.ok } ?: PlaceCheck.no(tr("Hier ist kein Platz", "There is no room here"))
+        if (check.ok && cost > money) check = PlaceCheck.no(NO_MONEY)
+        return BuildPlan(type, pieces, cost, check)
     }
 
     /**
@@ -380,7 +410,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
      * Money back when a room is torn down: a quarter of the price. Nothing for a flat that was
      * sold once, or building, selling and tearing down flats would print money.
      */
-    fun refundFor(room: Room): Long = if (room.sold) 0 else room.type.price(room.width) / 4
+    fun refundFor(room: Room): Long = if (room.sold) 0 else (room.paid.takeIf { it > 0 } ?: room.type.price(room.width)) / 4
 
     fun checkDemolish(room: Room): PlaceCheck = tower.canRemove(room)
 
@@ -462,6 +492,27 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         (sum / list.size).toFloat()
     }
 
+    private var extrasVersion = -1
+    private var hasCopyroom = false
+    private var hasUfoPad = false
+
+    /**
+     * The mood a member settles to at its room: [ScheduleSystem.MOOD_BASE], more after a meal
+     * today or yesterday, more with the Copy Room (office workers) and the UFO pad (everybody).
+     */
+    fun moodTarget(schedule: Schedule, resident: Boolean): Float {
+        if (extrasVersion != tower.version) {
+            extrasVersion = tower.version
+            hasCopyroom = tower.allRooms.any { it.type == Catalog.COPYROOM }
+            hasUfoPad = tower.allRooms.any { it.type == Catalog.UFO_PAD }
+        }
+        var target = ScheduleSystem.MOOD_BASE
+        if (schedule.fedOnDay >= clock.day - 1) target += MEAL_MOOD
+        if (hasCopyroom && !resident) target += COPYROOM_MOOD
+        if (hasUfoPad) target += UFO_MOOD
+        return target
+    }
+
     /** Average mood of everybody in the tower, 0..100. */
     val satisfaction: Float
         get() = with(world) {
@@ -476,6 +527,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         val schedule = entity.getOrNull(Schedule) ?: return@with
         if (minutes > PATIENCE_MINUTES) {
             schedule.mood = (schedule.mood - ((minutes - PATIENCE_MINUTES) * 2).toFloat()).coerceAtLeast(0f)
+            schedule.grievance = Grievance.WAITING
         }
     }
 
@@ -546,6 +598,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     internal fun rentFor(room: Room, tenant: TenantKind): Long {
         val mood = moodOf(room) ?: 70f
         val full = (tenant.rentPerDay * starBonus).toLong()
+        if (room.type.luxury && !hasParking(room)) return full / 2
         return if (mood < (if (room.type.luxury) LUXURY_MOOD else UNHAPPY)) full / 2 else full
     }
 
@@ -581,7 +634,18 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     private fun homeFees(): Long = tower.allRooms.count { it.type.role == RoomRole.HOME && it.tenant != null && it.tenant!!.salePrice > 0 } * (HOME_FEE * starBonus).toLong()
 
     private fun upkeep(): Long = tower.allRooms.sumOf { it.type.upkeep ?: ((UPKEEP[it.type.role] ?: 0L) * (if (it.type.perSegment) it.width else 6) / 6) } +
-        elevators.cars.values.sumOf { it.cabins.size } * CABIN_UPKEEP + shaftSurcharge()
+        elevators.cars.values.sumOf { it.cabins.size } * CABIN_UPKEEP + shaftSurcharge() + runningCosts()
+
+    /** Rented offices and snack bars cost a share of their rent every day, weekends too, more with every star. */
+    private fun runningCosts(): Long {
+        val percent = RUNNING_COST_PERCENT * (stars - 2).coerceAtLeast(0)
+        if (percent == 0L) return 0
+        return tower.allRooms.sumOf {
+            val tenant = it.tenant
+            if (tenant == null || (it.type.role != RoomRole.OFFICE && it.type.role != RoomRole.FOOD)) 0L
+            else tenant.rentPerDay * percent / 100
+        }
+    }
 
     /** Each elevator shaft beyond the first makes every shaft's upkeep dearer. */
     private fun shaftSurcharge(): Long {
@@ -603,15 +667,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             val mood = moodOf(room) ?: 70f
             if (mood < MOVE_OUT && clock.totalMinutes - room.since > MIN_STAY_MINUTES) leaving += room
         }
-        // the special rooms do their bit every night
-        val hasCopyroom = tower.allRooms.any { it.type == Catalog.COPYROOM }
         val ufoPad = tower.allRooms.firstOrNull { it.type == Catalog.UFO_PAD }
-        if (hasCopyroom || ufoPad != null) members.forEach {
-            val schedule = it[Schedule]
-            var lift = if (ufoPad != null) UFO_MOOD else 0f
-            if (hasCopyroom && !it[Member].resident) lift += COPYROOM_MOOD
-            schedule.mood = (schedule.mood + lift).coerceAtMost(100f)
-        }
         if (ufoPad != null) book(UFO_FEE, MoneyKind.GUESTS, tr("Ufo-Landegebühr", "UFO landing fee"), ufoPad.center)
         val yesterday = clock.day - 1
         book(-upkeep(), MoneyKind.UPKEEP, MoneyKind.UPKEEP.label, tower.allRooms.firstOrNull { it.type.role == RoomRole.LOBBY }?.center)
@@ -623,8 +679,8 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         )
         for (room in leaving) {
             val name = room.tenant?.name ?: continue
+            val reason = moveOutReason(room)
             moveOut(room)
-            val reason = moveOutReason()
             news.post(tr("$name zieht aus. Grund: $reason", "$name moves out. Reason: $reason"), room.center, important = true)
         }
         val newStars = Rating.stars(population, satisfaction, hasFood)
@@ -665,19 +721,30 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         val count = maxOf(1, (rented.size + alreadyLeaving.size) / 20) - alreadyLeaving.size
         for (room in rented.sortedBy { moodOf(it) ?: 70f }.take(count.coerceAtLeast(0))) {
             val name = room.tenant?.name ?: continue
+            val reason = moveOutReason(room)
             moveOut(room)
-            val reason = moveOutReason()
             news.post(tr("$name zieht aus: zu schlechte Laune im Turm. $reason", "$name moves out: the mood in the tower is too bad. $reason"), room.center, important = true)
         }
     }
 
-    private fun moveOutReason(): String = MOVE_OUT_REASONS[random.nextInt(MOVE_OUT_REASONS.size)].toString()
+    /**
+     * Why the tenant of [room] leaves: what spoilt the mood of most of its people. Must be asked
+     * before [moveOut]. A tenant without a real complaint makes something up.
+     */
+    private fun moveOutReason(room: Room): String = with(world) {
+        val grievance = membersOf(room.id).mapNotNull { it[Schedule].grievance }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
+        (grievance?.let { GRIEVANCE_REASONS.getValue(it) } ?: MOVE_OUT_REASONS[random.nextInt(MOVE_OUT_REASONS.size)]).toString()
+    }
 
     private fun floorLimit(maxFloor: Int): String = tr("Stufe $stage erlaubt nur $maxFloor Etagen", "Stage $stage only allows $maxFloor floors")
 
-    /** Parking spaces the rented offices and occupied flats want to book. */
+    /**
+     * Cars that want a space: those of the rented offices and occupied flats, plus the spaces
+     * every luxury office keeps for itself, rented or not, so they can be built in advance.
+     */
     val carsWanted: Int get() = tower.allRooms.sumOf {
         when {
+            it.type.luxury -> LUXURY_SPACES
             it.tenant == null -> 0
             it.type.role == RoomRole.OFFICE -> CARS_PER_OFFICE
             it.type.role == RoomRole.HOME -> CARS_PER_HOME
@@ -685,11 +752,50 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         }
     }
 
-    /** Spaces in all car parks. */
-    val parkingSpaces: Int get() = tower.allRooms.count { it.type.role == RoomRole.PARKING } * CARS_PER_PARKING
+    /** One space per parking room. */
+    val parkingSpaces: Int get() = tower.allRooms.count { it.type.role == RoomRole.PARKING }
 
-    /** Booked spaces: as many as are wanted, as long as there are spaces. */
-    val parkedCars: Int get() = minOf(parkingSpaces, carsWanted)
+    /** How many more parking spaces may be built: one for every car that has none yet. */
+    val carsWithoutSpace: Int get() = carsWanted - parkingSpaces
+
+    /**
+     * Cars that pay for their space. The luxury offices get theirs first, rented before empty
+     * ones, see [hasParking]; spaces kept for an empty luxury office earn nothing.
+     */
+    val parkedCars: Int get() {
+        val luxury = tower.allRooms.filter { it.type.luxury }
+        val spaces = parkingSpaces
+        val forLuxury = minOf(spaces, luxury.size * LUXURY_SPACES)
+        val rentedLuxury = minOf(forLuxury, luxury.count { it.tenant != null } * LUXURY_SPACES)
+        return rentedLuxury + minOf(spaces - forLuxury, carsWanted - luxury.size * LUXURY_SPACES)
+    }
+
+    /** Whether a car stands in the parking space [space]: the oldest spaces fill up first. */
+    fun isTaken(space: Room): Boolean =
+        tower.allRooms.count { it.type.role == RoomRole.PARKING && it.id < space.id } < parkedCars
+
+    /**
+     * Where the people of [room] get out of their car in the morning and back in at night: a
+     * parking space, for luxury offices that have theirs and can be reached from the basement.
+     * Everybody else takes the street.
+     */
+    fun carSpot(room: Room): Loc? {
+        if (!room.type.luxury || !hasParking(room)) return null
+        val spaces = tower.allRooms.filter { it.type.role == RoomRole.PARKING }
+        if (spaces.isEmpty()) return null
+        val spot = spotIn(spaces[random.nextInt(spaces.size)])
+        return spot.takeIf { nav.travelMinutes(it, room.center) != null }
+    }
+
+    /**
+     * Whether the luxury office [room] has its [LUXURY_SPACES] spaces. They go to the luxury
+     * offices first, rented ones before empty ones, the oldest first; the rest of the cars share what is left.
+     */
+    fun hasParking(room: Room): Boolean {
+        if (!room.type.luxury) return true
+        val order = tower.allRooms.filter { it.type.luxury }.sortedWith(compareBy({ it.tenant == null }, { it.id }))
+        return parkingSpaces >= (order.indexOf(room) + 1) * LUXURY_SPACES
+    }
 
     /** Daily parking fees for [parkedCars]. */
     fun parkingFees(): Long = (parkedCars * PARKING_FEE * starBonus).toLong()
@@ -762,7 +868,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         rooms = tower.allRooms.map {
             SavedRoom(
                 it.id, it.type.id, it.floor, it.x, it.since, it.tenant?.id, moodOf(it),
-                it.width.takeIf { w -> w != it.type.width }, it.paidUntil, it.salePaid, it.cabins, it.sold, it.dirty,
+                it.width.takeIf { w -> w != it.type.width }, it.paidUntil, it.salePaid, it.cabins, it.sold, it.dirty, it.paid,
             )
         },
         news = news.latest.map { SavedNews(it.text, it.where?.floor, it.where?.x, it.important) },
@@ -777,7 +883,8 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         stars = save.stars
         bestStars = maxOf(save.bestStars, save.stars)
         vipSurvived = save.vipSurvived
-        for (saved in save.rooms) {
+        val oldCarParks = save.rooms.filter { it.type == Catalog.OLD_CAR_PARK }
+        for (saved in save.rooms - oldCarParks.toSet()) {
             val room = tower.placeUnchecked(Catalog.type(saved.type), saved.floor, saved.x, saved.id, saved.width ?: Catalog.type(saved.type).width)
             val tenant = saved.tenant?.let { Tenants.byId(it) }
             if (tenant != null) {
@@ -790,6 +897,13 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             room.sold = saved.sold || saved.salePaid > 0
             room.cabins = saved.cabins
             room.dirty = saved.dirty
+            room.paid = saved.paid
+        }
+        // the old car parks for 40 cars become rows of single spaces, once all saved ids are taken
+        for (saved in oldCarParks) {
+            for (x in saved.x until saved.x + (saved.width ?: 6) step Catalog.PARKING.width) {
+                tower.placeUnchecked(Catalog.PARKING, saved.floor, x).since = saved.since
+            }
         }
         for (item in save.news.asReversed()) {
             news.post(item.text, item.floor?.let { Loc(it, item.x ?: 0f) }, item.important)
@@ -832,7 +946,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
                 Activity.LEAVING -> entity.configure { it += Away(clock.totalMinutes) }
                 Activity.TO_MEAL -> {
                     schedule.activity = Activity.EATING
-                    schedule.mood = (schedule.mood + MEAL_MOOD).coerceAtMost(100f)
+                    schedule.fedOnDay = clock.day
                     earn(MEAL_PRICE * visitorBoost)
                     entity.configure { it += Idle(clock.totalMinutes + 15 + random.nextInt(15)) }
                 }
@@ -873,7 +987,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             news.post(tr("$VIP_NAME ist angekommen und nickt anerkennend. Der Turm ist bereit für Größeres.", "$VIP_NAME has arrived and nods approvingly. The tower is ready for bigger things."), where, important = true)
         }
         val verdict = Vips.judge(this, room, clock.totalMinutes - vip.since)
-        val tip = Vips.tip(stars, verdict, random)
+        val tip = Vips.tip(stars, verdict, random, finance.income(clock.day - 1))
         book(tip, MoneyKind.VIP, guest.name.toString(), where)
         val text = Vips.line(if (verdict.happy) guest.generous else guest.stingy, room, tip)
         news.post(if (verdict.happy || verdict.complaint == null) text else "$text ${verdict.complaint}", where, important = true)
@@ -883,6 +997,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     fun onGaveUp(entity: Entity) = with(world) {
         entity.getOrNull(Schedule)?.let {
             it.mood = (it.mood - STUCK_MOOD).coerceAtLeast(0f)
+            it.grievance = Grievance.STUCK
             // nobody can reach their room any more: they simply go home
             if (it.activity != Activity.LEAVING) it.activity = Activity.AWAY
             entity.configure { e -> e += Away(clock.totalMinutes) }
@@ -922,12 +1037,22 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         val VIP_NAME = Tr("Frau Dr. Wichtig", "Dr. Bigwig")
 
         private val NO_MONEY: String get() = tr("Zu wenig Geld", "Not enough money")
+        private val NO_CAR: PlaceCheck get() = PlaceCheck.no(tr("Jedes Auto hat schon einen Parkplatz. Mehr Büros, Wohnungen oder Luxusbüros!", "Every car has a space already. More offices, flats or luxury offices!"))
 
         const val START_MONEY = 120_000L
 
+        /** Rent and fees grow by this share for every star above the first. */
+        const val STAR_BONUS = 0.15
+
+        /** Rented offices and snack bars cost this share of their rent every day for every star above two. */
+        const val RUNNING_COST_PERCENT = 5L
+
+        /** Offices get dearer by this share of their price for every star above two. */
+        const val OFFICE_PRICE_PER_STAR = 0.5
+
         /** Waiting longer than this many minutes for an elevator makes people grumpy. */
         const val PATIENCE_MINUTES = 3.0
-        const val MEAL_MOOD = 8f
+        const val MEAL_MOOD = 15f
         const val STUCK_MOOD = 15f
         const val MEAL_PRICE = 12L
         /** Sightseers order the menu with dessert; there are fewer of them than residents. */
@@ -965,20 +1090,18 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         const val CLEAN_MINUTES = 45
 
         /** Luxury tenants pay only half below this mood. */
-        const val LUXURY_MOOD = 70f
+        const val LUXURY_MOOD = 65f
 
-        /** Cars one car park holds, people per car, and the daily fee per parked car. */
-        const val CARS_PER_PARKING = 40
+        /** Parking spaces a luxury office needs before posh tenants move in and pay the full rent. */
+        const val LUXURY_SPACES = 4
 
         /** The widest gap the gap filler closes; anything wider takes a room. */
         const val MAX_GAP = 5
         const val CARS_PER_OFFICE = 3
         const val CARS_PER_HOME = 1
 
-        /** A new car park needs at least this many cars that find no space yet. */
-        const val MIN_BOOKINGS = CARS_PER_PARKING / 2
 
-        /** What the special rooms do every night. */
+        /** What the special rooms add to the mood people settle to. */
         const val COPYROOM_MOOD = 5f
         const val UFO_MOOD = 3f
         const val UFO_FEE = 15_000L
@@ -987,12 +1110,18 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         const val CABIN_UPKEEP = 200L
         const val PARKING_FEE = 60L
 
+        /** What tenants say when they leave over a real complaint. */
+        val GRIEVANCE_REASONS = mapOf(
+            Grievance.WAITING to Tr("Der Aufzug kam nie.", "The elevator never came."),
+            Grievance.STUCK to Tr("Den Weg ins Büro hat keiner gefunden. Auch das Navi nicht.", "Nobody could find the way in. Not even the satnav."),
+            Grievance.NO_FOOD to Tr("Kein Mittagessen in Sicht.", "No lunch in sight."),
+        )
+
+        /** What tenants make up when nothing in particular went wrong. */
         val MOVE_OUT_REASONS = listOf(
-            Tr("Der Aufzug kam nie.", "The elevator never came."),
-            Tr("Zu viel Treppe, zu wenig Leben.", "Too many stairs, too little life."),
             Tr("Die Nachbarn haben geklatscht. Ständig.", "The neighbours kept clapping. Constantly."),
-            Tr("Kein Mittagessen in Sicht.", "No lunch in sight."),
             Tr("Das Horoskop hat abgeraten.", "The horoscope advised against it."),
+            Tr("Der Feng-Shui-Berater hat die Tür verboten.", "The feng shui consultant banned the door."),
         )
         const val STEP_MINUTES = 0.1
         val VISITOR_LOOKS = listOf("npc_tourist", "npc_tourist", "npc_courier", "npc_pizza", "npc_janitor", "npc_office_blazer", "npc_office_sleeves")

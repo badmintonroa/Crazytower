@@ -38,7 +38,7 @@ enum class RoomRole {
     /** Teleporters connect to each other, wherever they are. */
     TELEPORTER,
 
-    /** Underground car park; earns parking fees for the cars of the people in the tower. */
+    /** One underground parking space for one car; earns parking fees, and luxury offices need some. */
     PARKING,
 
     /** Guests stay one night and pay when they check out; afterwards the room needs cleaning. */
@@ -84,6 +84,8 @@ data class RoomType(
     val capacity: Int = 0,
     val description: Tr = Tr("", ""),
     val stretchable: Boolean = false,
+    /** Dragging sideways builds a row of these, see [Simulation.planRow]. */
+    val dragRow: Boolean = false,
     /** Fills the whole gap it is clicked into, see [Simulation.planGap]. */
     val fillsGap: Boolean = false,
     val express: Boolean = false,
@@ -95,6 +97,8 @@ data class RoomType(
     val luxury: Boolean = false,
     /** Daily upkeep of this type when it differs from the role's, see [Simulation.UPKEEP]. */
     val upkeep: Long? = null,
+    /** The price grows by this share of [cost] for every star above two, see [Simulation.listPrice]. */
+    val pricePerStar: Double = 0.0,
 ) {
     /** Priced per segment rather than per room. */
     val perSegment: Boolean get() = stretchable || fillsGap
@@ -156,8 +160,12 @@ object Catalog {
     )
     val OFFICE = RoomType(
         id = "office", name = Tr("Büro", "Office"), category = Category.OFFICES, role = RoomRole.OFFICE,
-        width = 6, cost = 12_000, art = "office_empty", capacity = 6,
+        width = 6, cost = 12_000, art = "office_empty", capacity = 6, pricePerStar = Simulation.OFFICE_PRICE_PER_STAR,
         description = Tr("Wird vermietet. Wer einzieht, entscheidet der Turm.", "For rent. The tower decides who moves in."),
+        effects = listOf(
+            Tr("ab 3 Sternen teurer: die Handwerker lesen auch Bewertungen", "dearer from 3 stars: the builders read reviews too"),
+            Tr("ab 3 Sternen Betriebskosten, bei 5 Sternen ${Simulation.RUNNING_COST_PERCENT * 3} % der Miete pro Tag", "running costs from 3 stars, at 5 stars ${Simulation.RUNNING_COST_PERCENT * 3} % of the rent a day"),
+        ),
     )
     val HOME = RoomType(
         id = "home", name = Tr("Wohnung", "Flat"), category = Category.HOMES, role = RoomRole.HOME,
@@ -168,6 +176,10 @@ object Catalog {
         id = "food", name = Tr("Imbiss", "Snack bar"), category = Category.FOOD, role = RoomRole.FOOD,
         width = 6, cost = 25_000, art = "food_empty", capacity = 3,
         description = Tr("Hier essen Angestellte und Besucher.", "Where workers and visitors eat."),
+        effects = listOf(
+            Tr("Essen hebt die Laune, ohne Imbiss bleibt sie mau", "a meal lifts the mood, without food it stays low"),
+            Tr("ab 3 Sternen Betriebskosten, bei 5 Sternen ${Simulation.RUNNING_COST_PERCENT * 3} % der Miete pro Tag", "running costs from 3 stars, at 5 stars ${Simulation.RUNNING_COST_PERCENT * 3} % of the rent a day"),
+        ),
     )
 
     val LUXURY_OFFICE = RoomType(
@@ -177,6 +189,7 @@ object Catalog {
         effects = listOf(
             Tr("nur feine Mieter, die sehr viel Miete zahlen", "only posh tenants who pay a lot of rent"),
             Tr("unter ${Simulation.LUXURY_MOOD.toInt()} % Laune nur die halbe Miete", "half the rent below ${Simulation.LUXURY_MOOD.toInt()} % mood"),
+            Tr("braucht ${Simulation.LUXURY_SPACES} eigene Parkplätze im Keller", "needs ${Simulation.LUXURY_SPACES} parking spaces of its own in the basement"),
             Tr("Unterhalt 2.000 \$ pro Tag", "upkeep \$2,000 a day"),
         ),
     )
@@ -206,7 +219,7 @@ object Catalog {
         width = 6, cost = 40_000, minStage = 2, art = "extra_copyroom", maxCount = 1,
         description = Tr("Niemand weiß, wer den Toner bezahlt.", "Nobody knows who pays for the toner."),
         effects = listOf(
-            Tr("Büroleute: jede Nacht +${Simulation.COPYROOM_MOOD.toInt()} Laune", "office workers: +${Simulation.COPYROOM_MOOD.toInt()} mood every night"),
+            Tr("Büroleute: +${Simulation.COPYROOM_MOOD.toInt()} Laune", "office workers: +${Simulation.COPYROOM_MOOD.toInt()} mood"),
             Tr("Sehenswürdigkeit für Besucher", "a sight for visitors"),
             ONCE,
         ),
@@ -237,24 +250,30 @@ object Catalog {
         description = Tr("Für Besuch von ganz weit weg.", "For visitors from very far away."),
         effects = listOf(
             Tr("Landegebühr ${grouped(Simulation.UFO_FEE, '.')} \$ jeden Tag", "landing fee \$${grouped(Simulation.UFO_FEE, ',')} every day"),
-            Tr("alle: jede Nacht +${Simulation.UFO_MOOD.toInt()} Laune (Aussicht!)", "everyone: +${Simulation.UFO_MOOD.toInt()} mood every night (the view!)"),
+            Tr("alle: +${Simulation.UFO_MOOD.toInt()} Laune (Aussicht!)", "everyone: +${Simulation.UFO_MOOD.toInt()} mood (the view!)"),
             ONCE,
         ),
     )
 
     val PARKING = RoomType(
-        id = "parking", name = Tr("Parkhaus", "Car park"), category = Category.SPECIAL, role = RoomRole.PARKING,
-        width = 6, cost = 60_000, minStars = Lot.BASEMENT_STARS, basementOnly = true, art = "special_parking",
-        description = Tr("Ein Auto parkt seit 1987 quer.", "One car has been parked sideways since 1987."),
+        id = "parking_space", name = Tr("Parkplatz", "Parking space"), category = Category.SPECIAL, role = RoomRole.PARKING,
+        width = 2, cost = 1_500, minStars = Lot.BASEMENT_STARS, basementOnly = true, art = "parking_space", dragRow = true, upkeep = 10,
+        description = Tr(
+            "Ein Platz für genau ein Auto. Waagerecht ziehen für eine ganze Reihe.",
+            "Room for exactly one car. Drag sideways for a whole row.",
+        ),
         effects = listOf(
             Tr(
-                "${Simulation.CARS_PER_PARKING} Plätze, gebucht von Büros (${Simulation.CARS_PER_OFFICE} Autos) und Wohnungen (${Simulation.CARS_PER_HOME})",
-                "${Simulation.CARS_PER_PARKING} spaces, booked by offices (${Simulation.CARS_PER_OFFICE} cars) and flats (${Simulation.CARS_PER_HOME})",
+                "1 Auto; Büros bringen ${Simulation.CARS_PER_OFFICE}, Wohnungen ${Simulation.CARS_PER_HOME}, Luxusbüros brauchen ${Simulation.LUXURY_SPACES}",
+                "1 car; offices bring ${Simulation.CARS_PER_OFFICE}, flats ${Simulation.CARS_PER_HOME}, luxury offices need ${Simulation.LUXURY_SPACES}",
             ),
-            Tr("${Simulation.PARKING_FEE} \$ pro gebuchtem Platz und Tag", "\$${Simulation.PARKING_FEE} per booked space and day"),
-            Tr("nur im Keller, nur so viele wie gebraucht", "basement only, only as many as needed"),
+            Tr("${Simulation.PARKING_FEE} \$ pro geparktem Auto und Tag", "\$${Simulation.PARKING_FEE} per parked car and day"),
+            Tr("nur im Keller, nur so viele wie Autos", "basement only, only as many as there are cars"),
         ),
     )
+
+    /** The old car park for 40 cars; saves that still have one get single spaces instead. */
+    const val OLD_CAR_PARK = "parking"
 
     val roomTypes: List<RoomType> =
         listOf(LOBBY, CORRIDOR, FILLER, STAIRS, ELEVATOR, EXPRESS, OFFICE, LUXURY_OFFICE, HOME, HOTEL, HOUSEKEEPING, FOOD, COPYROOM, SECURITY, TELEPORTER, UFO_PAD, PARKING)

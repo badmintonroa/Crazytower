@@ -1,6 +1,7 @@
 package crazytower.core.transport
 
 import com.github.quillraven.fleks.Entity
+import crazytower.core.GROUND_FLOOR
 import crazytower.core.Loc
 import crazytower.core.RoomRole
 import crazytower.core.Tower
@@ -48,8 +49,11 @@ class Car(val id: Int, val x: Int, var bottom: Int, var top: Int, val express: B
     val centerX: Float get() = x + 1f
     val floors: IntRange get() = bottom..top
 
-    /** Floors the doors open on. An express shaft skips everything but every fifth floor. */
-    val stops: List<Int> get() = if (express) floors.filter { it % Elevators.EXPRESS_EVERY == 0 } else floors.toList()
+    /**
+     * Floors the doors open on. An express shaft skips everything but every fifth floor above
+     * ground; in the basement it picks up on every floor, for the people from the parking spaces.
+     */
+    val stops: List<Int> get() = if (express) floors.filter { it <= GROUND_FLOOR || it % Elevators.EXPRESS_EVERY == 0 } else floors.toList()
 
     /** Minutes a cabin needs per floor. */
     val minutesPerFloor: Float get() = if (express) NavCosts.ELEVATOR_PER_FLOOR / 3 else NavCosts.ELEVATOR_PER_FLOOR

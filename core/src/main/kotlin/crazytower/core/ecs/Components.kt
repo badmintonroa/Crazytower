@@ -98,11 +98,20 @@ enum class Activity(private val text: Tr) {
 class Schedule(val plan: WorkPlan, val offset: Int, val crew: Int = 0, val seed: Int = 0) : Component<Schedule> {
     var activity: Activity = Activity.AWAY
     var ateOnDay: Int = -1
+
+    /** The last day the member actually got a meal, see [crazytower.core.Simulation.moodTarget]. */
+    var fedOnDay: Int = -1
     var tripStart: Double = 0.0
     var mood: Float = 70f
+
+    /** What last spoilt the mood, until it has recovered; the reason given when the tenant moves out. */
+    var grievance: Grievance? = null
     override fun type() = Schedule
     companion object : ComponentType<Schedule>()
 }
+
+/** What can spoil a member's mood. */
+enum class Grievance { WAITING, STUCK, NO_FOOD }
 
 /** Cleaning staff on the way to the dirty hotel room [roomId]. */
 data class Cleaning(val roomId: Int) : Component<Cleaning> {

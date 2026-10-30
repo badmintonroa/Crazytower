@@ -15,12 +15,16 @@ object RoomProblems {
 
     /**
      * What keeps tenants out of [room], or null if it is just a matter of time.
-     * Expects an empty rentable room; the way there is looked up, so call it sparingly.
+     * Expects an empty rentable room. [minutes] is the way from the street; looking it up is a
+     * search, so for many rooms pass it from [crazytower.core.nav.NavGraph.travelMinutesFrom].
      */
-    fun of(sim: Simulation, room: Room): RoomProblem? {
+    fun of(
+        sim: Simulation,
+        room: Room,
         // people come in from whichever end of the street is closer
-        val street = sim.streetExit(room.centerX)
-        val minutes = sim.nav.travelMinutes(street, room.center)
+        street: Loc = sim.streetExit(room.centerX),
+        minutes: Float? = sim.nav.travelMinutes(street, room.center),
+    ): RoomProblem? {
         return when {
             minutes == null && !sim.nav.hasLinksNear(room.center) -> RoomProblem(
                 Tr("Kein Weg hierher", "No way here"),
@@ -49,6 +53,20 @@ object RoomProblems {
                         "More cabins, an express elevator or a shorter way help.",
                 ),
                 far = true,
+            )
+            room.type.luxury && !sim.hasParking(room) -> RoomProblem(
+                Tr("Keine Parkplätze", "No parking"),
+                if (sim.basementOpen) {
+                    Tr(
+                        "Feine Mieter kommen nur mit ${Simulation.LUXURY_SPACES} eigenen Parkplätzen. Bau mehr Parkplätze im Keller.",
+                        "Posh tenants only come with ${Simulation.LUXURY_SPACES} parking spaces of their own. Build more spaces in the basement.",
+                    )
+                } else {
+                    Tr(
+                        "Feine Mieter kommen nur mit ${Simulation.LUXURY_SPACES} eigenen Parkplätzen, und der Keller öffnet erst ab ${Lot.BASEMENT_STARS} Sternen.",
+                        "Posh tenants only come with ${Simulation.LUXURY_SPACES} parking spaces of their own, and the basement only opens at ${Lot.BASEMENT_STARS} stars.",
+                    )
+                },
             )
             room.type.role == RoomRole.HOTEL && room.dirty &&
                 sim.tower.allRooms.none { it.type.role == RoomRole.HOUSEKEEPING && it.tenant != null } -> RoomProblem(

@@ -26,9 +26,17 @@ class TenantSystem(
         val now = sim.clock.totalMinutes
         val problems = sim.roomProblems
         problems.clear()
+        // one search from each end of the street serves all empty rooms
+        val left = sim.streetExit(0f)
+        val right = sim.streetExit(sim.lotWidth.toFloat())
+        val fromLeft by lazy { sim.nav.travelMinutesFrom(left) }
+        val fromRight by lazy { sim.nav.travelMinutesFrom(right) }
+        val present by lazy { sim.tower.allRooms.mapNotNullTo(HashSet()) { it.tenant } }
         for (room in sim.tower.allRooms) {
             if (!room.type.role.rentable || room.tenant != null) continue
-            val problem = RoomProblems.of(sim, room)
+            val street = sim.streetExit(room.centerX)
+            val minutes = if (street == left) fromLeft(room.center) else fromRight(room.center)
+            val problem = RoomProblems.of(sim, room, street, minutes)
             if (problem != null) {
                 problems[room.id] = problem
                 continue
@@ -47,9 +55,10 @@ class TenantSystem(
                 continue
             }
             // a tower full of identical tenants is boring: newcomers are preferred
-            val present = sim.tower.allRooms.mapNotNull { it.tenant }.toSet()
             val fresh = candidates.filter { it !in present }.ifEmpty { candidates }
-            sim.moveIn(room, fresh[sim.random.nextInt(fresh.size)])
+            val tenant = fresh[sim.random.nextInt(fresh.size)]
+            sim.moveIn(room, tenant)
+            present += tenant
         }
     }
 

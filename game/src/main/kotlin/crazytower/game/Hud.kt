@@ -322,8 +322,8 @@ class Hud(
                     built -> tr("SCHON GEBAUT", "ALREADY BUILT")
                     !unlocked && sim.stage < type.minStage -> tr("AB STUFE ${type.minStage}", "FROM STAGE ${type.minStage}")
                     !unlocked -> tr("AB ${type.minStars} STERNEN", "FROM ${type.minStars} STARS")
-                    type.perSegment -> tr("${formatMoney(type.cost)}/FELD", "${formatMoney(type.cost)}/TILE")
-                    else -> formatMoney(type.cost)
+                    type.perSegment -> tr("${formatMoney(sim.listPrice(type, 1))}/FELD", "${formatMoney(sim.listPrice(type, 1))}/TILE")
+                    else -> formatMoney(sim.listPrice(type))
                 },
                 13.0, Theme.TEXT, Theme.bodyBold,
             ).also { it.xy(92.0, 33.0) }.fitWidth(buttonWidth - 100.0)
@@ -355,6 +355,8 @@ class Hud(
                 tr("Miete pro Arbeitstag: ", "rent per working day: ") + range(tenants.map { it.rentPerDay }),
                 tr("halbe Miete unter ${Simulation.LUXURY_MOOD.toInt()} % Laune, ${formatMoney(type.upkeep ?: 0)} Unterhalt",
                     "half rent below ${Simulation.LUXURY_MOOD.toInt()} % mood, ${formatMoney(type.upkeep ?: 0)} upkeep"),
+                tr("braucht ${Simulation.LUXURY_SPACES} Parkplätze im Keller, sonst kein Mieter",
+                    "needs ${Simulation.LUXURY_SPACES} parking spaces in the basement, or no tenant"),
             ) else listOf(
                 tr("${type.capacity} Angestellte, kommen zur Arbeit", "${type.capacity} employees come to work"),
                 tr("Miete pro Arbeitstag: ", "rent per working day: ") + range(tenants.map { it.rentPerDay }),
@@ -371,7 +373,8 @@ class Hud(
                 tr("danach schmutzig, braucht Reinigungsdienst", "then dirty, needs housekeeping"),
             )
             RoomRole.PARKING -> type.effects.map { it.toString() } +
-                tr("gebucht: ${sim.parkedCars} von ${sim.carsWanted} Autos, ${sim.parkingSpaces} Plätze", "booked: ${sim.parkedCars} of ${sim.carsWanted} cars, ${sim.parkingSpaces} spaces")
+                tr("${sim.parkingSpaces} Plätze für ${sim.carsWanted} Autos, ${sim.carsWithoutSpace.coerceAtLeast(0)} suchen noch",
+                    "${sim.parkingSpaces} spaces for ${sim.carsWanted} cars, ${sim.carsWithoutSpace.coerceAtLeast(0)} still looking")
             RoomRole.ELEVATOR -> listOf(
                 tr("Unterhalt pro Tag: ${formatMoney(Simulation.UPKEEP.getValue(RoomRole.ELEVATOR))} pro Etage", "upkeep per day: ${formatMoney(Simulation.UPKEEP.getValue(RoomRole.ELEVATOR))} per floor"),
                 tr("plus ${formatMoney(Simulation.CABIN_UPKEEP)} pro Kabine", "plus ${formatMoney(Simulation.CABIN_UPKEEP)} per cabin"),
