@@ -82,6 +82,8 @@ enum class Activity(val label: String) {
     TO_MEAL("Geht essen"),
     EATING("Isst"),
     LEAVING("Geht nach Hause"),
+    TO_CLEAN("Geht putzen"),
+    CLEANING("Putzt ein Hotelzimmer"),
 }
 
 /**
@@ -96,6 +98,12 @@ class Schedule(val plan: WorkPlan, val offset: Int, val crew: Int = 0, val seed:
     var mood: Float = 70f
     override fun type() = Schedule
     companion object : ComponentType<Schedule>()
+}
+
+/** Cleaning staff on the way to the dirty hotel room [roomId]. */
+data class Cleaning(val roomId: Int) : Component<Cleaning> {
+    override fun type() = Cleaning
+    companion object : ComponentType<Cleaning>()
 }
 
 /** Members outside the tower (at work elsewhere, asleep somewhere, partying). Not drawn. */

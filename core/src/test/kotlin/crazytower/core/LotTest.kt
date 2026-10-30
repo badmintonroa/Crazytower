@@ -51,7 +51,7 @@ class LotTest {
         sim.build(sim.planLobby(0, 6 * count))
         repeat(count) { i ->
             val office = sim.build(Catalog.OFFICE, 1, i * 6).room!!
-            sim.moveIn(office, Tenants.candidates(RoomRole.OFFICE, sim.stars, sim.stage).first(), announce = false)
+            sim.moveIn(office, Tenants.candidates(Catalog.OFFICE, sim.stars, sim.stage).first(), announce = false)
         }
     }
 

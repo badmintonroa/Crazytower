@@ -22,6 +22,9 @@ class Room(val id: Int, val type: RoomType, val floor: Int, val x: Int, val widt
     /** Homes: the flat was sold once. Later residents buy it from the previous ones, not from the tower. */
     var sold: Boolean = false
 
+    /** Hotel rooms: the last guests have left and nobody has cleaned up yet. */
+    var dirty: Boolean = false
+
     /** Elevators: cabins in the shaft (every module of a shaft carries the same number). */
     var cabins: Int = 1
 }

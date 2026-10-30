@@ -54,7 +54,7 @@ object TestTower {
             while (sim.checkCabin(car).ok) sim.addCabin(car)
         }
         for (room in sim.tower.allRooms) {
-            val candidates = Tenants.candidates(room.type.role, sim.stars, stage)
+            val candidates = Tenants.candidates(room.type, sim.stars, stage)
             if (candidates.isEmpty() || room.type.capacity == 0) continue
             val tenant = candidates[sim.random.nextInt(candidates.size)]
             sim.moveIn(room, tenant, announce = false)

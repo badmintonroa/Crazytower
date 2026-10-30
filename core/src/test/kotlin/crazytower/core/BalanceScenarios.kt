@@ -94,6 +94,29 @@ class BalanceScenarios {
         }
     }
 
+    /** A stage-3 test tower gets a floor of hotel rooms and one cleaning service: what do they earn? */
+    @Test
+    fun printHotelFloor() {
+        val sim = TestTower.build(3, seed = 42L)
+        sim.eventsEnabled = false
+        val floor = sim.tower.allRooms.maxOf { it.floor } + 1
+        val shaft = sim.elevators.cars.values.filter { !it.express }.maxBy { it.top }
+        val hotels = (0 until 9).mapNotNull { i -> sim.build(Catalog.HOTEL, floor, i * 6).room }
+        sim.build(Catalog.HOUSEKEEPING, floor, 54).also { check(it.ok) { it.reason } }
+        sim.build(sim.planColumn(Catalog.ELEVATOR, shaft.x, shaft.top, floor)).also { check(it.ok) { "Schacht: " + it.reason } }
+        val out = StringBuilder("== Hotel-Etage: ${hotels.size} Zimmer, 1 Reinigungsdienst, ${sim.stars} Sterne ==\n")
+        out.append("Tag | Hotel-Einnahmen | belegt um 23 Uhr | schmutzig um 23 Uhr\n")
+        repeat(7 * 24) {
+            sim.step(60.0)
+            if (sim.clock.hour == 23) {
+                out.append("${sim.clock.day} | ${sim.finance.day(sim.clock.day)[MoneyKind.HOTEL] ?: 0} | ${hotels.count { it.tenant != null }} | ${hotels.count { it.dirty }}\n")
+            }
+        }
+        val upkeep = hotels.size * Simulation.HOTEL_UPKEEP + Simulation.HOUSEKEEPING_UPKEEP
+        out.append("Bau ${hotels.size * Catalog.HOTEL.cost + Catalog.HOUSEKEEPING.cost} \$, Unterhalt $upkeep \$ pro Tag\n")
+        println(out)
+    }
+
     companion object {
         const val RESERVE = 5_000L
         const val SECOND_SHAFT_FROM = 8

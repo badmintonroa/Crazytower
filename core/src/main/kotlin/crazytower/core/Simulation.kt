@@ -5,6 +5,7 @@ import com.github.quillraven.fleks.World
 import com.github.quillraven.fleks.configureWorld
 import crazytower.core.ecs.Activity
 import crazytower.core.ecs.Away
+import crazytower.core.ecs.Cleaning
 import crazytower.core.ecs.EconomySystem
 import crazytower.core.ecs.ElevatorSystem
 import crazytower.core.ecs.drop
@@ -15,6 +16,7 @@ import crazytower.core.ecs.Schedule
 import crazytower.core.ecs.ScheduleSystem
 import crazytower.core.ecs.Idle
 import crazytower.core.ecs.IdleSystem
+import crazytower.core.ecs.HousekeepingSystem
 import crazytower.core.ecs.MovementSystem
 import crazytower.core.ecs.PathfindingSystem
 import crazytower.core.ecs.Person
@@ -83,6 +85,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         systems {
             add(IdleSystem())
             add(TenantSystem())
+            add(HousekeepingSystem())
             add(EconomySystem())
             add(EventSystem())
             add(ScheduleSystem())
@@ -358,6 +361,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         room.tenant = tenant
         room.since = clock.totalMinutes
         room.paidUntil = clock.totalMinutes
+        if (room.type.role == RoomRole.HOTEL) room.paidUntil = checkoutAfter(clock.totalMinutes)
         looksVersion++
         if (announce && room.type.role == RoomRole.HOME && tenant.salePrice > 0 && !room.sold) {
             room.sold = true
@@ -366,7 +370,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             flatsSoldToday++
             book(room.salePaid, MoneyKind.SALE, tenant.name, room.center)
         }
-        val resident = room.type.role == RoomRole.HOME
+        val resident = room.type.role.residential
         val firstLook = room.id // rooms of the same tenant start their crew at different people
         repeat(room.type.capacity) { i ->
             world.entity {
@@ -377,7 +381,9 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
                 it += Away(clock.totalMinutes)
             }
         }
-        if (announce) news.post("Neu im Turm: ${tenant.name} (${floorLabel(room.floor)}). ${tenant.quirk}", room.center)
+        if (announce && room.type.role == RoomRole.HOTEL) {
+            if (random.nextInt(4) == 0) news.post("Check-in: ${tenant.name} (${floorLabel(room.floor)}). ${tenant.quirk}", room.center)
+        } else if (announce) news.post("Neu im Turm: ${tenant.name} (${floorLabel(room.floor)}). ${tenant.quirk}", room.center)
     }
 
     /** Unhappy tenants leave; the first owners of a flat get half their price back, once. */
@@ -385,6 +391,8 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         removeMembers(room.id)
         if (room.salePaid > 0) book(-room.salePaid / 2, MoneyKind.REFUND, "Kaufpreis zurück", room.center)
         room.salePaid = 0
+        // guests leave a mess behind, however long they stayed
+        if (room.type.role == RoomRole.HOTEL) room.dirty = true
         room.tenant = null
         room.since = clock.totalMinutes
         looksVersion++
@@ -456,6 +464,10 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         for (room in tower.allRooms) {
             val tenant = room.tenant ?: continue
             if (room.type.role == RoomRole.HOME || tenant.rentPerDay <= 0) continue
+            if (room.type.role == RoomRole.HOTEL) {
+                if (now >= room.paidUntil) checkOut(room, tenant)
+                continue
+            }
             val end = tenant.plan.lastEnd(now) ?: continue
             if (end <= room.paidUntil) continue
             room.paidUntil = end.toDouble()
@@ -463,10 +475,31 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         }
     }
 
+    /** Hotel guests who checked in at [minute] leave the next morning at [CHECKOUT_HOUR]. */
+    private fun checkoutAfter(minute: Double): Double =
+        ((minute / GameClock.MINUTES_PER_DAY).toInt() + 1) * GameClock.MINUTES_PER_DAY + CHECKOUT_HOUR * 60.0
+
+    /** The guests pay for their night and go; the room stays dirty until somebody cleans it. */
+    private fun checkOut(room: Room, tenant: TenantKind) {
+        book(rentFor(room, tenant), MoneyKind.HOTEL, tenant.name, room.center)
+        moveOut(room)
+    }
+
+    /** Cleaning staff finished [room]: the next guests may come. */
+    fun cleaned(room: Room) {
+        if (!room.dirty) return
+        room.dirty = false
+        room.since = clock.totalMinutes
+        looksVersion++
+    }
+
+    /** Hotel rooms that wait for the cleaning staff. */
+    val dirtyRooms: List<Room> get() = tower.allRooms.filter { it.dirty }
+
     private fun rentFor(room: Room, tenant: TenantKind): Long {
         val mood = moodOf(room) ?: 70f
         val full = (tenant.rentPerDay * starBonus).toLong()
-        return if (mood < UNHAPPY) full / 2 else full
+        return if (mood < (if (room.type.luxury) LUXURY_MOOD else UNHAPPY)) full / 2 else full
     }
 
     /**
@@ -480,7 +513,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         for (room in tower.allRooms) {
             val tenant = room.tenant ?: continue
             if (room.type.role == RoomRole.HOME || tenant.rentPerDay <= 0) continue
-            val end = tenant.plan.nextEnd(now) ?: continue
+            val end = if (room.type.role == RoomRole.HOTEL) room.paidUntil.toInt() else tenant.plan.nextEnd(now) ?: continue
             if (end <= horizon) list += Upcoming(end, rentFor(room, tenant), tenant.name, room.center)
         }
         var midnight = (clock.day + 1) * GameClock.MINUTES_PER_DAY
@@ -500,7 +533,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
 
     private fun homeFees(): Long = tower.allRooms.count { it.type.role == RoomRole.HOME && it.tenant != null && it.tenant!!.salePrice > 0 } * (HOME_FEE * starBonus).toLong()
 
-    private fun upkeep(): Long = tower.allRooms.sumOf { (UPKEEP[it.type.role] ?: 0L) * (if (it.type.perSegment) it.width else 6) / 6 } +
+    private fun upkeep(): Long = tower.allRooms.sumOf { it.type.upkeep ?: ((UPKEEP[it.type.role] ?: 0L) * (if (it.type.perSegment) it.width else 6) / 6) } +
         elevators.cars.values.sumOf { it.cabins.size } * CABIN_UPKEEP + shaftSurcharge()
 
     /** Each elevator shaft beyond the first makes every shaft's upkeep dearer. */
@@ -659,7 +692,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         rooms = tower.allRooms.map {
             SavedRoom(
                 it.id, it.type.id, it.floor, it.x, it.since, it.tenant?.id, moodOf(it),
-                it.width.takeIf { w -> w != it.type.width }, it.paidUntil, it.salePaid, it.cabins, it.sold,
+                it.width.takeIf { w -> w != it.type.width }, it.paidUntil, it.salePaid, it.cabins, it.sold, it.dirty,
             )
         },
         news = news.latest.map { SavedNews(it.text, it.where?.floor, it.where?.x, it.important) },
@@ -684,6 +717,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             room.salePaid = saved.salePaid
             room.sold = saved.sold || saved.salePaid > 0
             room.cabins = saved.cabins
+            room.dirty = saved.dirty
         }
         for (item in save.news.asReversed()) {
             news.post(item.text, item.floor?.let { Loc(it, item.x ?: 0f) }, item.important)
@@ -724,6 +758,15 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
                     schedule.mood = (schedule.mood + MEAL_MOOD).coerceAtMost(100f)
                     earn(MEAL_PRICE)
                     entity.configure { it += Idle(clock.totalMinutes + 15 + random.nextInt(15)) }
+                }
+                Activity.TO_CLEAN -> {
+                    val target = entity.getOrNull(Cleaning)?.let { tower.room(it.roomId) }
+                    entity.configure { it -= Cleaning }
+                    if (target != null && target.dirty) {
+                        schedule.activity = Activity.CLEANING
+                        entity.configure { it += Idle(clock.totalMinutes + CLEAN_MINUTES) }
+                        cleaned(target)
+                    }
                 }
                 else -> Unit
             }
@@ -802,8 +845,21 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         val UPKEEP = mapOf(
             RoomRole.ELEVATOR to 60L, RoomRole.STAIRS to 10L, RoomRole.LOBBY to 40L, RoomRole.CORRIDOR to 5L,
             RoomRole.SPECIAL to 300L, RoomRole.SECURITY to 800L, RoomRole.TELEPORTER to 1_000L,
-            RoomRole.PARKING to 400L,
+            RoomRole.PARKING to 400L, RoomRole.HOTEL to HOTEL_UPKEEP, RoomRole.HOUSEKEEPING to HOUSEKEEPING_UPKEEP,
         )
+        const val HOTEL_UPKEEP = 400L
+        const val HOUSEKEEPING_UPKEEP = 1_500L
+
+        /** Hotel guests check in from [CHECK_IN_FROM] to [CHECK_IN_UNTIL] o'clock and leave the next morning. */
+        const val CHECK_IN_FROM = 14
+        const val CHECK_IN_UNTIL = 22
+        const val CHECKOUT_HOUR = 10
+
+        /** How long cleaning one hotel room takes, in game minutes. */
+        const val CLEAN_MINUTES = 45
+
+        /** Luxury tenants pay only half below this mood. */
+        const val LUXURY_MOOD = 70f
 
         /** Cars one car park holds, people per car, and the daily fee per parked car. */
         const val CARS_PER_PARKING = 40

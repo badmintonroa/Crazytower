@@ -159,6 +159,26 @@ object RoomInfo {
                 }
                 RoomCard(room.type.name, where, lines, null)
             }
+            tenant != null && room.type.role == RoomRole.HOTEL -> {
+                lines += "Raum" to room.type.name
+                sim.moodOf(room)?.let { lines += "Laune" to "${it.toInt()} %" }
+                lines += "Unterwegs" to tenant.plan.label
+                lines += "Pro Nacht" to "${crazytower.game.ui.formatMoney((tenant.rentPerDay * sim.starBonus).toLong())} beim Auschecken"
+                lines += "Gäste" to "${room.type.capacity}"
+                RoomCard(tenant.name, where, lines, tenant.quirk)
+            }
+            tenant != null && room.type.role == RoomRole.HOUSEKEEPING -> {
+                lines += "Raum" to room.type.name
+                lines += "Zeiten" to tenant.plan.label
+                lines += "Schmutzig" to "${sim.dirtyRooms.size} Hotelzimmer"
+                lines += "Leute" to "${room.type.capacity}"
+                RoomCard(tenant.name, where, lines, tenant.quirk)
+            }
+            room.dirty -> {
+                lines += "Status" to "Muss geputzt werden"
+                lines += "Hinweis" to if (sim.tower.allRooms.any { it.type.role == RoomRole.HOUSEKEEPING && it.tenant != null }) "Die Reinigung kommt" else "Kein Reinigungsdienst im Turm"
+                RoomCard(room.type.name, where, lines, null)
+            }
             tenant != null -> {
                 lines += "Raum" to room.type.name
                 sim.moodOf(room)?.let { lines += "Laune" to "${it.toInt()} %" }
@@ -172,8 +192,12 @@ object RoomInfo {
                 RoomCard(tenant.name, where, lines, tenant.quirk)
             }
             room.type.role.rentable -> {
-                lines += "Status" to "Zu vermieten"
-                lines += "Hinweis" to if (sim.nav.findPath(Loc(0, 0f), room.center) == null) "Nicht erreichbar" else "Mieter kommen bald"
+                lines += "Status" to if (room.type.role == RoomRole.HOTEL) "Frei und sauber" else "Zu vermieten"
+                lines += "Hinweis" to when {
+                    sim.nav.findPath(Loc(0, 0f), room.center) == null -> "Nicht erreichbar"
+                    room.type.role == RoomRole.HOTEL -> "Check-in ${Simulation.CHECK_IN_FROM}–${Simulation.CHECK_IN_UNTIL} Uhr"
+                    else -> "Mieter kommen bald"
+                }
                 RoomCard(room.type.name, where, lines, null)
             }
             else -> RoomCard(room.type.name, where, lines, null)

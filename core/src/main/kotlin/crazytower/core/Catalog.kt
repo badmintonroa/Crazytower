@@ -37,10 +37,19 @@ enum class RoomRole {
 
     /** Underground car park; earns parking fees for the cars of the people in the tower. */
     PARKING,
+
+    /** Guests stay one night and pay when they check out; afterwards the room needs cleaning. */
+    HOTEL,
+
+    /** Cleaning staff who walk to dirty hotel rooms and make them ready for the next guests. */
+    HOUSEKEEPING,
     ;
 
     /** Rooms that get a tenant. */
-    val rentable: Boolean get() = this == OFFICE || this == HOME || this == FOOD
+    val rentable: Boolean get() = this == OFFICE || this == HOME || this == FOOD || this == HOTEL || this == HOUSEKEEPING
+
+    /** Its people live in the room (and are out during their plan) rather than work there. */
+    val residential: Boolean get() = this == HOME || this == HOTEL
 
     /** Stairs and elevators sit on their own layer in front of the rooms. */
     val isWay: Boolean get() = this == STAIRS || this == ELEVATOR
@@ -79,6 +88,10 @@ data class RoomType(
     val maxCount: Int? = null,
     /** What the room does for the tower, one short line each, for the build menu. */
     val effects: List<String> = emptyList(),
+    /** Only luxury tenants move in, see [TenantKind.luxury]. */
+    val luxury: Boolean = false,
+    /** Daily upkeep of this type when it differs from the role's, see [Simulation.UPKEEP]. */
+    val upkeep: Long? = null,
 ) {
     /** Priced per segment rather than per room. */
     val perSegment: Boolean get() = stretchable || fillsGap
@@ -134,6 +147,37 @@ object Catalog {
         description = "Hier essen Angestellte und Besucher.",
     )
 
+    val LUXURY_OFFICE = RoomType(
+        id = "luxury_office", name = "Luxusbüro", category = Category.OFFICES, role = RoomRole.OFFICE,
+        width = 12, cost = 150_000, minStage = 4, art = "office_empty", capacity = 10, luxury = true, upkeep = 2_000,
+        description = "Marmor, Kunst an der Wand und ein Aquarium mit Anwalt.",
+        effects = listOf(
+            "nur feine Mieter, die sehr viel Miete zahlen",
+            "unter ${Simulation.LUXURY_MOOD.toInt()} % Laune nur die halbe Miete",
+            "Unterhalt 2.000 \$ pro Tag",
+        ),
+    )
+    val HOTEL = RoomType(
+        id = "hotel", name = "Hotelzimmer", category = Category.HOMES, role = RoomRole.HOTEL,
+        width = 6, cost = 40_000, minStage = 3, art = "home_empty", capacity = 2,
+        description = "Frische Handtücher, gelegentlich.",
+        effects = listOf(
+            "Gäste checken ab 14 Uhr ein, zahlen beim Auschecken",
+            "danach schmutzig, bis der Reinigungsdienst kommt",
+            "Unterhalt ${Simulation.HOTEL_UPKEEP} \$ pro Tag",
+        ),
+    )
+    val HOUSEKEEPING = RoomType(
+        id = "housekeeping", name = "Reinigungsdienst", category = Category.HOMES, role = RoomRole.HOUSEKEEPING,
+        width = 6, cost = 60_000, minStage = 3, art = "home_empty", capacity = 2,
+        description = "Wischt alles weg. Auch Erinnerungen.",
+        effects = listOf(
+            "das Personal läuft zu schmutzigen Hotelzimmern",
+            "ein Zimmer putzen dauert ${Simulation.CLEAN_MINUTES} Minuten",
+            "Unterhalt ${"%,d".format(Simulation.HOUSEKEEPING_UPKEEP).replace(',', '.')} \$ pro Tag",
+        ),
+    )
+
     val COPYROOM = RoomType(
         id = "copyroom", name = "Kopierraum der Ewigkeit", category = Category.SPECIAL, role = RoomRole.SPECIAL,
         width = 6, cost = 40_000, minStage = 2, art = "extra_copyroom", maxCount = 1,
@@ -171,7 +215,7 @@ object Catalog {
     )
 
     val roomTypes: List<RoomType> =
-        listOf(LOBBY, CORRIDOR, FILLER, STAIRS, ELEVATOR, EXPRESS, OFFICE, HOME, FOOD, COPYROOM, SECURITY, TELEPORTER, UFO_PAD, PARKING)
+        listOf(LOBBY, CORRIDOR, FILLER, STAIRS, ELEVATOR, EXPRESS, OFFICE, LUXURY_OFFICE, HOME, HOTEL, HOUSEKEEPING, FOOD, COPYROOM, SECURITY, TELEPORTER, UFO_PAD, PARKING)
 
     fun type(id: String): RoomType = roomTypes.first { it.id == id }
 }

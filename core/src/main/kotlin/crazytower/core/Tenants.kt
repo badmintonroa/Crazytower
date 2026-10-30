@@ -95,12 +95,17 @@ data class TenantKind(
     val eventOnly: Boolean = false,
     val minStage: Int = 0,
     val crew: List<String> = emptyList(),
+    /** Only moves into luxury rooms, and only luxury tenants do. */
+    val luxury: Boolean = false,
 ) {
     /** The look of the [i]-th person of this tenant: the crew in turn, or always [look]. */
     fun lookFor(i: Int): String = if (crew.isEmpty()) look else crew[i % crew.size]
 }
 
 private val OFFICE_HOURS = WorkPlan("Mo–Fr 8–17 Uhr", WorkPlan.WEEKDAYS, WorkPlan.h(8), WorkPlan.h(17))
+
+/** Hotel guests see the town during the day and come back for the night. */
+private val GUEST_PLAN = WorkPlan("tagsüber unterwegs, 9–18 Uhr", WorkPlan.DAILY, WorkPlan.h(9), WorkPlan.h(18))
 
 object Tenants {
     private fun plan(label: String, days: Set<Int>, from: Int, to: Int, crews: Int = 1, lateUpTo: Int = 0, wandering: Boolean = false) =
@@ -143,6 +148,20 @@ object Tenants {
             crew = listOf("npc_clown_classic", "npc_clown_boss", "npc_clown_mime", "npc_clown_sad", "npc_clown_juggler"),
             rentPerDay = 1_700, eventOnly = true, plan = plan("Mo–Fr 9–18 Uhr", WorkPlan.WEEKDAYS, 9, 18), quirk = "War vorher ein seriöses Büro."),
 
+        // Luxury offices
+        TenantKind("hedgefund", "Hedgefonds Geld & Mehr Geld", RoomRole.OFFICE, "office_empty", "npc_office_boss",
+            crew = listOf("npc_office_boss", "npc_office_blazer", "npc_office_sleeves", "npc_accountant"),
+            minStars = 4, minStage = 4, luxury = true, rentPerDay = 15_000, plan = plan("Mo–Fr 7–20 Uhr", WorkPlan.WEEKDAYS, 7, 20),
+            quirk = "Wettet auf das Wetter von gestern. Und gewinnt."),
+        TenantKind("dragonbank", "Drachenbank Goldhort", RoomRole.OFFICE, "office_empty", "npc_supervillain",
+            crew = listOf("npc_supervillain", "npc_office_boss", "npc_vampire_secretary"),
+            minStars = 4, minStage = 4, luxury = true, rentPerDay = 17_000, plan = plan("Mo–Sa 10–18 Uhr", WorkPlan.MON_TO_SAT, 10, 18),
+            quirk = "Der Chef sitzt auf dem Tresor. Wörtlich."),
+        TenantKind("atlantis", "Konsulat von Atlantis", RoomRole.OFFICE, "office_empty", "npc_penguin",
+            crew = listOf("npc_penguin", "npc_ministry", "npc_office_blazer"),
+            minStars = 5, minStage = 5, luxury = true, rentPerDay = 22_000, plan = plan("Mo–Fr 9–15 Uhr (bei Ebbe)", WorkPlan.WEEKDAYS, 9, 15),
+            quirk = "Bringt immer nasse Füße mit."),
+
         // Homes: the plan says when the residents are out
         TenantKind("family", "Familie Krawuttke", RoomRole.HOME, "home_family", "npc_family_dad",
             crew = listOf("npc_family_dad", "npc_family_mom", "npc_kid"),
@@ -159,6 +178,32 @@ object Tenants {
         TenantKind("ghost", "Ein freundliches Gespenst", RoomRole.HOME, "home_ghost", "npc_ghost",
             salePrice = 0, eventOnly = true, plan = plan("täglich 23–4 Uhr (Spuken)", WorkPlan.DAILY, 23, 4), quirk = "Zahlt keine Miete. Ist ja tot."),
 
+        // Hotel guests: out during the day, they pay [rentPerDay] per night when they check out
+        TenantKind("business", "Herr Eilig auf Geschäftsreise", RoomRole.HOTEL, "home_empty", "npc_office_blazer",
+            crew = listOf("npc_office_blazer", "npc_office_sleeves"),
+            rentPerDay = 3_000, plan = GUEST_PLAN, quirk = "Hat drei Meetings gleichzeitig. Im Schlaf."),
+        TenantKind("selfie", "Reisegruppe Selfie", RoomRole.HOTEL, "home_empty", "npc_tourist",
+            rentPerDay = 3_200, plan = GUEST_PLAN, quirk = "Fotografiert den Feuerlöscher. Von allen Seiten."),
+        TenantKind("wedding", "Hochzeitsgäste (sehr laut)", RoomRole.HOTEL, "home_empty", "npc_family_mom",
+            crew = listOf("npc_family_mom", "npc_family_dad"),
+            rentPerDay = 3_500, plan = GUEST_PLAN, quirk = "Haben die Torte im Aufzug vergessen."),
+        TenantKind("count", "Ein Graf auf Durchreise", RoomRole.HOTEL, "home_empty", "npc_vampire_count",
+            minStars = 4, rentPerDay = 4_500, plan = plan("tagsüber im Sarg, 6–20 Uhr", WorkPlan.DAILY, 6, 20),
+            quirk = "Bittet um ein Zimmer ohne Fenster und ohne Knoblauch."),
+        TenantKind("band", "Rockband Die Lärmschutzwände", RoomRole.HOTEL, "home_empty", "npc_student_party",
+            crew = listOf("npc_student_party", "npc_student_hoodie"),
+            minStars = 4, rentPerDay = 5_000, plan = GUEST_PLAN, quirk = "Werfen den Fernseher aus dem Fenster. Es ist ein Bild von einem Fernseher."),
+        TenantKind("spacetourists", "Weltraumtouristen", RoomRole.HOTEL, "home_empty", "npc_alien",
+            minStars = 5, rentPerDay = 6_000, plan = GUEST_PLAN, quirk = "Geben fünf Sterne. Von zwölf möglichen."),
+
+        // Cleaning companies: the hours they work
+        TenantKind("staubfrei", "Putzkolonne Staubfrei & Söhne", RoomRole.HOUSEKEEPING, "home_empty", "npc_janitor",
+            plan = plan("täglich 9–19 Uhr", WorkPlan.DAILY, 9, 19), quirk = "Wischt auch schlechte Laune weg. Meistens."),
+        TenantKind("robots", "Saugroboter-Schwarm", RoomRole.HOUSEKEEPING, "home_empty", "npc_office_it",
+            plan = plan("täglich 8–20 Uhr", WorkPlan.DAILY, 8, 20), quirk = "Hat einen Hamster adoptiert. Der Hamster ist nicht einverstanden."),
+        TenantKind("housegeist", "Hausgeist Blitzeblank", RoomRole.HOUSEKEEPING, "home_empty", "npc_ghost",
+            minStars = 4, plan = plan("nachts 22–6 Uhr", WorkPlan.DAILY, 22, 6), quirk = "Putzt nur, wenn keiner hinsieht."),
+
         // Food: opening hours
         TenantKind("imbiss", "Imbiss Zum Schiefen Turm", RoomRole.FOOD, "food_imbiss", "npc_family_dad",
             rentPerDay = 900, plan = plan("täglich 11–23 Uhr", WorkPlan.DAILY, 11, 23), quirk = "Die Currywurst ist laut Gutachten essbar."),
@@ -170,7 +215,7 @@ object Tenants {
 
     fun byId(id: String): TenantKind = all.first { it.id == id }
 
-    /** Tenants that may move into a room of [role] in a tower with [stars] stars at [stage]. */
-    fun candidates(role: RoomRole, stars: Int, stage: Int): List<TenantKind> =
-        all.filter { it.role == role && !it.eventOnly && it.minStars <= stars && it.minStage <= stage }
+    /** Tenants that may move into a room of [type] in a tower with [stars] stars at [stage]. */
+    fun candidates(type: RoomType, stars: Int, stage: Int): List<TenantKind> =
+        all.filter { it.role == type.role && it.luxury == type.luxury && !it.eventOnly && it.minStars <= stars && it.minStage <= stage }
 }
