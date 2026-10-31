@@ -1144,6 +1144,161 @@ def rundown(room):
     return out
 
 
+
+# ---------------------------------------------------------------- the moon mission
+
+def office_rocket():
+    r = Room(6, (214, 226, 236), floor=(70, 84, 104), ceiling=(40, 50, 70))
+    r.window(30, 34, 110, 78, sky=(20, 24, 60))
+    r.d.ellipse([96, 44, 116, 64], fill=(250, 250, 230), outline=INK, width=2)   # the moon outside
+    for i in range(3):   # desks with launch consoles
+        x = 170 + i * 120
+        r.table(x, 90, color=(120, 130, 150))
+        r.box(x + 14, 112, 60, 30, (30, 34, 50))
+        r.d.rectangle([x + 18, 116, x + 70, 138], fill=(90, 230, 160))
+        r.glow(x + 18, 116, 52, 22)
+        for k in range(3):
+            r.d.ellipse([x + 20 + k * 16, 146, x + 30 + k * 16, 156], fill=[(230, 70, 70), (240, 200, 60), (80, 200, 120)][k], outline=INK, width=2)
+    r.sign(180, 30, "T - 10 ... 9 ... 8", bg=(30, 34, 50), fg=(255, 120, 80), size=16)
+    # a cardboard rocket in the corner
+    r.d.polygon([(520, 166), (520, 70), (545, 30), (570, 70), (570, 166)], fill=(240, 240, 240), outline=INK)
+    r.d.polygon([(505, 166), (520, 130), (520, 166)], fill=(220, 70, 70), outline=INK)
+    r.d.polygon([(585, 166), (570, 130), (570, 166)], fill=(220, 70, 70), outline=INK)
+    r.d.ellipse([532, 80, 558, 106], fill=(120, 190, 240), outline=INK, width=3)
+    return r.save()
+
+
+def home_astronauts():
+    r = Room(6, (200, 210, 226), floor=(90, 96, 110), ceiling=(50, 56, 72))
+    r.window(250, 34, 110, 80, sky=(20, 24, 60))
+    for x in (80, 150, 420):   # sleeping bags strapped to the wall
+        r.box(x, 40, 44, 110, (240, 140, 60))
+        r.d.ellipse([x + 10, 46, x + 34, 70], fill=(240, 210, 180), outline=INK, width=2)
+        for y in (80, 120):
+            r.d.line([x - 6, y, x + 50, y], fill=INK, width=4)
+    r.box(480, 120, 90, 48, (120, 130, 150))   # tube food fridge
+    for k in range(4):
+        r.box(490 + k * 20, 96, 12, 24, [(240, 200, 60), (90, 200, 120), (230, 90, 90), (120, 170, 240)][k], 2)
+    r.sign(470, 40, "HEUTE: TUBE\nMIT SCHNITZEL", bg=(255, 255, 255), size=11)
+    # a helmet on the table
+    r.table(260, 90)
+    r.d.ellipse([285, 96, 335, 132], fill=(245, 245, 245), outline=INK, width=3)
+    r.d.ellipse([296, 104, 326, 124], fill=(240, 190, 80), outline=INK, width=2)
+    return r.save()
+
+
+def hotel_officials():
+    r = hotel_shell(wall=(120, 130, 110))
+    r.window(250, 36, 120, 80)
+    bed(r, 70, blanket=(110, 110, 120))
+    nightstand(r, 236)
+    for k in range(5):   # piles of forms
+        h = 30 + (k * 13) % 40
+        r.box(390 + k * 34, 168 - h, 26, h, (250, 250, 240), 2)
+        for y in range(168 - h + 6, 168, 7):
+            r.d.line([393 + k * 34, y, 412 + k * 34, y], fill=(160, 160, 170), width=1)
+    r.sign(400, 36, "BITTE NICHT\nSTÖREN\n(FORMULAR 7b)", bg=(255, 255, 255), size=11)
+    r.d.ellipse([140, 30, 196, 86], fill=(220, 60, 60), outline=INK, width=3)   # a giant stamp mark on the wall
+    r.d.text((148, 48), "OK", fill=(255, 255, 255), font=font(18))
+    return r.save()
+
+
+def special_deck():
+    r = Room(6, (110, 160, 210), floor=(120, 120, 130), ceiling=(110, 160, 210))
+    d = r.d
+    for x, y, rr in [(60, 40, 22), (430, 30, 30), (300, 60, 16)]:   # clouds at eye level
+        for dx in (-rr, 0, rr):
+            d.ellipse([x + dx - rr, y - rr // 2, x + dx + rr, y + rr], fill=(250, 250, 255))
+    d.rectangle([0, 120, r.w, 126], fill=(200, 200, 210), outline=INK)   # railing
+    for x in range(10, r.w, 40):
+        d.line([x, 126, x, 168], fill=INK, width=3)
+    for x in (120, 380):   # coin binoculars
+        r.box(x, 100, 40, 22, (60, 140, 120))
+        r.box(x + 14, 122, 12, 46, (60, 140, 120))
+        d.ellipse([x - 6, 96, x + 10, 112], fill=(40, 50, 60), outline=INK, width=2)
+        d.ellipse([x + 30, 96, x + 46, 112], fill=(40, 50, 60), outline=INK, width=2)
+    r.sign(220, 70, "BLICK ZUR RAMPE\n2 $ / MIN", bg=(255, 244, 214), size=12)
+    return r.save()
+
+
+def special_souvenirs():
+    r = shop_shell(wall=(250, 230, 250), awning=(120, 90, 220))
+    shelves(r, 40, 200, [(230, 230, 230), (200, 200, 220), (240, 200, 60)])
+    counter(r, 380)
+    for k in range(4):   # jars of "moon dust"
+        r.box(270 + k * 26, 120, 20, 30, (210, 210, 220), 2)
+        r.d.rectangle([273 + k * 26, 132, 287 + k * 26, 148], fill=(140, 140, 150))
+    r.sign(250, 40, "ECHTER MONDSTAUB\n(AUS DEM KELLER)", bg=(255, 255, 255), size=11)
+    r.d.ellipse([480, 30, 540, 90], fill=(250, 250, 220), outline=INK, width=3)
+    return r.save()
+
+
+def station_shell():
+    r = Room(12, (30, 34, 64), floor=(90, 94, 110), ceiling=(30, 34, 64))
+    rnd = random.Random(7)
+    for _ in range(40):
+        x, y = rnd.randrange(8, r.w - 8), rnd.randrange(20, 120)
+        r.d.ellipse([x, y, x + 4, y + 4], fill=(255, 255, 220))
+    r.d.ellipse([r.w - 150, 24, r.w - 70, 104], fill=(250, 250, 225), outline=INK, width=3)   # the moon, far away
+    for cx, cy, rr in [(r.w - 120, 50, 8), (r.w - 96, 76, 6), (r.w - 130, 84, 5)]:
+        r.d.ellipse([cx - rr, cy - rr, cx + rr, cy + rr], fill=(220, 220, 200))
+    r.glow(r.w - 150, 24, 80, 80)
+    return r
+
+
+def station_ramp():
+    r = station_shell()
+    d = r.d
+    d.polygon([(100, 168), (700, 40), (730, 60), (160, 168)], fill=(170, 176, 190), outline=INK)   # the ramp
+    for k in range(8):
+        x = 160 + k * 70
+        d.line([x, 168, x + 10, 168 - 30 - k * 14], fill=INK, width=4)
+    r.sign(80, 30, "RICHTUNG MOND ->", bg=(240, 220, 80), size=16)
+    r.box(40, 120, 60, 48, (220, 80, 60))
+    r.sign(860, 120, "COUNTDOWN 3", bg=(30, 34, 50), fg=(255, 120, 80), size=14)
+    return r.save()
+
+
+def station_tank():
+    r = station_shell()
+    d = r.d
+    for k, x in enumerate((120, 380)):
+        d.rounded_rectangle([x, 40, x + 200, 168], radius=40, fill=(120, 80, 50), outline=INK, width=4)
+        d.rectangle([x + 20, 70, x + 180, 100], fill=(240, 230, 210), outline=INK, width=2)
+        d.text((x + 34, 74), "KAFFEE", fill=INK, font=font(20))
+        r.d.ellipse([x + 80, 18, x + 120, 46], fill=(255, 255, 255, 180))   # steam
+    d.line([320, 140, 380, 140], fill=INK, width=8)
+    r.sign(640, 120, "40.000 BECHER\nCOUNTDOWN 2", bg=(30, 34, 50), fg=(255, 120, 80), size=13)
+    return r.save()
+
+
+def station_capsule():
+    r = station_shell()
+    d = r.d
+    d.polygon([(250, 168), (300, 50), (460, 50), (510, 168)], fill=(235, 235, 240), outline=INK)
+    d.polygon([(330, 50), (380, 14), (430, 50)], fill=(220, 70, 70), outline=INK)
+    for x in (320, 380, 440):
+        d.ellipse([x - 18, 80, x + 18, 116], fill=(120, 190, 240), outline=INK, width=3)
+    d.rectangle([360, 140, 400, 160], fill=(80, 200, 120), outline=INK)   # the air freshener
+    r.sign(620, 120, "3 SITZE, 1 LENKRAD\nCOUNTDOWN 1", bg=(30, 34, 50), fg=(255, 120, 80), size=13)
+    return r.save()
+
+
+def station_lift():
+    r = station_shell()
+    d = r.d
+    d.rectangle([420, 0, 560, 168], fill=(160, 166, 190), outline=INK, width=4)   # the shaft into the sky
+    for y in range(10, 168, 24):
+        d.line([420, y, 560, y + 12], fill=INK, width=2)
+        d.line([560, y, 420, y + 12], fill=INK, width=2)
+    r.box(440, 100, 100, 68, (240, 200, 60))
+    d.text((452, 116), "MOND", fill=INK, font=font(20))
+    r.glow(440, 100, 100, 68)
+    r.sign(90, 40, "NÄCHSTER HALT:\nMOND", bg=(255, 255, 255), size=16)
+    r.sign(700, 130, "ABHEBEN!", bg=(30, 34, 50), fg=(255, 120, 80), size=16)
+    return r.save()
+
+
 ROOMS = {
     "corridor": corridor, "stairs": stairs, "elevator_shaft": elevator,
     "home_empty": home_empty, "home_family": home_family, "home_students": home_students,
@@ -1167,6 +1322,9 @@ ROOMS = {
     "shop_empty": shop_empty, "shop_spaeti": shop_spaeti, "shop_bio": shop_bio, "shop_robo": shop_robo,
     "special_kita": special_kita, "special_subway": special_subway, "special_conference": special_conference,
     "penthouse_empty": penthouse_empty, "penthouse_full": penthouse_full,
+    "office_rocket": office_rocket, "home_astronauts": home_astronauts, "hotel_officials": hotel_officials,
+    "special_deck": special_deck, "special_souvenirs": special_souvenirs,
+    "station_ramp": station_ramp, "station_tank": station_tank, "station_capsule": station_capsule, "station_lift": station_lift,
 }
 
 # The old car park only shows in old saves, and the parking spaces are in the basement anyway.
