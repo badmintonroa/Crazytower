@@ -502,7 +502,10 @@ abstract class Bot(val sim: Simulation) {
         val tenant = Tenants.byId(tenantId)
         val empty = sim.tower.allRooms.firstOrNull { it.type == type && it.tenant == null && sim.recruitBlocked(it) == null }
         if (empty != null) { if (sim.recruit(empty, tenant).ok) note("Anzeige $tenantId"); return }
-        if (placeAnywhere(type)) return
+        if (afford(sim.listPrice(type))) findSpot(type)?.let { spot ->
+            if (place(type, spot)) sim.tower.roomAt(spot.floor, spot.x)?.let { if (sim.recruit(it, tenant).ok) note("Anzeige $tenantId") }
+            return
+        }
         if (sim.clock.hour != 10) return // once a day at most
         val victim = sim.tower.allRooms
             .filter { it.type == type && it.tenant != null && it.tenant?.eventOnly != true && sim.roomProblems[it.id] == null && sim.checkDemolish(it).ok }
@@ -510,7 +513,11 @@ abstract class Bot(val sim: Simulation) {
         val floor = victim.floor
         val x = victim.x
         sim.demolish(victim.id)
-        if (sim.build(type, floor, x).ok) note("Umbau für $tenantId")
+        if (!sim.build(type, floor, x).ok) return
+        note("Umbau für $tenantId")
+        // the ad goes out at once, before an ordinary tenant takes the room
+        val fresh = sim.tower.roomAt(floor, x) ?: return
+        if (sim.recruit(fresh, tenant).ok) note("Anzeige $tenantId")
     }
 
     /** The tasks of the next station part are done: every dollar goes into the part. */
