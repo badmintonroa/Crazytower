@@ -12,7 +12,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
- * Room art from the 4x atlas (576x192 per 6 segments) and people sprite sheets: three
+ * Room art from the 4x atlases (96x192 per segment, usually 6 segments) and people sprite sheets: three
  * frames side by side, 12x24 each, or any multiple of that (48x96 for 4x art).
  */
 class Assets private constructor(
@@ -32,6 +32,9 @@ class Assets private constructor(
     companion object {
         const val FALLBACK_ROOM = "office_empty"
         const val ROOM_ART_SCALE = 4
+
+        /** Width of one segment in the room art. */
+        const val ROOM_ART_SEGMENT = 24 * ROOM_ART_SCALE
         const val PERSON_H = 24
 
         private suspend fun index(folder: String): List<String> =
@@ -51,7 +54,8 @@ class Assets private constructor(
 
         suspend fun load(): Assets {
             // Resource folders inside a jar can't be listed, so people/ carries an index.txt.
-            val rooms = loadAtlas("rooms/atlas") + loadAtlas("rooms/extra") + loadAtlas("rooms/night")
+            val rooms = listOf("atlas", "night", "rundown", "extra", "extra_night", "extra_rundown")
+                .map { loadAtlas("rooms/$it") }.reduce { all, atlas -> all + atlas }
             val people = index("people").associateWith { name ->
                 val sheet = resourcesVfs["people/$name.png"].readBitmap()
                 val w = sheet.width / 3

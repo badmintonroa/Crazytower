@@ -42,7 +42,7 @@
   },
   "elevator_shaft.png": {
    "frame": {
-    "x": 1168,
+    "x": 784,
     "y": 0,
     "w": 192,
     "h": 192
@@ -62,8 +62,8 @@
   },
   "home_empty.png": {
    "frame": {
-    "x": 0,
-    "y": 200,
+    "x": 984,
+    "y": 0,
     "w": 576,
     "h": 192
    },
@@ -82,7 +82,7 @@
   },
   "home_family.png": {
    "frame": {
-    "x": 584,
+    "x": 0,
     "y": 200,
     "w": 576,
     "h": 192
@@ -102,7 +102,7 @@
   },
   "home_students.png": {
    "frame": {
-    "x": 1168,
+    "x": 584,
     "y": 200,
     "w": 576,
     "h": 192
@@ -122,8 +122,8 @@
   },
   "home_retirees.png": {
    "frame": {
-    "x": 0,
-    "y": 400,
+    "x": 1168,
+    "y": 200,
     "w": 576,
     "h": 192
    },
@@ -142,7 +142,7 @@
   },
   "home_influencer.png": {
    "frame": {
-    "x": 584,
+    "x": 0,
     "y": 400,
     "w": 576,
     "h": 192
@@ -162,7 +162,7 @@
   },
   "home_penguins.png": {
    "frame": {
-    "x": 1168,
+    "x": 584,
     "y": 400,
     "w": 576,
     "h": 192
@@ -182,8 +182,8 @@
   },
   "home_ghost.png": {
    "frame": {
-    "x": 0,
-    "y": 600,
+    "x": 1168,
+    "y": 400,
     "w": 576,
     "h": 192
    },
@@ -202,7 +202,7 @@
   },
   "food_empty.png": {
    "frame": {
-    "x": 584,
+    "x": 0,
     "y": 600,
     "w": 576,
     "h": 192
@@ -222,7 +222,7 @@
   },
   "food_imbiss.png": {
    "frame": {
-    "x": 1168,
+    "x": 584,
     "y": 600,
     "w": 576,
     "h": 192
@@ -242,8 +242,8 @@
   },
   "food_sushi.png": {
    "frame": {
-    "x": 0,
-    "y": 800,
+    "x": 1168,
+    "y": 600,
     "w": 576,
     "h": 192
    },
@@ -262,7 +262,7 @@
   },
   "food_cafe.png": {
    "frame": {
-    "x": 584,
+    "x": 0,
     "y": 800,
     "w": 576,
     "h": 192
@@ -282,7 +282,7 @@
   },
   "special_security.png": {
    "frame": {
-    "x": 1168,
+    "x": 584,
     "y": 800,
     "w": 576,
     "h": 192
@@ -302,8 +302,8 @@
   },
   "special_teleporter.png": {
    "frame": {
-    "x": 0,
-    "y": 1000,
+    "x": 1168,
+    "y": 800,
     "w": 192,
     "h": 192
    },
@@ -322,7 +322,7 @@
   },
   "special_ufo.png": {
    "frame": {
-    "x": 584,
+    "x": 0,
     "y": 1000,
     "w": 576,
     "h": 192
@@ -342,7 +342,7 @@
   },
   "special_parking.png": {
    "frame": {
-    "x": 1168,
+    "x": 584,
     "y": 1000,
     "w": 576,
     "h": 192
@@ -362,8 +362,8 @@
   },
   "parking_space.png": {
    "frame": {
-    "x": 0,
-    "y": 1200,
+    "x": 1168,
+    "y": 1000,
     "w": 192,
     "h": 192
    },
@@ -382,8 +382,8 @@
   },
   "parking_space_blue.png": {
    "frame": {
-    "x": 584,
-    "y": 1200,
+    "x": 1368,
+    "y": 1000,
     "w": 192,
     "h": 192
    },
@@ -402,7 +402,7 @@
   },
   "parking_space_yellow.png": {
    "frame": {
-    "x": 1168,
+    "x": 0,
     "y": 1200,
     "w": 192,
     "h": 192
@@ -422,8 +422,8 @@
   },
   "parking_space_empty.png": {
    "frame": {
-    "x": 0,
-    "y": 1400,
+    "x": 200,
+    "y": 1200,
     "w": 192,
     "h": 192
    },
@@ -439,6 +439,346 @@
     "w": 192,
     "h": 192
    }
+  },
+  "office_luxury_empty.png": {
+   "frame": {
+    "x": 400,
+    "y": 1200,
+    "w": 1152,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 1152,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 1152,
+    "h": 192
+   }
+  },
+  "office_hedgefund.png": {
+   "frame": {
+    "x": 0,
+    "y": 1400,
+    "w": 1152,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 1152,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 1152,
+    "h": 192
+   }
+  },
+  "office_dragonbank.png": {
+   "frame": {
+    "x": 0,
+    "y": 1600,
+    "w": 1152,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 1152,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 1152,
+    "h": 192
+   }
+  },
+  "office_atlantis.png": {
+   "frame": {
+    "x": 0,
+    "y": 1800,
+    "w": 1152,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 1152,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 1152,
+    "h": 192
+   }
+  },
+  "hotel_empty.png": {
+   "frame": {
+    "x": 1160,
+    "y": 1800,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "hotel_business.png": {
+   "frame": {
+    "x": 0,
+    "y": 2000,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "hotel_selfie.png": {
+   "frame": {
+    "x": 584,
+    "y": 2000,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "hotel_wedding.png": {
+   "frame": {
+    "x": 1168,
+    "y": 2000,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "hotel_count.png": {
+   "frame": {
+    "x": 0,
+    "y": 2200,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "hotel_band.png": {
+   "frame": {
+    "x": 584,
+    "y": 2200,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "hotel_spacetourists.png": {
+   "frame": {
+    "x": 1168,
+    "y": 2200,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "housekeeping_empty.png": {
+   "frame": {
+    "x": 0,
+    "y": 2400,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "housekeeping_staubfrei.png": {
+   "frame": {
+    "x": 584,
+    "y": 2400,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "housekeeping_robots.png": {
+   "frame": {
+    "x": 1168,
+    "y": 2400,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "housekeeping_housegeist.png": {
+   "frame": {
+    "x": 0,
+    "y": 2600,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "home_exchange.png": {
+   "frame": {
+    "x": 584,
+    "y": 2600,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "extra_copyroom.png": {
+   "frame": {
+    "x": 1168,
+    "y": 2600,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
   }
  },
  "meta": {
@@ -446,7 +786,7 @@
   "scale": "4",
   "size": {
    "w": 1752,
-   "h": 1600
+   "h": 2792
   }
  }
 }
