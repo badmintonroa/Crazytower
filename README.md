@@ -9,7 +9,7 @@ Voraussetzung: JDK 21.
 ```bash
 ./gradlew :game:run          # Spiel starten
 ./gradlew :core:test         # Simulations-Tests
-./gradlew :core:playthrough --args="49 42"   # Bot spielt 49 Tage mit Seed 42 und protokolliert jeden Tag
+./gradlew :core:playthrough --args="110 42" -Dbot=all   # die drei Bots spielen 110 Tage mit Seed 42, eine Zeile pro Tag und ein Vergleich
 ```
 
 ## Startbildschirm
@@ -69,7 +69,7 @@ Ab 3 Sternen suchen Firmen **Fachkräfte**: Neue Büromieter ziehen nur ein, sol
 | 4 ★ | U-Bahn-Station | im Keller, +1.500 Pendler für die Büros |
 | 4 ★ | Konferenzzentrum | Hotelgäste zahlen 50 % mehr |
 
-So führen mehrere Wege zu Stufe 4 und 5: Büros und Wohnungen gemischt, Büros mit Wohnheimen (die sich gegenseitig hochziehen), Büros mit U-Bahn und Hotels, oder viele Wohnungen mit Kitas und Penthouses, die irgendwann doch Büros brauchen. `./gradlew :core:playthrough --args="120 42" -Dstrategy=office` (oder `home`, `mix`) lässt den Bot eine Strategie durchspielen.
+So führen mehrere Wege zu Stufe 4 und 5: Büros und Wohnungen gemischt, Büros mit Wohnheimen (die sich gegenseitig hochziehen), Büros mit U-Bahn und Hotels, oder viele Wohnungen mit Kitas und Penthouses, die irgendwann doch Büros brauchen. Drei Bots spielen das durch, siehe „Bots“ unten.
 
 ## Tagesablauf und Wirtschaft (ab M5)
 
@@ -98,3 +98,15 @@ Manche Ereignisse dauern eine Weile (`core/.../LastingEvents.kt`) und zeigen ein
 Ab 3 Sternen schauen ab und zu VIPs vorbei (zwischen 9 und 19 Uhr, höchstens alle 12 Stunden, mit jedem Stern öfter): Baron von Goldzahn, Zirkusdirektor Tröt-Maximus, Graf Zahlula, ab 4 Sternen Dr. Dividende, Dr. Hämisch und Prof. Morgen, ab 5 Sternen Botschafter Zorg. Dazu kommen erfundene deutsche Streamer, die unterwegs live gehen und ein paar Fans mitbringen: xXBerndZocktXx, ASMR-Annika und Vlog-Vanessa, ab 4 Sternen Speedrun-Sören und Mukbang-Mehmet, ab 5 Sternen Oma Gisela Gaming. Sie besuchen einen vermieteten Raum, am liebsten ihre Lieblingsmieter (Zahlula die Vampir-Versicherung, Tröt-Maximus die Clowns). Am Ziel urteilen sie über die Laune im Turm, die Laune im besuchten Raum, wie lange der Weg gedauert hat und wie sauber die Hotelzimmer sind. Der Weg zählt dabei am meisten: ab 90 Minuten gibt es dafür keine Punkte mehr. Gefällt es ihnen, lassen sie ein dickes Trinkgeld da (6.000 $ pro Stern oder 15 % der gestrigen Tageseinnahmen, was mehr ist), sonst nur Kleingeld und eine Beschwerde im Ticker, die verrät, was gestört hat. Das Trinkgeld steht im Finanzfenster unter „VIP-Trinkgeld“ (`core/.../Vips.kt`).
 
 `F5` speichert, `F9` lädt (`~/.crazytower/spielstand.json`).
+
+## Bots
+
+`./gradlew :core:playthrough --args="<tage> <seed> <minuten>" -Dbot=twin|wide|hub|all` lässt Bots ohne Grafik spielen (`core/src/test/.../bot/`). Mit `-Dcsv=<ordner>` schreibt jeder Lauf eine CSV-Zeile pro Tag. Alle Bots fragen vor jedem Raum die Wegsuche des Spiels, wie lange der Weg von der Straße dauert, heute und für jede Breite, auf die das Grundstück noch wächst (die Leute kommen vom näheren Straßenende, und das rechte Ende wandert mit). Über 72 Minuten bauen sie dort nicht.
+
+| Bot | Platzierung | Was er baut |
+| --- | --- | --- |
+| `twin` Zwillingstürme | zwei schmale Türme an den Straßenenden, Express ganz außen, je zwei Aufzugssäulen; die Mitte erst, wenn beide Türme oben anstoßen; klettert, sobald die Stufe es erlaubt | Büros, Wohnheime, Hotels, Luxusbüros |
+| `wide` Breitbau | ganze Grundstücksbreite, alle 24 Felder ein Aufzug, eine neue Säule erst, wenn bei den alten nichts mehr frei ist, eine neue Zone erst, wenn die untere voll ist | Wohnungen zuerst, mit Läden, Kitas, Penthouses; Büros und Wohnheime, wenn Käufer fehlen |
+| `hub` Express-Treppen | keine lokalen Aufzüge über der 9. Etage: Expressaufzüge mit Treppenhaus daneben, höchstens zwei Etagen zu Fuß | Hotels, Büros, Luxusbüros, Konferenzzentrum |
+
+Die Aufzugssäulen der Zonen stehen in allen Zonen an derselben Stelle (je 24 Etagen, die Etage unter der nächsten Sky-Lobby über eine Treppe), damit der Umstieg in der Sky-Lobby kurz bleibt.
