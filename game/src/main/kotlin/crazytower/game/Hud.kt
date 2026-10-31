@@ -496,11 +496,16 @@ class Hud(
         stageHint.fitWidth(stageBarWidth)
         val progress = sim.stageProgress.coerceIn(0.0, 1.0)
         val w = stageBarWidth
+        // a new shape is drawn again from scratch, so only when it changed
+        if (w to progress == drawnStageBar) return
+        drawnStageBar = w to progress
         stageBar.updateShape {
             fill(Theme.INK) { rect(0.0, 0.0, w, 4.0) }
             fill(Theme.SELECT) { rect(0.0, 0.0, w * progress, 4.0) }
         }
     }
+
+    private var drawnStageBar: Pair<Double, Double>? = null
 
     private fun syncTicker(dt: Double) {
         val items = sim.news.latest

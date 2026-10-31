@@ -26,6 +26,7 @@ import crazytower.core.ecs.Position
 import crazytower.core.ecs.RouteRefreshSystem
 import crazytower.core.ecs.StuckSystem
 import crazytower.core.ecs.TenantSystem
+import crazytower.core.ecs.Unhurried
 import crazytower.core.ecs.Visitor
 import crazytower.core.ecs.VisitorSpawnSystem
 import crazytower.core.ecs.VisitorSystem
@@ -145,7 +146,9 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             val dt = minOf(left, STEP_MINUTES)
             clock.advance(dt)
             world.update(dt.toFloat()) // sets the delta time; every system is switched off there
+            val unhurriedTurn = profiler.ticks % UNHURRIED_EVERY == 0L
             for (i in systems.indices) {
+                if (!unhurriedTurn && systems[i] is Unhurried) continue
                 val started = System.nanoTime()
                 systems[i].onUpdate()
                 nanos[i] += System.nanoTime() - started
@@ -1124,6 +1127,9 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             Tr("Der Feng-Shui-Berater hat die Tür verboten.", "The feng shui consultant banned the door."),
         )
         const val STEP_MINUTES = 0.1
+
+        /** [crazytower.core.ecs.Unhurried] systems run every this many ticks, half a game minute. */
+        const val UNHURRIED_EVERY = 5
         val VISITOR_LOOKS = listOf("npc_tourist", "npc_tourist", "npc_courier", "npc_pizza", "npc_janitor", "npc_office_blazer", "npc_office_sleeves")
     }
 }

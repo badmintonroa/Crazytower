@@ -42,7 +42,11 @@ class MovementSystem(
                 is Leg.Walk -> walk(pos, leg, budget)
                 is Leg.Stairs -> climb(pos, route, leg, budget)
                 is Leg.Teleport -> teleport(entity, pos, route, leg, budget)
-                is Leg.Ride -> break // elevators move riders themselves
+                is Leg.Ride -> {
+                    // elevators move riders themselves; somebody at the doors joins the line
+                    if (entity hasNo Riding) queueAt(entity, pos, leg)
+                    break
+                }
             }
             if (budget < 0f) {
                 // teleporter misfire: the rest of the route is useless, plan again from here
@@ -63,6 +67,15 @@ class MovementSystem(
             }
             sim.onArrived(entity)
         }
+    }
+
+    private fun queueAt(entity: Entity, pos: Position, leg: Leg.Ride) {
+        val car = sim.elevators.car(leg.shaftId)
+        if (car == null || leg.fromFloor !in car.floors || leg.toFloor !in car.floors) {
+            entity.configure { drop(it, Route) } // plan again
+            return
+        }
+        if (pos.floor == leg.fromFloor && abs(pos.x - leg.x) < 0.3f) car.arrived += entity
     }
 
     private fun walk(pos: Position, leg: Leg.Walk, budget: Float): Float {
@@ -125,7 +138,7 @@ private const val MISFIRE_CHANCE = 0.04f
 /** Lets people who could not find a way give up after a while and try again later. */
 class StuckSystem(
     private val sim: Simulation = inject(),
-) : IteratingSystem(family { all(Stuck) }) {
+) : IteratingSystem(family { all(Stuck) }), Unhurried {
     override fun onTickEntity(entity: Entity) {
         if (sim.clock.totalMinutes - entity[Stuck].since > RETRY_MINUTES) {
             entity.configure {

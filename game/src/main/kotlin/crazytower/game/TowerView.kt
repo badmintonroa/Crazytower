@@ -26,6 +26,8 @@ import crazytower.game.ui.formatMoney
 import crazytower.game.ui.label
 import korlibs.event.Key
 import korlibs.event.MouseButton
+import korlibs.image.bitmap.Bitmap32
+import korlibs.image.bitmap.context2d
 import korlibs.image.color.Colors
 import korlibs.image.color.RGBA
 import korlibs.korge.input.keys
@@ -40,6 +42,7 @@ import korlibs.math.geom.Size
 import korlibs.math.interpolation.toRatio
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.max
@@ -97,6 +100,12 @@ class TowerView(
     private val carsLayer = world.container()
     private val peopleLayer = world.container()
     private val overlay = world.container()
+
+    init {
+        // clicks are worked out from the camera (see [updateHover]), so KorGE need not test
+        // thousands of rooms and people under the mouse every frame
+        for (layer in listOf(roomsLayer, insideLayer, waysLayer, carsLayer, peopleLayer)) layer.mouseChildren = false
+    }
     /** Exclamation marks and angry faces over rooms nobody moves into. */
     private val problemLayer = world.container()
     private val problemViews = HashMap<Int, View>()
@@ -110,6 +119,9 @@ class TowerView(
     private val carViews = HashMap<Int, Container>()
     private val carLabels = HashMap<Int, Text>()
     private val personViews = HashMap<Int, Image>()
+
+    /** Entity ids met in this frame's [syncPeople], reused every frame. */
+    private val seenPeople = java.util.BitSet()
     private var drawnVersion = -1
     private var drawnLooks = -1
     private var drawnDark = false
@@ -279,7 +291,12 @@ class TowerView(
         if (floors == shownFloors && culledVersion == drawnRoomsVersion) return
         shownFloors = floors
         culledVersion = drawnRoomsVersion
-        for ((id, view) in roomViews) view.visible = (roomFloors[id] ?: 0) in floors
+        for ((id, view) in roomViews) {
+            val layer = roomLayers[id] ?: continue
+            val shown = (roomFloors[id] ?: 0) in floors
+            if (shown && view.parent == null) view.addTo(layer)
+            if (!shown && view.parent != null) view.removeFromParent()
+        }
     }
 
     /** Nanoseconds of the last [sync], per part in [PARTS], for the debug overlay. */
@@ -334,8 +351,9 @@ class TowerView(
         }
     }
 
-    /** Floor of every room view, for [cull]. */
+    /** Floor and layer of every room view, for [cull]. */
     private val roomFloors = HashMap<Int, Int>()
+    private val roomLayers = HashMap<Int, Container>()
 
     /** Counts up whenever room views were made or thrown away. */
     private var drawnRoomsVersion = 0
@@ -354,6 +372,7 @@ class TowerView(
                 roomViews[room.id] = createRoomView(room)
                 roomArt[room.id] = art
                 roomFloors[room.id] = room.floor
+                roomLayers[room.id] = if (room.type.role.isWay) waysLayer else roomsLayer
             }
         }
     }
@@ -381,13 +400,11 @@ class TowerView(
                 alive += key
                 val view = carViews.getOrPut(key) {
                     carsLayer.container {
-                        graphics {
-                            fill(Theme.INK) { chamferPath(64.0, 82.0, 6.0, 0.0) }
-                            fill(if (car.express) EXPRESS_RED else Theme.GOLD) { chamferPath(64.0, 82.0, 6.0, 3.0) }
-                            fill(Theme.alpha(Theme.INK, 0.85)) { rect(10.0, 12.0, 44.0, 54.0) }
-                        }
-                    }.also { carLabels[key] = it.label("", 14.0, Theme.GOLD, Theme.bodyBold).xy(20.0, 30.0) }
+                        image(cabinArt(car.express))
+                    }.also { carLabels[key] = it.label("", 14.0, Theme.GOLD, Theme.numbers).xy(20.0, 30.0) }
                 }
+                view.visible = cabin.position.roundToInt() in shownFloors
+                if (!view.visible) return@forEachIndexed
                 view.xy(Metrics.x(car.x) + 16.0, Metrics.floorTop(0) - cabin.position * Metrics.FLOOR + 6.0)
                 carLabels.getValue(key).text = if (cabin.riders.isEmpty()) "" else cabin.riders.size.toString()
             }
@@ -395,6 +412,20 @@ class TowerView(
         carViews.keys.filter { it !in alive }.forEach {
             carViews.remove(it)?.removeFromParent()
             carLabels.remove(it)
+        }
+    }
+
+    /**
+     * A cabin drawn once into a bitmap: a vector shape works out its bounds again every frame,
+     * and a full tower has a few hundred cabins.
+     */
+    private val cabinArts = HashMap<Boolean, Bitmap32>()
+
+    private fun cabinArt(express: Boolean): Bitmap32 = cabinArts.getOrPut(express) {
+        Bitmap32(64, 82, premultiplied = true).context2d {
+            fill(Theme.INK) { chamferPath(64.0, 82.0, 6.0, 0.0) }
+            fill(if (express) EXPRESS_RED else Theme.GOLD) { chamferPath(64.0, 82.0, 6.0, 3.0) }
+            fill(Theme.alpha(Theme.INK, 0.85)) { rect(10.0, 12.0, 44.0, 54.0) }
         }
     }
 
@@ -464,20 +495,24 @@ class TowerView(
 
     private fun syncPeople() {
         peopleShown = 0
-        val seen = HashSet<Int>()
+        val seen = seenPeople.apply { clear() }
         val queues = elevatorQueues()
         val family = sim.world.family { all(Person, Position) }
         family.forEach { entity ->
             val pos = entity[Position]
+            seen.set(entity.id)
+            // off screen: not drawn, and not worth placing either. Taken out of the tree, so KorGE
+            // doesn't walk over thousands of hidden views every frame
+            if (pos.floor !in shownFloors) {
+                personViews[entity.id]?.let { view ->
+                    view.visible = false
+                    if (view.parent != null) view.removeFromParent()
+                }
+                return@forEach
+            }
             val person = entity[Person]
-            seen += entity.id
             val view = personViews.getOrPut(entity.id) {
                 peopleLayer.image(assets.person(person.look, 0), Anchor.BOTTOM_CENTER) { smoothing = false }
-            }
-            // off screen: not drawn, and not worth placing either
-            if (pos.floor !in shownFloors) {
-                view.visible = false
-                return@forEach
             }
             val moving = entity has Route
             val frame = if (moving) 1 + (floor(pos.x * 3).toInt() and 1) else 0
@@ -508,7 +543,8 @@ class TowerView(
             view.visible = shown && PeopleVisibility.isVisible(sim, entity)
             if (view.visible) peopleShown++
         }
-        personViews.keys.filter { it !in seen }.forEach { personViews.remove(it)?.removeFromParent() }
+        val gone = personViews.keys.filter { !seen.get(it) }
+        for (id in gone) personViews.remove(id)?.removeFromParent()
     }
 
     private fun syncOverlay() {

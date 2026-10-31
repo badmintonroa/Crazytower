@@ -1,6 +1,7 @@
 package crazytower.core.ecs
 
 import com.github.quillraven.fleks.Entity
+import com.github.quillraven.fleks.IntervalSystem
 import com.github.quillraven.fleks.IteratingSystem
 import com.github.quillraven.fleks.World.Companion.family
 import com.github.quillraven.fleks.World.Companion.inject
@@ -68,41 +69,32 @@ class RouteRefreshSystem(
  */
 class ElevatorSystem(
     private val sim: Simulation = inject(),
-) : IteratingSystem(family { all(Position, Route).none(Riding) }) {
+) : IntervalSystem() {
     private val elevators get() = sim.elevators
-
-    /** The cars by id for this tick, so the people at the doors find theirs without a map lookup. */
-    private var carById = arrayOfNulls<Car>(0)
 
     override fun onTick() {
         elevators.sync()
-        val cars = elevators.cars.values
-        carById = arrayOfNulls((cars.maxOfOrNull { it.id } ?: 0) + 1)
-        for (car in cars) carById[car.id] = car
         for (car in elevators.removed) dropEveryone(car)
         elevators.removed.clear()
-        for (car in elevators.cars.values) car.waiting.clear()
-        super.onTick() // collects the waiting people
+        for (car in elevators.cars.values) {
+            // the lines are emptied, not thrown away, and filled with who reached the doors in the last movement
+            for (line in car.waiting.values) line.clear()
+            for (entity in car.arrived) {
+                if (entity !in world || entity has Riding) continue
+                val ride = rideOf(entity) ?: continue
+                car.waiting.getOrPut(ride.fromFloor) { ArrayList() } += entity
+                car.waitingSince.getOrPut(entity) { sim.clock.totalMinutes }
+            }
+            car.arrived.clear()
+        }
         for (car in elevators.cars.values) {
             runCar(car)
             car.refreshEstimate()
         }
     }
 
-    override fun onTickEntity(entity: Entity) {
-        // the family can hand out somebody whose route was just taken away; they plan again
-        val leg = entity.getOrNull(Route)?.legs?.firstOrNull() as? Leg.Ride ?: return
-        val car = carById.getOrNull(leg.shaftId)
-        if (car == null || leg.fromFloor !in car.floors || leg.toFloor !in car.floors) {
-            entity.configure { drop(it, Route) } // plan again
-            return
-        }
-        val pos = entity[Position]
-        if (pos.floor == leg.fromFloor && abs(pos.x - leg.x) < 0.3f) {
-            car.waiting.getOrPut(leg.fromFloor) { ArrayList() } += entity
-            car.waitingSince.getOrPut(entity) { sim.clock.totalMinutes }
-        }
-    }
+    /** Everybody in one car's lines, reused for every car and tick. */
+    private val present = HashSet<Entity>()
 
     private fun rideOf(entity: Entity): Leg.Ride? = entity.getOrNull(Route)?.legs?.firstOrNull() as? Leg.Ride
 
@@ -113,7 +105,9 @@ class ElevatorSystem(
             cabin.riders.filter { rideOf(it) == null }.forEach { dropRider(car, cabin, it) }
         }
         for (line in car.waiting.values) line.removeAll { it !in world || rideOf(it) == null }
-        car.waitingSince.keys.retainAll(car.waiting.values.flatten().toSet())
+        present.clear()
+        for (line in car.waiting.values) present.addAll(line)
+        car.waitingSince.keys.retainAll(present)
         if (sim.clock.totalMinutes < car.blockedUntil) return
         val assigned = assignCalls(car)
         for (cabin in car.cabins) runCabin(car, cabin, assigned[cabin].orEmpty())
