@@ -9,7 +9,7 @@ Voraussetzung: JDK 21.
 ```bash
 ./gradlew :game:run          # Spiel starten
 ./gradlew :core:test         # Simulations-Tests
-./gradlew :core:playthrough --args="49 42"   # Bot spielt 49 Tage mit Seed 42 und protokolliert jeden Tag
+./gradlew :core:playthrough --args="110 42" -Dbot=all   # die drei Bots spielen 110 Tage mit Seed 42, eine Zeile pro Tag und ein Vergleich
 ```
 
 ## Startbildschirm
@@ -34,6 +34,8 @@ Das Spiel gibt es auf Deutsch und Englisch, umschaltbar unter Optionen → „Sp
 | `1` bis `6` | Baukategorien |
 | Leertaste | Pause |
 | `F5` / `F9` | Speichern / Laden |
+| `X` oder `$`-Knopf | Extras für reiche Türme (ab Stufe 4) |
+| `M` oder Klick auf die Stufe | Mondmission (ab Stufe 5) |
 | Klick auf den Ticker | Zum Ort der Nachricht springen |
 
 ## Aufbau
@@ -69,7 +71,7 @@ Ab 3 Sternen suchen Firmen **Fachkräfte**: Neue Büromieter ziehen nur ein, sol
 | 4 ★ | U-Bahn-Station | im Keller, +1.500 Pendler für die Büros |
 | 4 ★ | Konferenzzentrum | Hotelgäste zahlen 50 % mehr |
 
-So führen mehrere Wege zu Stufe 4 und 5: Büros und Wohnungen gemischt, Büros mit Wohnheimen (die sich gegenseitig hochziehen), Büros mit U-Bahn und Hotels, oder viele Wohnungen mit Kitas und Penthouses, die irgendwann doch Büros brauchen. `./gradlew :core:playthrough --args="120 42" -Dstrategy=office` (oder `home`, `mix`) lässt den Bot eine Strategie durchspielen.
+So führen mehrere Wege zu Stufe 4 und 5: Büros und Wohnungen gemischt, Büros mit Wohnheimen (die sich gegenseitig hochziehen), Büros mit U-Bahn und Hotels, oder viele Wohnungen mit Kitas und Penthouses, die irgendwann doch Büros brauchen. Drei Bots spielen das durch, siehe „Bots“ unten.
 
 ## Tagesablauf und Wirtschaft (ab M5)
 
@@ -98,3 +100,40 @@ Manche Ereignisse dauern eine Weile (`core/.../LastingEvents.kt`) und zeigen ein
 Ab 3 Sternen schauen ab und zu VIPs vorbei (zwischen 9 und 19 Uhr, höchstens alle 12 Stunden, mit jedem Stern öfter): Baron von Goldzahn, Zirkusdirektor Tröt-Maximus, Graf Zahlula, ab 4 Sternen Dr. Dividende, Dr. Hämisch und Prof. Morgen, ab 5 Sternen Botschafter Zorg. Dazu kommen erfundene deutsche Streamer, die unterwegs live gehen und ein paar Fans mitbringen: xXBerndZocktXx, ASMR-Annika und Vlog-Vanessa, ab 4 Sternen Speedrun-Sören und Mukbang-Mehmet, ab 5 Sternen Oma Gisela Gaming. Sie besuchen einen vermieteten Raum, am liebsten ihre Lieblingsmieter (Zahlula die Vampir-Versicherung, Tröt-Maximus die Clowns). Am Ziel urteilen sie über die Laune im Turm, die Laune im besuchten Raum, wie lange der Weg gedauert hat und wie sauber die Hotelzimmer sind. Der Weg zählt dabei am meisten: ab 90 Minuten gibt es dafür keine Punkte mehr. Gefällt es ihnen, lassen sie ein dickes Trinkgeld da (6.000 $ pro Stern oder 15 % der gestrigen Tageseinnahmen, was mehr ist), sonst nur Kleingeld und eine Beschwerde im Ticker, die verrät, was gestört hat. Das Trinkgeld steht im Finanzfenster unter „VIP-Trinkgeld“ (`core/.../Vips.kt`).
 
 `F5` speichert, `F9` lädt (`~/.crazytower/spielstand.json`).
+
+## Geld ausgeben ab Stufe 4 (`core/.../Endgame.kt`)
+
+Ab Stufe 4 gibt es mehr zu kaufen als Räume. Die laufenden Kosten richten sich nach den gestrigen Einnahmen, damit sie für kleine und große Türme gleich spürbar sind.
+
+- **Ausbau** (Inspektor): Büros, Wohnungen, Hotels, Imbisse, Läden und Wohnheime bekommen bis zu drei Stufen, jede +15 % Miete und +3 Laune. Die Namen hängen vom Mieter ab (Clowns bekommen einen Hüpfburg-Boden, Vampire einen Sarg-Ruheraum). Ausgebaute Räume tragen kleine Sterne.
+- **Aufzug-Tuning** (Inspektor am Schacht): Turbo-Motor (30 % schneller), Streichquartett (Wartende werden später grantig), Liftboy mit Monokel (mehr Plätze, schnellere Türen).
+- **Wunschmieter anwerben** (Inspektor an leeren Räumen): eine Zeitungsanzeige, und der gewählte Mieter zieht sofort ein.
+- **Extras-Fenster** (`X`): Versicherungen gegen Tauben, Clowns, Spuk, Stromausfall und Aufzugspannen (verhindern die meisten dieser Ereignisse), eine Werbekampagne (3 Tage mehr Besucher und VIPs), das wöchentliche Turmfest (+10 Laune für 2 Tage), Deko für das Dach (Gummiente, Leuchtschrift, Discokugel, goldene Fassade, Lasershow; jede bringt mehr Schaulustige), drei Seiteneingänge aus Oma Hildegards Garten (kürzere Wege von der Straße) und das Labor für fragwürdige Wissenschaft (Teleporter ohne Verwechslung, Kaffee aus dem Kopierraum, selbstputzende Handtücher, Schallschluck-Tapete, Geduldspille).
+
+## Mondmission ab Stufe 5 (`core/.../Mission.kt`)
+
+Stufe 5 ist die letzte Stufe, das Spiel geht aber weiter: Auf der obersten Etage (99) entsteht Teil für Teil eine Mondstation. Jedes Teil braucht zwei Aufträge im Turm, danach wird es im Baumenü unter Spezial gebaut. Der Fortschritt steht in der Stufenanzeige und im Missionsfenster (`M`).
+
+| Countdown | Teil | Kosten | Aufträge |
+| --- | --- | --- | --- |
+| 3 | Startrampe | 5 Mio. $ | 20 Nächte Regierungsbeamte gut gelaunt im Hotel; 10.000 Antragsformulare aus dem Kopierraum |
+| 2 | Treibstofflager | 15 Mio. $ | 40.000 Becher Kaffee aus den Imbissen; 5 Büros für die Raketen für Anfänger GmbH |
+| 1 | Kommandokapsel | 40 Mio. $ | 10 Astronauten mit über 75 % Laune; einen Tag Probezünden mit mindestens 65 % Turm-Laune |
+| Abheben! | Mondlift | 100 Mio. $ | Botschafter Zorg geht zufrieden nach Hause; der Sicherheitsdienst stoppt Dr. Hämisch dreimal |
+
+Mit jedem Teil kommen mehr Schaulustige (50 am Anfang, 1.500 nach dem Abheben). Sie fahren zur Aussichtsplattform (ab Etage 90, Eintritt 150 $, auf einer schmutzigen Plattform nur die Hälfte) und kaufen danach im Souvenirladen ein. Dauert der Weg länger als zweieinhalb Stunden oder fehlt die Plattform, gehen sie verärgert heim; sind es mehr als 40 % an einem Tag, lacht die Presse und der Countdown wartet einen Tag. Nach dem Abheben gibt es einen Abspann, und der Turm baut einfach weiter.
+
+## Bots
+
+`./gradlew :core:playthrough --args="<tage> <seed> <minuten>" -Dbot=twin|wide|hub|miser|all` lässt Bots ohne Grafik spielen, bis die Mondmission abhebt (oder die Tage um sind) (`core/src/test/.../bot/`). Mit `-Dcsv=<ordner>` schreibt jeder Lauf eine CSV-Zeile pro Tag. Alle Bots fragen vor jedem Raum die Wegsuche des Spiels, wie lange der Weg von der Straße dauert, heute und für jede Breite, auf die das Grundstück noch wächst (die Leute kommen vom näheren Straßenende, und das rechte Ende wandert mit). Über 72 Minuten bauen sie dort nicht.
+
+| Bot | Platzierung | Was er baut |
+| --- | --- | --- |
+| `twin` Zwillingstürme | zwei schmale Türme an den Straßenenden, Express ganz außen, je zwei Aufzugssäulen; die Mitte erst, wenn beide Türme oben anstoßen; klettert, sobald die Stufe es erlaubt | Büros, Wohnheime, Hotels, Luxusbüros |
+| `wide` Breitbau | ganze Grundstücksbreite, alle 24 Felder ein Aufzug, eine neue Säule erst, wenn bei den alten nichts mehr frei ist, eine neue Zone erst, wenn die untere voll ist | Wohnungen zuerst, mit Läden, Kitas, Penthouses; Büros und Wohnheime, wenn Käufer fehlen |
+| `hub` Express-Treppen | keine lokalen Aufzüge über der 9. Etage: Expressaufzüge mit Treppenhaus daneben, höchstens zwei Etagen zu Fuß | Hotels, Büros, Luxusbüros, Konferenzzentrum |
+| `miser` Geizhals | wie Express-Treppen | wie Express-Treppen, kauft aber keine Extras, nur was die Mondmission braucht |
+
+Ab Stufe 4 kaufen alle Bots außer dem Geizhals Extras: Tuning für Schächte mit langen Wartezeiten, Ausbau für die Räume, die am meisten Miete bringen, Versicherungen, Turmfest, Werbung, Seiteneingänge, Forschung und während der Mission Deko. Für die Mission bauen sie Aussichtsplattform und Souvenirläden, die Räume für die offenen Aufträge, schicken den Sicherheitsdienst zu Dr. Hämisch, zünden probe, wenn die Laune reicht, und bauen die Stationsteile auf Etage 99 (wenn dort alles voll ist, reißen sie Platz frei). Die Log-Zeile zeigt ab Stufe 4 das Geld in Tagen Einnahmen und die Ausgaben je Senke, ab Stufe 5 den Countdown, die Aufträge und die Schaulustigen; die Zusammenfassung zeigt, wie viele Tage jeder Countdown-Schritt gedauert hat.
+
+Die Aufzugssäulen der Zonen stehen in allen Zonen an derselben Stelle (je 24 Etagen, die Etage unter der nächsten Sky-Lobby über eine Treppe), damit der Umstieg in der Sky-Lobby kurz bleibt.

@@ -88,6 +88,13 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     /** When the player last held an open day; once a week is allowed. */
     var lastOpenDay: Double = -Lasting.OPEN_DAY_COOLDOWN
 
+    /** Money sinks and the moon mission, see [Endgame]. */
+    var endgame: Endgame = Endgame()
+        internal set
+
+    /** Spectators per observation deck, so it gets dirty now and then. */
+    internal val deckVisits = HashMap<Int, Int>()
+
     /** Changes the money and writes it into the books. */
     fun book(amount: Long, kind: MoneyKind, label: String, where: Loc? = null) {
         if (amount == 0L) return
@@ -173,6 +180,11 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     var looksVersion: Int = 0
         private set
 
+    /** A room changed its looks or its effects without the tower changing (an upgrade, a dirty deck). */
+    fun bumpLooks() {
+        looksVersion++
+    }
+
     fun checkPlace(type: RoomType, floor: Int, x: Int, width: Int = type.width): PlaceCheck {
         val rules = checkRules(type, floor, x, width)
         if (!rules.ok) return rules
@@ -220,6 +232,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             )
         }
         if (type.role == RoomRole.PARKING && carsWithoutSpace <= 0) return NO_CAR
+        partBlocked(type, floor)?.let { return PlaceCheck.no(it) }
         if (x >= 0 && x + width > lotWidth) {
             val next = Lot.next(bestStars)
             return PlaceCheck.no(if (next != null) tr("Grundstück wird erst ab ${next.stars} Sternen breiter", "The lot grows at ${next.stars} stars") else tr("Außerhalb des Grundstücks", "Outside the lot"))
@@ -256,10 +269,11 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         val firstLobby = type.role == RoomRole.LOBBY && tower.allRooms.none { it.type.role == RoomRole.LOBBY }
         val price = priceAt(type, floor, x, width)
         var room = tower.place(type, floor, x, width)
-        book(-price, MoneyKind.BUILD, type.name.toString(), Loc(floor, x + width / 2f))
+        book(-price, if (Mission.partOf(type) != null) MoneyKind.MISSION else MoneyKind.BUILD, type.name.toString(), Loc(floor, x + width / 2f))
         if (type.pricePerStar > 0) room.paid = price
         room.since = clock.totalMinutes
         if (type.role == RoomRole.LOBBY) room = tower.mergeLobbies() ?: room
+        if (Mission.partOf(type) != null) partBuilt(room)
         if (firstLobby) {
             news.post(tr("Die erste Lobby ist offen. Ein Mann fragt, ob es hier zum Bahnhof geht.", "The first lobby is open. A man asks if this is the way to the station."), Loc(floor, room.centerX))
         }
@@ -584,10 +598,12 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         }
         var target = ScheduleSystem.MOOD_BASE
         if (schedule.fedOnDay >= clock.day - 1) target += MEAL_MOOD
-        if (hasCopyroom && !resident) target += COPYROOM_MOOD
+        if (hasCopyroom && !resident) target += COPYROOM_MOOD * (if (researched("coffee")) 2 else 1)
         if (hasUfoPad) target += UFO_MOOD
         if (room != null && room.type.role.housing) target += SHOP_MOOD * shopCover
-        if (room != null && room.type.role == RoomRole.HOME && room.floor in dormFloors) target -= DORM_NOISE
+        if (room != null && room.type.role == RoomRole.HOME && room.floor in dormFloors && !researched("wallpaper")) target -= DORM_NOISE
+        if (room != null) target += Upgrades.MOOD_BONUS * room.upgrade
+        if (partyRunning) target += Promotion.PARTY_MOOD
         return target
     }
 
@@ -654,10 +670,13 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         }
 
     /** Called by the elevator system when somebody boards after waiting [minutes]. */
-    fun onBoarded(entity: Entity, minutes: Double) = with(world) {
+    fun onBoarded(entity: Entity, minutes: Double, car: Car? = null) = with(world) {
         val schedule = entity.getOrNull(Schedule) ?: return@with
-        if (minutes > PATIENCE_MINUTES) {
-            schedule.mood = (schedule.mood - ((minutes - PATIENCE_MINUTES) * 2).toFloat()).coerceAtLeast(0f)
+        val patience = PATIENCE_MINUTES +
+            (if ((car?.tuning ?: 0) >= Tuning.QUARTET) Tuning.QUARTET_PATIENCE else 0.0) +
+            (if (researched("patience")) Research.PATIENCE else 0.0)
+        if (minutes > patience) {
+            schedule.mood = (schedule.mood - ((minutes - patience) * 2).toFloat()).coerceAtLeast(0f)
             schedule.grievance = Grievance.WAITING
         }
     }
@@ -712,6 +731,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     /** The guests pay for their night and go; the room stays dirty until somebody cleans it. */
     private fun checkOut(room: Room, tenant: TenantKind) {
         book(rentFor(room, tenant), MoneyKind.HOTEL, tenant.name.toString(), room.center)
+        guestsLeft(room, tenant)
         moveOut(room)
     }
 
@@ -730,7 +750,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
 
     internal fun rentFor(room: Room, tenant: TenantKind): Long {
         val mood = moodOf(room) ?: 70f
-        val full = (tenant.rentPerDay * starBonus).toLong()
+        val full = (tenant.rentPerDay * starBonus * Upgrades.rentFactor(room)).toLong()
         if (room.type.luxuryOffice && !hasParking(room)) return full / 2
         val fair = if (room.type.role == RoomRole.HOTEL && hasConference) (full * (1 + CONFERENCE_HOTEL_BONUS)).toLong() else full
         return if (mood < (if (room.type.luxuryOffice) LUXURY_MOOD else UNHAPPY)) fair / 2 else fair
@@ -768,7 +788,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     /** Every sold flat pays its service charge, a penthouse [PENTHOUSE_FEES] times as much. */
     private fun homeFees(): Long = tower.allRooms.sumOf {
         if (it.type.role != RoomRole.HOME || it.tenant == null || it.tenant!!.salePrice <= 0) 0L
-        else (HOME_FEE * starBonus).toLong() * (if (it.type.luxury) PENTHOUSE_FEES else 1)
+        else (HOME_FEE * starBonus * Upgrades.rentFactor(it)).toLong() * (if (it.type.luxury) PENTHOUSE_FEES else 1)
     }
 
     private fun upkeep(): Long = tower.allRooms.sumOf { it.type.upkeep ?: ((UPKEEP[it.type.role] ?: 0L) * (if (it.type.perSegment) it.width else 6) / 6) } +
@@ -809,6 +829,8 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         if (ufoPad != null) book(UFO_FEE, MoneyKind.GUESTS, tr("Ufo-Landegebühr", "UFO landing fee"), ufoPad.center)
         val yesterday = clock.day - 1
         book(-upkeep(), MoneyKind.UPKEEP, MoneyKind.UPKEEP.label, tower.allRooms.firstOrNull { it.type.role == RoomRole.LOBBY }?.center)
+        payInsurances()
+        missionMidnight()
         if (clock.day % FEE_EVERY_DAYS == 0) book(homeFees(), MoneyKind.FEES, MoneyKind.FEES.label)
         val income = finance.income(yesterday)
         news.post(
@@ -1022,12 +1044,14 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             SavedRoom(
                 it.id, it.type.id, it.floor, it.x, it.since, it.tenant?.id, moodOf(it),
                 it.width.takeIf { w -> w != it.type.width }, it.paidUntil, it.salePaid, it.cabins, it.sold, it.dirty, it.paid,
+                it.upgrade, it.tuning,
             )
         },
         news = news.latest.map { SavedNews(it.text, it.where?.floor, it.where?.x, it.important) },
         activeEvents = activeEvents.toList(),
         lastOpenDay = lastOpenDay,
         seenTypes = seenTypes.sorted(),
+        endgame = endgame,
     )
 
     private fun restore(save: SaveGame) {
@@ -1052,6 +1076,8 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             room.cabins = saved.cabins
             room.dirty = saved.dirty
             room.paid = saved.paid
+            room.upgrade = saved.upgrade
+            room.tuning = saved.tuning
         }
         // the old car parks for 40 cars become rows of single spaces, once all saved ids are taken
         for (saved in oldCarParks) {
@@ -1063,6 +1089,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             news.post(item.text, item.floor?.let { Loc(it, item.x ?: 0f) }, item.important)
         }
         lastOpenDay = save.lastOpenDay ?: lastOpenDay
+        endgame = save.endgame ?: Endgame()
         // older saves did not keep track: everything the tower already allows counts as seen
         seenTypes.clear()
         save.seenTypes?.let { seenTypes += it } ?: Catalog.roomTypes.filter { unlocked(it) }.mapTo(seenTypes) { it.id }
@@ -1081,16 +1108,28 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     }
 
     /** Street exit closest to [x]: people leave the tower to the left or right edge. */
-    fun streetExit(x: Float): Loc = Loc(GROUND_FLOOR, if (x < lotWidth / 2f) 0f else lotWidth - 0.01f)
+    fun streetExit(x: Float): Loc {
+        if (endgame.gates == 0) return Loc(GROUND_FLOOR, if (x < lotWidth / 2f) 0f else lotWidth - 0.01f)
+        return Loc(GROUND_FLOOR, entrances.minBy { kotlin.math.abs(it - x) })
+    }
 
-    fun spawnVisitor(): Entity {
-        val fromLeft = random.nextBoolean()
-        val start = if (fromLeft) 0f else lotWidth - 0.01f
-        val look = VISITOR_LOOKS[random.nextInt(VISITOR_LOOKS.size)]
+    /**
+     * Where people of [room] come in from the street: either end at random, as always, or the
+     * nearest side entrance once the tower has some.
+     */
+    fun arrivalX(room: Room): Float =
+        if (endgame.gates == 0) (if (random.nextBoolean()) 0f else lotWidth - 0.01f) else streetExit(room.centerX).x
+
+    fun spawnVisitor(spectator: Boolean = false): Entity {
+        val doors = entrances
+        val start = doors[random.nextInt(doors.size)]
+        val fromLeft = start < lotWidth / 2f
+        val looks = if (spectator) SPECTATOR_LOOKS else VISITOR_LOOKS
+        val look = looks[random.nextInt(looks.size)]
         return world.entity {
             it += Position(GROUND_FLOOR, start, facingLeft = !fromLeft)
             it += Person(Names.random(random), look)
-            it += Visitor(stopsLeft = 1 + random.nextInt(3))
+            it += Visitor(stopsLeft = if (spectator) 3 else 1 + random.nextInt(3), spectator = spectator, since = clock.totalMinutes)
         }
     }
 
@@ -1105,6 +1144,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
                     schedule.activity = Activity.EATING
                     schedule.fedOnDay = clock.day
                     earn(MEAL_PRICE * visitorBoost)
+                    mealServed()
                     entity.configure { it += Idle(clock.totalMinutes + 15 + random.nextInt(15)) }
                 }
                 Activity.TO_CLEAN -> {
@@ -1112,7 +1152,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
                     entity.configure { drop(it, Cleaning) }
                     if (target != null && target.dirty) {
                         schedule.activity = Activity.CLEANING
-                        entity.configure { it += Idle(clock.totalMinutes + CLEAN_MINUTES) }
+                        entity.configure { it += Idle(clock.totalMinutes + CLEAN_MINUTES / (if (researched("towels")) 2 else 1)) }
                         cleaned(target)
                     }
                 }
@@ -1126,7 +1166,20 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         }
         if (visitor != null && !visitor.leaving) {
             val room = tower.roomAt(entity[Position].floor, entity[Position].x.toInt())
-            if (room?.type?.role == RoomRole.FOOD && room.tenant != null) earn(VISITOR_MEAL_PRICE * visitorBoost)
+            if (room?.type?.role == RoomRole.FOOD && room.tenant != null) {
+                earn(VISITOR_MEAL_PRICE * visitorBoost)
+                mealServed()
+            }
+            if (visitor.spectator && room != null) {
+                when (room.type) {
+                    Mission.DECK -> if (!visitor.sawDeck) {
+                        visitor.sawDeck = true
+                        spectatorAtDeck(room, clock.totalMinutes - visitor.since)
+                    }
+                    Mission.SOUVENIRS -> book(Spectators.SOUVENIR, MoneyKind.SPECTATORS, tr("Souvenirs", "Souvenirs"), room.center)
+                    else -> Unit
+                }
+            }
         }
         when {
             visitor != null && visitor.leaving -> entity.remove()
@@ -1144,6 +1197,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             news.post(tr("$VIP_NAME ist angekommen und nickt anerkennend. Der Turm ist bereit für Größeres.", "$VIP_NAME has arrived and nods approvingly. The tower is ready for bigger things."), where, important = true)
         }
         val verdict = Vips.judge(this, room, clock.totalMinutes - vip.since)
+        vipJudged(guest.id, verdict.happy, where)
         val tip = Vips.tip(stars, verdict, random, finance.income(clock.day - 1))
         book(tip, MoneyKind.VIP, guest.name.toString(), where)
         val text = Vips.line(if (verdict.happy) guest.generous else guest.stingy, room, tip)
@@ -1166,6 +1220,10 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             news.post(Vips.byId(vip.guestId).givesUp.toString(), important = true)
         }
         val visitor = entity.getOrNull(Visitor) ?: return@with
+        if (visitor.spectator && !visitor.sawDeck && !visitor.leaving) {
+            visitor.sawDeck = true
+            spectatorGaveUp()
+        }
         if (visitor.leaving) entity.remove() else visitor.stopsLeft = 0
     }
 
@@ -1327,5 +1385,6 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         /** [crazytower.core.ecs.Unhurried] systems run every this many ticks, half a game minute. */
         const val UNHURRIED_EVERY = 5
         val VISITOR_LOOKS = listOf("npc_tourist", "npc_tourist", "npc_courier", "npc_pizza", "npc_janitor", "npc_office_blazer", "npc_office_sleeves")
+        val SPECTATOR_LOOKS = listOf("npc_tourist", "npc_tourist", "npc_kid", "npc_family_mom", "npc_family_dad", "npc_retiree", "npc_student_gamer", "npc_timetraveller")
     }
 }

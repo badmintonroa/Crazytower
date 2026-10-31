@@ -123,7 +123,7 @@ object Vips {
         val roomMood = ((room?.let { sim.moodOf(it) } ?: 70f) / 100f).coerceIn(0f, 1f)
         val travel = (1f - ((minutes - QUICK_MINUTES) / (SLOW_MINUTES - QUICK_MINUTES)).toFloat()).coerceIn(0f, 1f)
         val hotels = sim.tower.allRooms.count { it.type.role == RoomRole.HOTEL }
-        val tidy = if (hotels == 0) 1f else 1f - sim.dirtyRooms.size.toFloat() / hotels
+        val tidy = if (hotels == 0) 1f else 1f - sim.dirtyRooms.count { it.type.role == RoomRole.HOTEL }.toFloat() / hotels
         val whim = (sim.random.nextFloat() * 2f - 1f) * WHIM
         val score = (0.3f * tower + 0.2f * roomMood + 0.4f * travel + 0.1f * tidy + whim).coerceIn(0f, 1f)
         // the worst part, weighted like the score
@@ -155,8 +155,11 @@ object Vips {
         if (sim.stars < MIN_STARS || sim.vipOnTheWay) return
         if (sim.clock.hour !in FIRST_HOUR until LAST_HOUR) return
         if (sim.clock.totalMinutes - sim.lastVipVisit < COOLDOWN_MINUTES) return
-        if (sim.random.nextFloat() >= CHANCE_PER_STAR * (sim.stars - MIN_STARS + 1)) return
-        val guest = available(sim.stars).randomOrNull(sim.random) ?: return
+        val ads = if (sim.campaignRunning) 2f else 1f
+        if (sim.random.nextFloat() >= CHANCE_PER_STAR * (sim.stars - MIN_STARS + 1) * ads) return
+        // the landing permit: Zorg is keen to come while the mission waits for him
+        val zorg = if (sim.taskOpen(Mission.ZORG) && sim.random.nextFloat() < 0.4f) byId("zorg") else null
+        val guest = zorg ?: available(sim.stars).randomOrNull(sim.random) ?: return
         sim.spawnVip(guest)
     }
 

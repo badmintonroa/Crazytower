@@ -61,11 +61,19 @@ class Car(val id: Int, val x: Int, var bottom: Int, var top: Int, val express: B
      */
     val stops: List<Int> get() = if (express) floors.filter { it <= GROUND_FLOOR || it % Elevators.EXPRESS_EVERY == 0 } else floors.toList()
 
-    /** Minutes a cabin needs per floor. */
-    val minutesPerFloor: Float get() = if (express) NavCosts.ELEVATOR_PER_FLOOR / 3 else NavCosts.ELEVATOR_PER_FLOOR
+    /** Tuning level of the shaft, see [crazytower.core.Tuning]. */
+    var tuning: Int = 0
 
-    /** People per cabin. */
-    val capacity: Int get() = if (express) Elevators.EXPRESS_CAPACITY else Elevators.CAPACITY
+    /** Minutes a cabin needs per floor; the turbo motor makes it faster. */
+    val minutesPerFloor: Float get() =
+        (if (express) NavCosts.ELEVATOR_PER_FLOOR / 3 else NavCosts.ELEVATOR_PER_FLOOR) * (if (tuning >= crazytower.core.Tuning.TURBO) crazytower.core.Tuning.TURBO_FACTOR else 1f)
+
+    /** People per cabin; the lift boy packs them in tighter. */
+    val capacity: Int get() =
+        ((if (express) Elevators.EXPRESS_CAPACITY else Elevators.CAPACITY) * (if (tuning >= crazytower.core.Tuning.LIFTBOY) crazytower.core.Tuning.LIFTBOY_CAPACITY else 1f)).toInt()
+
+    /** Minutes the doors stay open at a stop; the lift boy hurries everybody along. */
+    val doorMinutes: Float get() = Elevators.DOOR_MINUTES * (if (tuning >= crazytower.core.Tuning.LIFTBOY) 0.5f else 1f)
     val waitingCount: Int get() = waiting.values.sumOf { it.size }
 
     /** Rough minutes until a new passenger is picked up, used as path cost. */
@@ -149,6 +157,7 @@ class Elevators(private val tower: Tower) : LinkProvider {
                 Car(nextId++, x, range.first, range.last, express)
             }
             car.setCabins(range.maxOf { tower.wayAt(it, x)?.cabins ?: 1 })
+            car.tuning = range.maxOf { tower.wayAt(it, x)?.tuning ?: 0 }
             byId[car.id] = car
         }
         byIndex = arrayOfNulls(nextId)

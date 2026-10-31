@@ -331,7 +331,10 @@ object Events {
         for ((event, weight) in pool.zip(weights)) {
             pick -= weight
             if (pick <= 0) {
-                if (event.bad && secured && sim.random.nextFloat() < 0.3f) {
+                val insurance = sim.insured(event.id)
+                if (insurance != null && sim.random.nextFloat() < Insurances.STOPS) {
+                    sim.news.post(insurance.stopped.toString())
+                } else if (event.bad && secured && sim.random.nextFloat() < 0.3f) {
                     sim.news.post(tr("Der Sicherheitsdienst hat etwas Schlimmes verhindert. Er sagt nicht, was.", "Security has prevented something terrible. They won't say what."))
                 } else {
                     event.apply(sim)

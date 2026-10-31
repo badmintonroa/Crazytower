@@ -7,6 +7,7 @@ import crazytower.core.RoomRole
 import crazytower.core.Simulation
 import crazytower.core.Tenants
 import crazytower.core.moveInBlocked
+import crazytower.core.missionTenant
 
 /**
  * Lets tenants move into empty offices, homes and restaurants. A room only gets rented once
@@ -26,16 +27,13 @@ class TenantSystem(
         val now = sim.clock.totalMinutes
         val problems = sim.roomProblems
         problems.clear()
-        // one search from each end of the street serves all empty rooms
-        val left = sim.streetExit(0f)
-        val right = sim.streetExit(sim.lotWidth.toFloat())
-        val fromLeft by lazy { sim.nav.travelMinutesFrom(left) }
-        val fromRight by lazy { sim.nav.travelMinutesFrom(right) }
+        // one search from each way in serves all empty rooms
+        val searches = HashMap<Float, (crazytower.core.Loc) -> Float?>()
         val present by lazy { sim.tower.allRooms.mapNotNullTo(HashSet()) { it.tenant } }
         for (room in sim.tower.allRooms) {
             if (!room.type.role.rentable || room.tenant != null) continue
             val street = sim.streetExit(room.centerX)
-            val minutes = if (street == left) fromLeft(room.center) else fromRight(room.center)
+            val minutes = searches.getOrPut(street.x) { sim.nav.travelMinutesFrom(street) }(room.center)
             val problem = RoomProblems.of(sim, room, street, minutes)
             if (problem != null) {
                 problems[room.id] = problem
@@ -49,6 +47,11 @@ class TenantSystem(
             // hotel guests only take clean rooms, and only in the afternoon and evening
             if (room.type.role == RoomRole.HOTEL && (room.dirty || sim.clock.hour !in Simulation.CHECK_IN_FROM until Simulation.CHECK_IN_UNTIL)) continue
             val candidates = Tenants.candidates(room.type, sim.stars, sim.stage)
+            val special = sim.missionTenant(room)
+            if (special != null) {
+                sim.moveIn(room, special)
+                continue
+            }
             if (room.type.role == RoomRole.HOTEL) {
                 // guests come and go, a repeat visit is fine
                 sim.moveIn(room, candidates[sim.random.nextInt(candidates.size)])

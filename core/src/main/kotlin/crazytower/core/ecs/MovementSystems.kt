@@ -1,5 +1,7 @@
 package crazytower.core.ecs
 
+import crazytower.core.researched
+
 import com.github.quillraven.fleks.Entity
 import com.github.quillraven.fleks.IteratingSystem
 import com.github.quillraven.fleks.World.Companion.family
@@ -99,7 +101,7 @@ class MovementSystem(
         }
         route.legProgress = NavCosts.TELEPORT
         val pads = sim.tower.allRooms.filter { it.type.role == crazytower.core.RoomRole.TELEPORTER }
-        if (pads.size > 2 && sim.random.nextFloat() < MISFIRE_CHANCE) {
+        if (pads.size > 2 && !sim.researched("teleport") && sim.random.nextFloat() < MISFIRE_CHANCE) {
             // "Kommt meistens dort an, wo man hinwollte."
             val wrong = pads[sim.random.nextInt(pads.size)]
             pos.floor = wrong.floor

@@ -58,7 +58,17 @@ data class Idle(var until: Double) : Component<Idle> {
 }
 
 /** A sightseer: walks to a few spots in the lobby, then leaves the tower. */
-data class Visitor(var stopsLeft: Int, var leaving: Boolean = false) : Component<Visitor> {
+/**
+ * A sightseer. [spectator]s came for the moon mission: up to the observation deck, maybe the
+ * souvenir shop, and home; [since] is when they arrived, [sawDeck] once they got there (or gave up).
+ */
+data class Visitor(
+    var stopsLeft: Int,
+    var leaving: Boolean = false,
+    val spectator: Boolean = false,
+    val since: Double = 0.0,
+    var sawDeck: Boolean = false,
+) : Component<Visitor> {
     override fun type() = Visitor
     companion object : ComponentType<Visitor>()
 }

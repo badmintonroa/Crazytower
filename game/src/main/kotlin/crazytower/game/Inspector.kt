@@ -6,6 +6,18 @@ import crazytower.core.eventsAt
 import crazytower.core.kind
 import crazytower.core.remedyBlocked
 import crazytower.core.useRemedy
+import crazytower.core.Recruiting
+import crazytower.core.SINK_STAGE
+import crazytower.core.Tuning
+import crazytower.core.Upgrades
+import crazytower.core.recruit
+import crazytower.core.recruitBlocked
+import crazytower.core.recruitCost
+import crazytower.core.recruitable
+import crazytower.core.tuneElevator
+import crazytower.core.tuningBlocked
+import crazytower.core.upgradeBlocked
+import crazytower.core.upgradeRoom
 import crazytower.core.Simulation
 import crazytower.core.transport.Elevators
 import crazytower.core.ecs.Activity
@@ -177,11 +189,76 @@ class Inspector(private val sim: Simulation, private val game: GameController, p
                 shown = null
             }.addTo(this).xy(24.0 + half, y + 8).also { it.enabled = shaft.cabins.size > 1 }
             y += 48.0
+            if (sim.stage >= SINK_STAGE) y = tuningButton(shaft, y)
         }
+        val room = (sel as? Selection.RoomSel)?.let { sim.tower.room(it.roomId) }
+        if (room != null && sim.stage >= SINK_STAGE) y = endgameButtons(room, y)
         TextButton(panelWidth - 32, 40.0, tr("Schließen", "Close"), 14.0) { game.selection = null }.addTo(this).xy(16.0, y + 8)
         y += 56.0
         panelHeight = y + 8
         bg.resize(panelWidth, panelHeight)
+    }
+
+    private fun act(result: crazytower.core.PlaceCheck, done: String) {
+        game.say(if (result.ok) done else result.reason)
+        Sfx.play(if (result.ok) Sfx.BUILD else Sfx.ERROR)
+        shown = null
+    }
+
+    /** The next tuning level of an elevator shaft. */
+    private fun tuningButton(car: crazytower.core.transport.Car, top: Double): Double {
+        var y = top
+        if (car.tuning > 0) {
+            label(tr("Tuning", "Tuning"), 12.0, Theme.TEXT_DIM).xy(16.0, y + 4)
+            label(Tuning.NAMES.take(car.tuning).joinToString(", "), 12.0, Theme.GOLD, Theme.bodyBold).xy(VALUE_X, y + 3).fitWidth(panelWidth - VALUE_X - 14.0)
+            y += 22.0
+        }
+        if (car.tuning < Tuning.MAX_LEVEL) {
+            val name = Tuning.NAMES[car.tuning]
+            val blocked = sim.tuningBlocked(car)
+            TextButton(panelWidth - 32, 36.0, "$name · ${formatMoney(Tuning.cost(car))}", 13.0) {
+                act(sim.tuneElevator(car), "$name: ${Tuning.EFFECTS[car.tuning - 1]}")
+            }.addTo(this).xy(16.0, y + 6).also { it.enabled = blocked == null }
+            y += 42.0
+            label(Tuning.EFFECTS[car.tuning].toString(), 11.0, Theme.TEXT_DIM).xy(16.0, y + 2).fitWidth(panelWidth - 32)
+            y += 18.0
+        }
+        return y
+    }
+
+    /** Doing a room up, and picking its tenant with an ad in the paper. */
+    private fun endgameButtons(room: crazytower.core.Room, top: Double): Double {
+        var y = top
+        if (Upgrades.applies(room)) {
+            if (room.upgrade > 0) {
+                label(tr("Ausbau", "Upgrade"), 12.0, Theme.TEXT_DIM).xy(16.0, y + 4)
+                label("★".repeat(room.upgrade) + " " + Upgrades.name(room, room.upgrade), 12.0, Theme.GOLD, Theme.bodyBold).xy(VALUE_X, y + 3).fitWidth(panelWidth - VALUE_X - 14.0)
+                y += 22.0
+            }
+            if (room.upgrade < Upgrades.MAX_LEVEL) {
+                val name = Upgrades.name(room, room.upgrade + 1)
+                val blocked = sim.upgradeBlocked(room)
+                TextButton(panelWidth - 32, 36.0, tr("Ausbauen", "Upgrade") + ": $name · ${formatMoney(Upgrades.cost(room))}", 12.0) {
+                    act(sim.upgradeRoom(room), tr("Ausgebaut: $name", "Upgraded: $name"))
+                }.addTo(this).xy(16.0, y + 6).also { it.enabled = blocked == null }
+                y += 42.0
+                label(tr("+${(Upgrades.RENT_BONUS * 100).toInt()} % Miete, +${Upgrades.MOOD_BONUS.toInt()} Laune", "+${(Upgrades.RENT_BONUS * 100).toInt()} % rent, +${Upgrades.MOOD_BONUS.toInt()} mood"),
+                    11.0, Theme.TEXT_DIM).xy(16.0, y + 2).fitWidth(panelWidth - 32)
+                y += 18.0
+            }
+        }
+        if (Recruiting.applies(room) && room.tenant == null && sim.recruitBlocked(room) == null) {
+            label(tr("Anwerben (Anzeige ${formatMoney(sim.recruitCost())})", "Recruit (ad ${formatMoney(sim.recruitCost())})"), 12.0, Theme.TEXT_DIM).xy(16.0, y + 6).fitWidth(panelWidth - 32)
+            y += 24.0
+            // the newest kinds first, at most three buttons
+            for (tenant in sim.recruitable(room).reversed().take(3)) {
+                TextButton(panelWidth - 32, 32.0, tenant.name.toString(), 12.0) {
+                    act(sim.recruit(room, tenant), tr("${tenant.name} zieht ein", "${tenant.name} moves in"))
+                }.addTo(this).xy(16.0, y + 4)
+                y += 36.0
+            }
+        }
+        return y
     }
 
     private companion object {

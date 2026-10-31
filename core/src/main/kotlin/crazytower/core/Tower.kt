@@ -30,6 +30,12 @@ class Room(val id: Int, val type: RoomType, val floor: Int, val x: Int, val widt
 
     /** Elevators: cabins in the shaft (every module of a shaft carries the same number). */
     var cabins: Int = 1
+
+    /** Rentable rooms: how far the room was done up, 0 to [Upgrades.MAX_LEVEL], see [Upgrades]. */
+    var upgrade: Int = 0
+
+    /** Elevators: tuning level of the shaft, 0 to [Tuning.MAX_LEVEL] (every module carries the same). */
+    var tuning: Int = 0
 }
 
 /** Result of a placement check. [reason] is shown to the player when the spot is invalid. */
@@ -58,6 +64,11 @@ class Tower(val width: Int = DEFAULT_WIDTH) {
     /** Increases on every change, so caches such as the navigation graph know when to rebuild. */
     var version: Int = 0
         private set
+
+    /** Marks a change that is not a build or a demolition (an elevator got faster), so caches rebuild. */
+    fun touch() {
+        version++
+    }
 
     /**
      * Increases only when something is taken away, so routes may lead through rooms that are
