@@ -49,9 +49,27 @@ Jede Figur ist eine Entität mit `Position` und `Goal`. Das `PathfindingSystem` 
 ## Turm bauen (ab M4)
 
 - Etagen über dem Erdgeschoss brauchen darunter etwas, auf dem sie stehen. Das erste Untergeschoss geht überall, tiefere brauchen eine Decke.
-- Wege: Lobby (nur Erdgeschoss), Flur, Treppe (eine Etage hoch), Aufzug (Schachtstücke übereinander bauen, höchstens 30 Etagen).
+- Wege: Lobby (nur Erdgeschoss), Flur, Treppe (eine Etage hoch), Aufzug (Schachtstücke übereinander bauen, höchstens 30 Etagen). Wer einen Aufzug oder eine Treppe weiter zieht, als das Geld reicht, bekommt beim Loslassen so viele Etagen wie bezahlbar; der Rest ist in der Vorschau rot. Dasselbe gilt für Parkplatz-Reihen.
+- Das Baumenü zeigt nur, was Stufe und Sterne schon erlauben. Was seit dem letzten Blick dazugekommen ist, trägt beim ersten Anzeigen einen Stern und „NEU“, die Kategorie-Taste auch.
 - Büros, Wohnungen und Imbisse werden vermietet, sobald man sie von der Straße aus erreicht. Wer einzieht, entscheidet der Turm: vom Steuerbüro bis zur Vampir-Versicherung (siehe `core/.../Tenants.kt`).
 - `tools/art/make_rooms_extra.py` zeichnet die Räume, für die es noch keine generierte Grafik gibt (Wege, Wohnungen, Imbisse, Hotel, Reinigungsdienst, Luxusbüros), jeweils bei Tag, bei Nacht und verwahrlost (`extra*.png`). Luxusbüros sind 12 Felder breit, ihre Bilder auch.
+
+## Sterne und Wege zum Ziel
+
+Bei 0 Sternen gibt es nur Wohnungen (und Wege). Büros und Imbiss kommen mit dem 1. Stern.
+
+Ab 3 Sternen suchen Firmen **Fachkräfte**: Neue Büromieter ziehen nur ein, solange ihre Leute Arbeit finden. Arbeitskräfte sind Pendler aus der Stadt (600 bei 3 Sternen, 1.000 bei 4, 1.600 bei 5), 1.500 mehr mit der U-Bahn-Station, und jeder, der im Turm wohnt. Sonst steht über dem Büro „Keine Fachkräfte“. Umgekehrt bringen je 150 Büro-Angestellte einen Wohnungskäufer pro Tag mehr. Ein reiner Büroturm bleibt deshalb irgendwann leer, ein reiner Wohnturm kommt nur langsam voran (wenige Käufer, 3 Bewohner pro Wohnung) und hat für 3.000 bzw. 6.000 Bewohner nicht genug Platz.
+
+| Ab | Gebäude | Wofür |
+| --- | --- | --- |
+| 3 ★ | Wohnheim | 6 Bewohner auf 6 Feldern, Miete jeden Tag, kein Käufer nötig. Studis brauchen Nebenjobs (höchstens halb so viele wie Büro-Angestellte) und sind laut: Wohnungen auf derselben Etage −8 Laune |
+| 3 ★ | Späti | versorgt 30 Wohnungen und Wohnheime, Bewohner bis +6 Laune |
+| 3 ★ | Kita | +3 Wohnungskäufer pro Tag, höchstens 3 |
+| 4 ★ | Penthouse | 12 Felder, ab der 20. Etage, 4 Bewohner, viermal Hausgeld, braucht nur einen Käufer |
+| 4 ★ | U-Bahn-Station | im Keller, +1.500 Pendler für die Büros |
+| 4 ★ | Konferenzzentrum | Hotelgäste zahlen 50 % mehr |
+
+So führen mehrere Wege zu Stufe 4 und 5: Büros und Wohnungen gemischt, Büros mit Wohnheimen (die sich gegenseitig hochziehen), Büros mit U-Bahn und Hotels, oder viele Wohnungen mit Kitas und Penthouses, die irgendwann doch Büros brauchen. `./gradlew :core:playthrough --args="120 42" -Dstrategy=office` (oder `home`, `mix`) lässt den Bot eine Strategie durchspielen.
 
 ## Tagesablauf und Wirtschaft (ab M5)
 
@@ -65,7 +83,7 @@ Jede Figur ist eine Entität mit `Position` und `Goal`. Das `PathfindingSystem` 
 
 | Stufe | Name | Etagen | Voraussetzung | Neu |
 | --- | --- | --- | --- | --- |
-| 1 | Bruchbude | 10 | Start | Wege, Büros, Wohnungen, Imbiss |
+| 1 | Bruchbude | 10 | Start | Wege, Wohnungen; Büros und Imbiss ab 1 Stern |
 | 2 | Hochhaus | 25 | 300 Bewohner | Kopierraum der Ewigkeit |
 | 3 | Wolkenkratzer | 50 | 1.000 Bewohner, Laune 65 % | Sicherheitsdienst |
 | 4 | Mega-Tower | 75 | 3.000 Bewohner, Sicherheitsdienst | Teleporter |

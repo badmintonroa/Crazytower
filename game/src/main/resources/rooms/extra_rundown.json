@@ -759,6 +759,226 @@
     "w": 576,
     "h": 192
    }
+  },
+  "dorm_empty_rundown.png": {
+   "frame": {
+    "x": 0,
+    "y": 2800,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "dorm_full_rundown.png": {
+   "frame": {
+    "x": 584,
+    "y": 2800,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "shop_empty_rundown.png": {
+   "frame": {
+    "x": 1168,
+    "y": 2800,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "shop_spaeti_rundown.png": {
+   "frame": {
+    "x": 0,
+    "y": 3000,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "shop_bio_rundown.png": {
+   "frame": {
+    "x": 584,
+    "y": 3000,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "shop_robo_rundown.png": {
+   "frame": {
+    "x": 1168,
+    "y": 3000,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "special_kita_rundown.png": {
+   "frame": {
+    "x": 0,
+    "y": 3200,
+    "w": 576,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 576,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 576,
+    "h": 192
+   }
+  },
+  "special_subway_rundown.png": {
+   "frame": {
+    "x": 584,
+    "y": 3200,
+    "w": 1152,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 1152,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 1152,
+    "h": 192
+   }
+  },
+  "special_conference_rundown.png": {
+   "frame": {
+    "x": 0,
+    "y": 3400,
+    "w": 1152,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 1152,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 1152,
+    "h": 192
+   }
+  },
+  "penthouse_empty_rundown.png": {
+   "frame": {
+    "x": 0,
+    "y": 3600,
+    "w": 1152,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 1152,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 1152,
+    "h": 192
+   }
+  },
+  "penthouse_full_rundown.png": {
+   "frame": {
+    "x": 0,
+    "y": 3800,
+    "w": 1152,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 1152,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 1152,
+    "h": 192
+   }
   }
  },
  "meta": {
@@ -766,7 +986,7 @@
   "scale": "4",
   "size": {
    "w": 1752,
-   "h": 2792
+   "h": 3992
   }
  }
 }

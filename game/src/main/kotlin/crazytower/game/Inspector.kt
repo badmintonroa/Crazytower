@@ -244,14 +244,17 @@ object RoomInfo {
             tenant != null -> {
                 lines += ROOM to room.type.name.toString()
                 sim.moodOf(room)?.let { lines += MOOD to "${it.toInt()} %" }
-                lines += (if (room.type.role == RoomRole.HOME) tr("Außer Haus", "Out") else HOURS) to tenant.plan.label.toString()
+                val housing = room.type.role.housing
+                lines += (if (housing) tr("Außer Haus", "Out") else HOURS) to tenant.plan.label.toString()
                 lines += if (room.type.role == RoomRole.HOME) {
                     tr("Kaufpreis", "Price paid") to if (room.salePaid > 0) formatMoney(room.salePaid) else tr("geschenkt", "a gift")
+                } else if (housing) {
+                    tr("Miete", "Rent") to formatMoney((tenant.rentPerDay * sim.starBonus).toLong()) + tr(" pro Tag", " a day")
                 } else {
                     tr("Miete", "Rent") to formatMoney((tenant.rentPerDay * sim.starBonus).toLong()) + tr(" nach Feierabend", " after work")
                 }
-                lines += if (room.type.role == RoomRole.HOME) tr("Bewohner", "Residents") to "${room.type.capacity}" else PEOPLE to "${room.type.capacity}"
-                if (room.type.luxury) {
+                lines += if (housing) tr("Bewohner", "Residents") to "${room.type.capacity}" else PEOPLE to "${room.type.capacity}"
+                if (room.type.luxuryOffice) {
                     lines += PARKING to if (sim.hasParking(room)) tr("${Simulation.LUXURY_SPACES} eigene", "${Simulation.LUXURY_SPACES} of its own") else tr("fehlen, nur halbe Miete", "missing, only half the rent")
                 }
                 RoomCard(tenant.name.toString(), where, lines, tenant.quirk.toString())

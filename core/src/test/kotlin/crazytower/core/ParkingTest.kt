@@ -9,7 +9,7 @@ import kotlin.test.assertTrue
 class ParkingTest {
     /** Four stars, stage 4, a lobby and [offices] rented offices on floor 1 (three cars each). */
     private fun tower(offices: Int = 0): Simulation {
-        val sim = Simulation(startMoney = 50_000_000)
+        val sim = officeSim(startMoney = 50_000_000)
         sim.stage = 4
         sim.stars = 4
         sim.build(sim.planLobby(0, 63))

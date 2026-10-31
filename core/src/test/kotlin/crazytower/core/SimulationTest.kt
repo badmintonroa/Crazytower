@@ -13,7 +13,7 @@ import kotlin.test.assertTrue
 class SimulationTest {
     @Test
     fun buildingCostsMoney() {
-        val sim = Simulation()
+        val sim = officeSim()
         val before = sim.money
         assertTrue(sim.build(Catalog.LOBBY, 0, 10).ok)
         assertEquals(before - Catalog.LOBBY.price(), sim.money)
@@ -21,13 +21,13 @@ class SimulationTest {
 
     @Test
     fun cannotBuildWithoutMoney() {
-        val sim = Simulation(startMoney = 100)
+        val sim = officeSim(startMoney = 100)
         assertEquals("Zu wenig Geld", sim.build(Catalog.LOBBY, 0, 10).reason)
     }
 
     @Test
     fun visitorsComeWalkAroundAndLeave() {
-        val sim = Simulation(seed = 7)
+        val sim = officeSim(seed = 7)
         sim.build(Catalog.LOBBY, 0, 20)
         sim.build(Catalog.LOBBY, 0, 26)
         val people = sim.world.family { all(Person, Position) }
@@ -51,7 +51,7 @@ class SimulationTest {
 
     @Test
     fun visitorsGrowWithRentedRooms() {
-        val sim = Simulation(seed = 7, startMoney = 10_000_000)
+        val sim = officeSim(seed = 7, startMoney = 10_000_000)
         sim.eventsEnabled = false
         sim.build(sim.planLobby(10, 33))
         assertEquals(crazytower.core.ecs.VisitorSpawnSystem.BASE_VISITORS, crazytower.core.ecs.VisitorSpawnSystem.maxVisitors(sim, 4))
@@ -65,7 +65,7 @@ class SimulationTest {
 
     @Test
     fun aGloomyTowerKeepsItsStarsButLosesItsUnhappiestTenant() {
-        val sim = Simulation(seed = 3, startMoney = 1_000_000).apply { eventsEnabled = false }
+        val sim = officeSim(seed = 3, startMoney = 1_000_000).apply { eventsEnabled = false }
         sim.build(sim.planLobby(20, 37))
         val rooms = listOf(sim.buildReachable(Catalog.OFFICE, 20)) + listOf(26, 32).map { sim.build(Catalog.OFFICE, 1, it).room!! }
         rooms.forEach { sim.moveIn(it, Tenants.byId("accountant")) }
@@ -98,7 +98,7 @@ class SimulationTest {
 
     @Test
     fun flatsDoNotPrintMoney() {
-        val sim = Simulation(seed = 3, startMoney = 1_000_000)
+        val sim = officeSim(seed = 3, startMoney = 1_000_000)
         sim.eventsEnabled = false
         sim.build(sim.planLobby(10, 21))
         val family = Tenants.byId("family")

@@ -10,7 +10,7 @@ import kotlin.test.assertTrue
 
 class VipTest {
     private fun towerWithOffice(mood: Float, stars: Int = 4): Pair<Simulation, Room> {
-        val sim = Simulation(seed = 7, startMoney = 5_000_000)
+        val sim = officeSim(seed = 7, startMoney = 5_000_000)
         sim.eventsEnabled = false
         val office = sim.buildReachable(Catalog.OFFICE, 10)
         sim.moveIn(office, Tenants.byId("accountant"), announce = false)

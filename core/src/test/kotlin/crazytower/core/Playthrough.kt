@@ -18,6 +18,13 @@ fun main(args: Array<String>) {
 
 class Playthrough(seed: Long) {
     val sim = Simulation(seed = seed)
+
+    /**
+     * How the bot builds: "mix" uses everything, "office" only offices (with food, subway and the
+     * must-have specials), "home" only flats (with food, shops, daycare and penthouses).
+     * Set with -Dstrategy=... or STRATEGY=...
+     */
+    private val strategy = System.getProperty("strategy") ?: System.getenv("STRATEGY") ?: "mix"
     private val started = System.nanoTime()
 
     // ---------- layout ----------
@@ -180,7 +187,13 @@ class Playthrough(seed: Long) {
         if (sim.stage >= 2 && count(Catalog.COPYROOM) == 0) tryPlace(Catalog.COPYROOM)
         if (sim.stage >= 3 && count(Catalog.SECURITY) == 0) tryPlace(Catalog.SECURITY)
         if (sim.stage >= 5 && count(Catalog.UFO_PAD) == 0) tryPlace(Catalog.UFO_PAD)
-        if (sim.basementOpen && afford(Catalog.PARKING.cost)) {
+        val homes = count(Catalog.HOME)
+        if (strategy != "office" && sim.unlocked(Catalog.KITA) && count(Catalog.KITA) < minOf(3, 1 + homes / 40)) tryPlace(Catalog.KITA)
+        if (strategy != "home" && sim.unlocked(Catalog.SUBWAY) && count(Catalog.SUBWAY) == 0 && afford(Catalog.SUBWAY.cost)) {
+            for (s in 0 until sim.lotWidth / slotW step 2) if (sim.build(Catalog.SUBWAY, -1, s * slotW).ok) { note("subway"); break }
+        }
+        if (strategy == "mix" && sim.unlocked(Catalog.CONFERENCE) && count(Catalog.CONFERENCE) == 0 && count(Catalog.HOTEL) >= 10) tryPlace(Catalog.CONFERENCE)
+        if (sim.basementOpen && afford(Catalog.PARKING.cost) && (strategy == "home" || count(Catalog.SUBWAY) > 0 || sim.money > 400_000)) {
             for (s in 0 until sim.lotWidth / slotW) if (sim.build(Catalog.PARKING, -1, s * slotW).ok) { note("parking"); break }
         }
         val hotels = count(Catalog.HOTEL)
@@ -195,23 +208,44 @@ class Playthrough(seed: Long) {
         return activeCols[z].orEmpty().any { abs(it + 1f - cx) <= reach }
     }
 
-    private fun chooseType(floor: Int): RoomType {
+    /** What to build next on [floor], or null to wait (for buyers, tenants or staff). */
+    private fun chooseType(floor: Int): RoomType? {
         val rooms = sim.tower.allRooms.filter { it.type.role.rentable }
         val n = rooms.size + 1
         val food = rooms.count { it.type.role == RoomRole.FOOD }
-        if (food * 15 < n) return Catalog.FOOD
-        val unsoldHomes = rooms.count { it.type == Catalog.HOME && !it.sold }
+        if (sim.unlocked(Catalog.FOOD) && food * 15 < n) return Catalog.FOOD
+        // flats nobody will ever buy (too far away) don't count as waiting for a buyer
+        val unsoldHomes = rooms.count { it.type.role == RoomRole.HOME && !it.sold && sim.roomProblems[it.id]?.far != true }
         val homes = rooms.count { it.type == Catalog.HOME }
+        val emptyOffices = rooms.count { it.type == Catalog.OFFICE && it.tenant == null && sim.roomProblems[it.id]?.far != true }
+        val housing = rooms.count { it.type.role.housing }
+        fun shopNeeded() = sim.unlocked(Catalog.SHOP) && rooms.count { it.type == Catalog.SHOP } * Simulation.SHOP_SERVES < housing
+        fun penthouse() = sim.unlocked(Catalog.PENTHOUSE) && floor >= Simulation.PENTHOUSE_FLOOR && sim.money > 400_000 &&
+            rooms.count { it.type == Catalog.PENTHOUSE } * 10 < homes
+        if (!sim.unlocked(Catalog.OFFICE) || strategy == "home") {
+            if (strategy == "home" && shopNeeded()) return Catalog.SHOP
+            if (unsoldHomes >= 2) return null
+            return if (strategy == "home" && penthouse()) Catalog.PENTHOUSE else Catalog.HOME
+        }
+        if (strategy == "office") {
+            if (sim.stage >= 4 && sim.money > 600_000 && rooms.count { it.type == Catalog.LUXURY_OFFICE } * 10 < n) return Catalog.LUXURY_OFFICE
+            return if (emptyOffices < 2) Catalog.OFFICE else null
+        }
         if (sim.stage >= 3) {
             val hotels = rooms.count { it.type == Catalog.HOTEL }
             if (hotels * 12 < n) return Catalog.HOTEL
         }
+        if (shopNeeded()) return Catalog.SHOP
         if (sim.stage >= 4 && sim.money > 600_000) {
             val lux = rooms.count { it.type == Catalog.LUXURY_OFFICE }
             if (lux * 10 < n) return Catalog.LUXURY_OFFICE
         }
-        if (unsoldHomes < 2 && homes * 4 < n) return Catalog.HOME
-        return Catalog.OFFICE
+        if (penthouse() && unsoldHomes == 0) return Catalog.PENTHOUSE
+        val emptyDorms = rooms.count { it.type == Catalog.DORM && it.tenant == null }
+        if (sim.unlocked(Catalog.DORM) && emptyDorms == 0 && sim.hasSideJobsFor(Catalog.DORM.capacity)) return Catalog.DORM
+        if (emptyOffices < 2 && sim.hasWorkersFor(Catalog.OFFICE.capacity) && (homes * 4 >= n || unsoldHomes >= 2)) return Catalog.OFFICE
+        if (unsoldHomes < 2) return Catalog.HOME
+        return if (emptyOffices < 2 && sim.hasWorkersFor(Catalog.OFFICE.capacity)) Catalog.OFFICE else null
     }
 
     private fun lobbyFloor(f: Int) = f > 0 && Tower.isLobbyFloor(f)
@@ -256,7 +290,7 @@ class Playthrough(seed: Long) {
                 note("Schacht"); activeCols[z]!! += next
                 return true
             }
-            val type = chooseType(f)
+            val type = chooseType(f) ?: return false
             for (s in reachable) {
                 if (type.width > slotW && !(s + 1 in reachable)) continue
                 val cost = type.cost + shaftCostTo(f) + lobbyCost(f, s)
@@ -268,11 +302,13 @@ class Playthrough(seed: Long) {
                     return true
                 }
             }
-            // wide type did not fit, try an office
+            // wide type did not fit, try a narrow one
+            val narrow = if (strategy == "home" || !sim.unlocked(Catalog.OFFICE)) Catalog.HOME else Catalog.OFFICE
+            if (type.width <= slotW) return false
             for (s in reachable) {
-                if (!afford(Catalog.OFFICE.cost + shaftCostTo(f) + lobbyCost(f, s))) { skippedNoMoney++; return false }
+                if (!afford(narrow.cost + shaftCostTo(f) + lobbyCost(f, s))) { skippedNoMoney++; return false }
                 ensureLobby(f, s)
-                if (sim.build(Catalog.OFFICE, f, s * slotW).ok) { note("office"); extendShafts(f); return true }
+                if (sim.build(narrow, f, s * slotW).ok) { note(narrow.id); extendShafts(f); return true }
             }
             return false
         }
@@ -332,9 +368,9 @@ class Playthrough(seed: Long) {
         val d = sim.finance.day(sim.clock.day)
         val inc = d.filterKeys { it.income }.values.sum()
         val avgW = if (waitSamples.isEmpty()) 0.0 else waitSamples.average()
-        val line = "%d | %d | %,d | %d | %d | %d | %.0f | %s/%s/%s/%s/%s | %d %s | %d/%d | %.1f/%.1f/%.0f | %d/%d/%d/%d %,d | %d | %,d | %,d | %,d | %d".format(
+        val line = "%d | %d | %,d | %d | %d | %d | %.0f | %s/%s/%s/%s/%s D%s S%s P%s | %d %s | %d/%d | %.1f/%.1f/%.0f | %d/%d/%d/%d %,d | %d | %,d | %,d | %,d | %d".format(
             sim.clock.day, sim.clock.hour, sim.money, sim.stage, sim.stars, sim.population, sim.satisfaction,
-            c(Catalog.OFFICE), c(Catalog.HOME), c(Catalog.FOOD), c(Catalog.HOTEL), c(Catalog.LUXURY_OFFICE),
+            c(Catalog.OFFICE), c(Catalog.HOME), c(Catalog.FOOD), c(Catalog.HOTEL), c(Catalog.LUXURY_OFFICE), c(Catalog.DORM), c(Catalog.SHOP), c(Catalog.PENTHOUSE),
             empty, probs.toString(), sim.elevators.cars.size, sim.elevators.cars.values.sumOf { it.cabins.size },
             avgW, pct(waitSamples, 0.95), maxWait,
             vipVisits.size, vipHappy, vipStingy, vipGaveUp, vipTipTotal, moveOuts,
@@ -346,7 +382,7 @@ class Playthrough(seed: Long) {
     }
 
     private fun summary() {
-        println("\n== Zusammenfassung ==")
+        println("\n== Zusammenfassung (Strategie $strategy) ==")
         println("Laufzeit: %.1f min echt, %d Spieltage, Geld %,d, Stufe %d, Sterne %d, Leute %d (Spitze %d)".format(
             (System.nanoTime() - started) / 60e9, sim.clock.day, sim.money, sim.stage, sim.stars, sim.population, peakPop))
         println("Stufen erreicht an Tag: ${stageDay.toSortedMap()}")

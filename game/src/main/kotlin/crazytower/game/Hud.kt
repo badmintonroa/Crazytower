@@ -75,6 +75,9 @@ class Hud(
     private val speedButtons = ArrayList<Pair<Int, TextButton>>()
     private lateinit var openDayButton: TextButton
     private val categoryButtons = HashMap<Category, Button>()
+
+    /** The little star on a category button that holds room types the player has not seen yet. */
+    private val categoryNews = HashMap<Category, View>()
     private var flyoutKey: Triple<Category?, Int, Int>? = null
     private lateinit var tickerText: Text
     private lateinit var tickerClip: Container
@@ -221,6 +224,7 @@ class Hud(
             b.xy(10.0, 10.0 + i * 76.0)
             buildBar.addChild(b)
             categoryButtons[category] = b
+            categoryNews[category] = Icons.star(b, filled = true, size = 18.0).also { it.xy(2.0, 2.0); it.visible = false }
         }
     }
 
@@ -251,15 +255,17 @@ class Hud(
             ).xy(14.0, y)
             y += hint.height + 14.0
         } else {
-            val types = Catalog.roomTypes.filter { it.category == category }
+            // only what stage and stars allow; what came since the last look is marked with a star
+            val types = Catalog.roomTypes.filter { it.category == category && sim.unlocked(it) }
             if (types.isEmpty()) {
-                val none = flyout.wrappedLabel(tr("Kommt mit einer späteren Stufe.", "Comes with a later stage."), FLYOUT_TEXT, 13.0, Theme.TEXT_DIM).xy(14.0, y)
+                val none = flyout.wrappedLabel(tr("Kommt mit mehr Sternen.", "Comes with more stars."), FLYOUT_TEXT, 13.0, Theme.TEXT_DIM).xy(14.0, y)
                 y += none.height + 14.0
             }
             val cards = types.map { type ->
                 val built = type.maxCount?.let { max -> sim.tower.allRooms.count { it.type == type } >= max } == true
-                ItemCard(type, sim.stage >= type.minStage && sim.bestStars >= type.minStars && !built, built)
+                ItemCard(type, !built, built, fresh = sim.isNew(type))
             }
+            types.forEach { sim.seenTypes += it.id }
             // a list too long for the screen continues in a second column
             val bottom = screenHeight - 50.0 - flyout.y - 8.0 - 48.0
             var column = 0
@@ -304,7 +310,7 @@ class Hud(
      * below that who lives or works there and what the room earns.
      */
     private inner class ItemCard(
-        val type: RoomType, unlocked: Boolean, built: Boolean = false,
+        val type: RoomType, unlocked: Boolean, built: Boolean = false, fresh: Boolean = false,
         // long lines wrap, the card grows with them
         val info: List<String> = roomInfo(type).flatMap { wrapText(it, CARD_TEXT, 12.0).split('\n') },
         val cardHeight: Double = if (info.isEmpty()) 62.0 else 66.0 + info.size * 17.0,
@@ -320,8 +326,6 @@ class Hud(
             val sub = content.label(
                 when {
                     built -> tr("SCHON GEBAUT", "ALREADY BUILT")
-                    !unlocked && sim.stage < type.minStage -> tr("AB STUFE ${type.minStage}", "FROM STAGE ${type.minStage}")
-                    !unlocked -> tr("AB ${type.minStars} STERNEN", "FROM ${type.minStars} STARS")
                     type.perSegment -> tr("${formatMoney(sim.listPrice(type, 1))}/FELD", "${formatMoney(sim.listPrice(type, 1))}/TILE")
                     else -> formatMoney(sim.listPrice(type))
                 },
@@ -332,6 +336,13 @@ class Hud(
                 name.color = b.ink
                 sub.color = b.ink
                 lines.forEach { it.color = if (b.selected) b.ink else Theme.TEXT_DIM }
+            }
+            if (fresh) {
+                // a star in the corner, NEW under it next to the price
+                Icons.star(content, filled = true, size = 22.0).xy(buttonWidth - 28.0, 6.0)
+                name.fitWidth(buttonWidth - 132.0)
+                sub.fitWidth(buttonWidth - 150.0)
+                content.label(tr("NEU", "NEW"), 11.0, Theme.GOLD, Theme.bodyBold).also { it.xy(buttonWidth - 12.0 - it.width, 35.0) }
             }
             onRestyle(this)
         }
@@ -345,7 +356,12 @@ class Hud(
             return formatMoneyRange((values.min() * bonus).toLong(), (values.max() * bonus).toLong())
         }
         return when (type.role) {
-            RoomRole.HOME -> listOf(
+            RoomRole.HOME -> if (type.luxury) listOf(
+                tr("${type.capacity} Bewohner, nur ab der ${type.minFloor}. Etage", "${type.capacity} residents, only from floor ${type.minFloor} up"),
+                tr("Verkauf einmalig: ", "sold once: ") + range(tenants.map { it.salePrice }, bonus = 1.0),
+                tr("dann ${formatMoney((Simulation.HOME_FEE * sim.starBonus).toLong() * Simulation.PENTHOUSE_FEES)} Hausgeld pro Tag", "then ${formatMoney((Simulation.HOME_FEE * sim.starBonus).toLong() * Simulation.PENTHOUSE_FEES)} service charge a day"),
+                tr("braucht einen der ${sim.flatBuyersPerDay} Käufer pro Tag", "needs one of the ${sim.flatBuyersPerDay} buyers a day"),
+            ) else listOf(
                 tr("${type.capacity} Bewohner, nur ${sim.flatBuyersPerDay} Käufer pro Tag", "${type.capacity} residents, only ${sim.flatBuyersPerDay} buyers a day"),
                 tr("Verkauf einmalig: ", "sold once: ") + range(tenants.map { it.salePrice }, bonus = 1.0),
                 tr("dann ${formatMoney((Simulation.HOME_FEE * sim.starBonus).toLong())} Hausgeld pro Tag", "then ${formatMoney((Simulation.HOME_FEE * sim.starBonus).toLong())} service charge a day"),
@@ -360,8 +376,20 @@ class Hud(
             ) else listOf(
                 tr("${type.capacity} Angestellte, kommen zur Arbeit", "${type.capacity} employees come to work"),
                 tr("Miete pro Arbeitstag: ", "rent per working day: ") + range(tenants.map { it.rentPerDay }),
-                tr("mehr Sterne bringen bessere Mieter", "more stars bring better tenants"),
+                if (sim.workforceMatters) {
+                    tr("Fachkräfte: ${sim.jobs} von ${sim.workforce} haben schon Arbeit", "staff: ${sim.jobs} of ${sim.workforce} already have a job")
+                } else {
+                    tr("mehr Sterne bringen bessere Mieter", "more stars bring better tenants")
+                },
             )
+            RoomRole.DORM -> listOf(
+                tr("${type.capacity} Studis, Miete jeden Tag: ", "${type.capacity} students, rent every day: ") + range(tenants.map { it.rentPerDay }),
+                tr("brauchen Nebenjobs: ${sim.students} Studis, ${sim.jobs} Angestellte", "need side jobs: ${sim.students} students, ${sim.jobs} employees"),
+                tr("laut: Wohnungen auf der Etage −${Simulation.DORM_NOISE.toInt()} Laune", "loud: flats on the floor −${Simulation.DORM_NOISE.toInt()} mood"),
+            )
+            RoomRole.SHOP -> listOf(
+                tr("${type.capacity} Angestellte, Miete pro Tag: ", "${type.capacity} employees, rent per day: ") + range(tenants.map { it.rentPerDay }),
+            ) + type.effects.map { it.toString() }
             RoomRole.FOOD -> listOf(
                 tr("${type.capacity} Angestellte, Pflicht für Stern 3", "${type.capacity} employees, needed for star 3"),
                 tr("Miete pro Tag: ", "rent per day: ") + range(tenants.map { it.rentPerDay }),
@@ -455,6 +483,7 @@ class Hud(
         speedButtons.forEach { (speed, b) -> b.selected = game.speed == speed }
         openDayButton.selected = sim.activeEvents.any { it.id == "openday" }
         categoryButtons.forEach { (c, b) -> b.selected = game.category == c }
+        categoryNews.forEach { (c, star) -> star.visible = game.category != c && Catalog.roomTypes.any { it.category == c && sim.isNew(it) } }
         refreshFlyout()
         inspector.sync()
         syncTicker(dtSeconds)

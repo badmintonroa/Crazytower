@@ -54,7 +54,23 @@ object RoomProblems {
                 ),
                 far = true,
             )
-            room.type.luxury && !sim.hasParking(room) -> RoomProblem(
+            room.type.role == RoomRole.OFFICE && !sim.hasWorkersFor(room.type.capacity) -> RoomProblem(
+                Tr("Keine Fachkräfte", "No staff"),
+                Tr(
+                    "Die Firmen finden keine Leute: ${sim.jobs} Stellen, nur ${sim.workforce} Arbeitskräfte. " +
+                        "Mehr Wohnungen oder Wohnheime im Turm helfen" + if (sim.stars >= 4) ", oder eine U-Bahn-Station." else ", ab 4 Sternen auch eine U-Bahn-Station.",
+                    "The companies can't find people: ${sim.jobs} jobs, only ${sim.workforce} workers. " +
+                        "More flats or dorms in the tower help" + if (sim.stars >= 4) ", or a subway station." else ", from 4 stars a subway station too.",
+                ),
+            )
+            room.type.role == RoomRole.DORM && !sim.hasSideJobsFor(room.type.capacity) -> RoomProblem(
+                Tr("Keine Nebenjobs", "No side jobs"),
+                Tr(
+                    "Studis brauchen Nebenjobs: höchstens halb so viele Studis wie Büro-Angestellte (${sim.students} Studis, ${sim.jobs} Angestellte). Mehr Büros helfen.",
+                    "Students need side jobs: at most half as many students as office workers (${sim.students} students, ${sim.jobs} workers). More offices help.",
+                ),
+            )
+            room.type.luxuryOffice && !sim.hasParking(room) -> RoomProblem(
                 Tr("Keine Parkplätze", "No parking"),
                 if (sim.basementOpen) {
                     Tr(

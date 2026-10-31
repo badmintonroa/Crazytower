@@ -10,7 +10,7 @@ import kotlin.test.assertTrue
 
 class StageEventSaveTest {
     private fun bigTower(): Simulation {
-        val sim = Simulation(seed = 21, startMoney = 50_000_000)
+        val sim = officeSim(seed = 21, startMoney = 50_000_000)
         sim.stage = 1 // nine floors: past the building site
         for (i in 0 until 8) sim.build(Catalog.LOBBY, 0, i * 6)
         sim.build(Catalog.ELEVATOR, 0, 48)
@@ -36,7 +36,7 @@ class StageEventSaveTest {
 
     @Test
     fun stageRequirementsAddUp() {
-        val sim = Simulation()
+        val sim = officeSim()
         assertFalse(Stages.reached(sim, 2))
         assertTrue(Stages.progress(sim) == 0.0)
         assertEquals("lobby_stage3_wolkenkratzer", Stages.info(3).lobbyArt)
@@ -44,7 +44,7 @@ class StageEventSaveTest {
 
     @Test
     fun clownsTakeOverAnOffice() {
-        val sim = Simulation(seed = 5, startMoney = 1_000_000)
+        val sim = officeSim(seed = 5, startMoney = 1_000_000)
         val office = sim.buildReachable(Catalog.OFFICE, 10)
         sim.moveIn(office, Tenants.byId("accountant"))
         val clown = Events.all.first { it.id == "clown" }
@@ -56,14 +56,14 @@ class StageEventSaveTest {
 
     @Test
     fun everyEventCopesWithAnEmptyTower() {
-        val sim = Simulation(seed = 5)
+        val sim = officeSim(seed = 5)
         for (event in Events.all) event.apply(sim)
         repeat(3 * 24) { Events.roll(sim); sim.step(60.0) }
     }
 
     @Test
     fun teleportersConnectFarFloors() {
-        val sim = Simulation(seed = 5, startMoney = 50_000_000)
+        val sim = officeSim(seed = 5, startMoney = 50_000_000)
         sim.build(Catalog.LOBBY, 0, 0)
         sim.build(Catalog.TELEPORTER, 0, 6).let { assertFalse(it.ok, "needs stage 4") }
         val tower = sim.tower
@@ -77,7 +77,7 @@ class StageEventSaveTest {
 
     @Test
     fun saveAndLoadKeepTheTower() {
-        val sim = Simulation(seed = 3, startMoney = 2_000_000)
+        val sim = officeSim(seed = 3, startMoney = 2_000_000)
         val office = sim.buildReachable(Catalog.OFFICE, 10)
         sim.build(Catalog.LOBBY, 0, 16)
         sim.build(Catalog.CORRIDOR, 1, 16)
@@ -101,7 +101,7 @@ class StageEventSaveTest {
 
     @Test
     fun aNewTowerStartsAtStageZeroWithoutStars() {
-        val sim = Simulation()
+        val sim = officeSim()
         assertEquals(0, sim.stage)
         assertEquals(0, sim.stars)
         assertEquals("Baustelle", Stages.info(0).name.toString())

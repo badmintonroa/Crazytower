@@ -726,8 +726,8 @@ class TowerView(
                     ghostInfo = removeText(removed.size, removed.sumOf { sim.refundFor(it) }) to true
                 }
                 plan != null -> {
-                    showGhost(plan.pieces.map { Ghost(it.floor, it.x, it.width) }, if (plan.check.ok) Theme.SELECT else Theme.ALARM, 0.2)
-                    ghostInfo = if (plan.check.ok) "${plan.type.name} · +${floors(plan.pieces.size)} · ${formatMoney(plan.cost)} · " + tr("Loslassen zum Bauen", "Release to build") to true else plan.check.reason to false
+                    showPlanGhost(plan, plan.pieces)
+                    ghostInfo = if (plan.check.ok) "${plan.type.name} · +${floors(plan.pieces.size)} · ${formatMoney(plan.cost)} · " + tr("Loslassen zum Bauen", "Release to build") + blockedText(plan) to true else plan.check.reason to false
                 }
                 else -> ghostInfo = tr("Nach oben oder unten ziehen zum Verlängern oder Kürzen", "Drag up or down to extend or shorten") to true
             }
@@ -750,10 +750,9 @@ class TowerView(
                 }
                 tool.type.stretchable || tool.type.fillsGap || tool.type.dragRow || tool.type.role.isWay -> {
                     val plan = planFor(tool.type, h)
-                    val color = if (plan.check.ok) Theme.SELECT else Theme.ALARM
                     val pieces = plan.pieces.ifEmpty { listOf(BuildPlan.Piece(h.floor, BuildRules.snapX(h.segment, tool.type.width, sim.lotWidth), tool.type.width)) }
-                    showGhost(pieces.map { Ghost(it.floor, it.x, it.width) }, color, 0.2)
-                    ghostInfo = if (plan.check.ok) planText(plan) to true else plan.check.reason to false
+                    showPlanGhost(plan, pieces)
+                    ghostInfo = if (plan.check.ok) planText(plan) + blockedText(plan) to true else plan.check.reason to false
                 }
                 else -> {
                     val x = BuildRules.snapX(h.segment, tool.type.width, sim.lotWidth)
@@ -780,7 +779,8 @@ class TowerView(
         }
     }
 
-    private data class Ghost(val floor: Int, val x: Int, val width: Int)
+    /** One box of the build preview; [color] overrides the preview's colour, e.g. for the floors left out. */
+    private data class Ghost(val floor: Int, val x: Int, val width: Int, val color: RGBA? = null)
 
     private var drawnGhost: Pair<List<Ghost>, RGBA>? = null
 
@@ -790,11 +790,22 @@ class TowerView(
         drawnGhost = parts to color
         ghost.removeChildren()
         for (part in parts) {
+            val c = part.color ?: color
             val box = ghost.container { xy(Metrics.x(part.x), Metrics.floorTop(part.floor)) }
-            box.solidRect(Metrics.x(part.width), Metrics.FLOOR, Theme.alpha(color, fill))
-            frame(box.container(), Metrics.x(part.width), Metrics.FLOOR, color)
+            box.solidRect(Metrics.x(part.width), Metrics.FLOOR, Theme.alpha(c, fill))
+            frame(box.container(), Metrics.x(part.width), Metrics.FLOOR, c)
         }
     }
+
+    /** The pieces of [plan] that would be built, and in red the ones money or the rules leave out. */
+    private fun showPlanGhost(plan: BuildPlan, pieces: List<BuildPlan.Piece>) {
+        val parts = pieces.map { Ghost(it.floor, it.x, it.width) } + plan.blocked.map { Ghost(it.floor, it.x, it.width, Theme.ALARM) }
+        showGhost(parts, if (plan.check.ok) Theme.SELECT else Theme.ALARM, 0.2)
+    }
+
+    /** Why the red part of the preview stays unbuilt, or nothing when all of it gets built. */
+    private fun blockedText(plan: BuildPlan): String =
+        if (plan.blocked.isEmpty()) "" else " · " + tr("${plan.blocked.size} nicht: ${plan.blockedReason}", "${plan.blocked.size} left out: ${plan.blockedReason}")
 
     /**
      * What the build tool would place for the current mouse position. Lobbies stretch along

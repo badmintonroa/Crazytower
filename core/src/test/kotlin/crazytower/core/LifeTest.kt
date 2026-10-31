@@ -16,7 +16,7 @@ class LifeTest {
 
     @Test
     fun officeWorkersComeInTheMorningAndLeaveInTheEvening() {
-        val sim = Simulation(seed = 2, startMoney = 10_000_000)
+        val sim = officeSim(seed = 2, startMoney = 10_000_000)
         val office = sim.buildReachable(Catalog.OFFICE, 20)
         sim.moveIn(office, Tenants.byId("accountant"))
         val staff = sim.membersOf(office.id)
@@ -35,7 +35,7 @@ class LifeTest {
 
     @Test
     fun nightShiftWorksAtNight() {
-        val sim = Simulation(seed = 3, startMoney = 10_000_000)
+        val sim = officeSim(seed = 3, startMoney = 10_000_000)
         sim.eventsEnabled = false // the clown event would turn the vampires into clowns
         val office = sim.buildReachable(Catalog.OFFICE, 20)
         sim.moveIn(office, Tenants.byId("vampire"))
@@ -47,7 +47,7 @@ class LifeTest {
 
     @Test
     fun peopleGoForLunchAndPayForIt() {
-        val sim = Simulation(seed = 8, startMoney = 10_000_000)
+        val sim = officeSim(seed = 8, startMoney = 10_000_000)
         val office = sim.buildReachable(Catalog.OFFICE, 20)
         val food = sim.buildReachable(Catalog.FOOD, 30)
         sim.moveIn(office, Tenants.byId("accountant"))
@@ -60,7 +60,7 @@ class LifeTest {
 
     @Test
     fun paymentsAtTheSameTimeFromTheSamePayerAreSummed() {
-        val sim = Simulation(seed = 9, startMoney = 1_000_000).apply { eventsEnabled = false }
+        val sim = officeSim(seed = 9, startMoney = 1_000_000).apply { eventsEnabled = false }
         sim.build(sim.planLobby(20, 37))
         val offices = listOf(sim.buildReachable(Catalog.OFFICE, 20)) +
             listOf(26, 32).map { sim.build(Catalog.OFFICE, 1, it).room!! }
@@ -73,7 +73,7 @@ class LifeTest {
 
     @Test
     fun officesPayAfterWork() {
-        val sim = Simulation(seed = 9, startMoney = 1_000_000).apply { eventsEnabled = false }
+        val sim = officeSim(seed = 9, startMoney = 1_000_000).apply { eventsEnabled = false }
         val office = sim.buildReachable(Catalog.OFFICE, 20)
         sim.moveIn(office, Tenants.byId("accountant"))
         val rent = Tenants.byId("accountant").rentPerDay
@@ -88,7 +88,7 @@ class LifeTest {
 
     @Test
     fun vampiresPayInTheMorning() {
-        val sim = Simulation(seed = 9, startMoney = 1_000_000).apply { eventsEnabled = false }
+        val sim = officeSim(seed = 9, startMoney = 1_000_000).apply { eventsEnabled = false }
         val office = sim.buildReachable(Catalog.OFFICE, 20)
         sim.moveIn(office, Tenants.byId("vampire"))
         stepTo(sim, 23)
@@ -99,7 +99,7 @@ class LifeTest {
 
     @Test
     fun onlyAFewFlatsFindBuyersEachDay() {
-        val sim = Simulation(seed = 4, startMoney = 1_000_000).apply { eventsEnabled = false }
+        val sim = officeSim(seed = 4, startMoney = 1_000_000).apply { eventsEnabled = false }
         sim.build(sim.planLobby(10, 45))
         val flats = listOf(sim.buildReachable(Catalog.HOME, 10)) + (16..40 step 6).map { sim.build(Catalog.HOME, 1, it).room!! }
         stepTo(sim, 23)
@@ -110,7 +110,7 @@ class LifeTest {
 
     @Test
     fun flatsAreSoldOnceAndPayFeesEveryDay() {
-        val sim = Simulation(seed = 9, startMoney = 1_000_000).apply { eventsEnabled = false }
+        val sim = officeSim(seed = 9, startMoney = 1_000_000).apply { eventsEnabled = false }
         val home = sim.buildReachable(Catalog.HOME, 20)
         val before = sim.money
         sim.moveIn(home, Tenants.byId("family"))
@@ -125,7 +125,7 @@ class LifeTest {
 
     @Test
     fun residentsLeaveForWorkOnWeekdays() {
-        val sim = Simulation(seed = 6, startMoney = 10_000_000)
+        val sim = officeSim(seed = 6, startMoney = 10_000_000)
         val home = sim.buildReachable(Catalog.HOME, 20)
         sim.moveIn(home, Tenants.byId("family"))
         stepTo(sim, 6, day = 1)
@@ -144,7 +144,7 @@ class LifeTest {
 
     @Test
     fun moveOutRemovesThePeople() {
-        val sim = Simulation(seed = 1, startMoney = 10_000_000)
+        val sim = officeSim(seed = 1, startMoney = 10_000_000)
         val office = sim.buildReachable(Catalog.OFFICE, 20)
         sim.moveIn(office, Tenants.byId("startup"))
         sim.moveOut(office)

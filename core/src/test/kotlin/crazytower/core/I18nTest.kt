@@ -39,9 +39,9 @@ class I18nTest {
     @Test
     fun `the ticker speaks English`() {
         I18n.language = Language.EN
-        val sim = Simulation(seed = 3)
+        val sim = officeSim(seed = 3)
         sim.build(Catalog.LOBBY, GROUND_FLOOR, 0, 12)
         assertTrue(sim.news.latest.first().text.startsWith("The first lobby is open"), sim.news.latest.first().text)
-        assertEquals("Not enough money", Simulation(seed = 3, startMoney = 0).checkPlace(Catalog.LOBBY, GROUND_FLOOR, 0).reason)
+        assertEquals("Not enough money", officeSim(seed = 3, startMoney = 0).checkPlace(Catalog.LOBBY, GROUND_FLOOR, 0).reason)
     }
 }

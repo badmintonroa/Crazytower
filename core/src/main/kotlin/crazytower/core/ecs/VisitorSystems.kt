@@ -57,8 +57,8 @@ class VisitorSpawnSystem(
     }
 }
 
-private val VISITABLE = setOf(RoomRole.FOOD, RoomRole.OFFICE)
-private val SIGHTS = setOf(RoomRole.LOBBY, RoomRole.SPECIAL)
+private val VISITABLE = setOf(RoomRole.FOOD, RoomRole.OFFICE, RoomRole.SHOP)
+private val SIGHTS = setOf(RoomRole.LOBBY, RoomRole.SPECIAL, RoomRole.CONFERENCE)
 
 /** Picks the next stop for idle sightseers, or sends them home when they have seen enough. */
 class VisitorSystem(

@@ -21,7 +21,7 @@ class TransportTest {
 
     @Test
     fun upperFloorsNeedSomethingBelow() {
-        val sim = Simulation(startMoney = 10_000_000)
+        val sim = officeSim(startMoney = 10_000_000)
         assertEquals("Darunter fehlt der Unterbau", sim.build(Catalog.OFFICE, 1, 10).reason)
         sim.build(Catalog.LOBBY, 0, 10)
         assertTrue(sim.build(Catalog.OFFICE, 1, 10).ok)
@@ -33,7 +33,7 @@ class TransportTest {
 
     @Test
     fun cannotDemolishWhatCarriesARoom() {
-        val sim = Simulation(startMoney = 10_000_000)
+        val sim = officeSim(startMoney = 10_000_000)
         val lobby = sim.build(Catalog.LOBBY, 0, 10).room!!
         sim.build(Catalog.OFFICE, 1, 10)
         assertFalse(sim.checkDemolish(lobby).ok)
@@ -43,7 +43,7 @@ class TransportTest {
 
     @Test
     fun stairsLeadOneFloorUp() {
-        val sim = Simulation(startMoney = 10_000_000)
+        val sim = officeSim(startMoney = 10_000_000)
         sim.build(Catalog.LOBBY, 0, 10)
         assertTrue(sim.build(Catalog.STAIRS, 0, 16).ok)
         sim.build(Catalog.LOBBY, 0, 18)
@@ -61,7 +61,7 @@ class TransportTest {
 
     @Test
     fun nobodyClimbsMoreThanFiveFloorsOnFoot() {
-        val sim = Simulation(startMoney = 10_000_000)
+        val sim = officeSim(startMoney = 10_000_000)
         sim.stage = 1
         tallCorridor(sim, 8)
         assertTrue(sim.build(sim.planColumn(Catalog.STAIRS, 12, GROUND_FLOOR, 8)).ok)
@@ -71,7 +71,7 @@ class TransportTest {
 
     @Test
     fun theLastFloorsAfterTheElevatorAreWalked() {
-        val sim = Simulation(startMoney = 10_000_000)
+        val sim = officeSim(startMoney = 10_000_000)
         sim.stage = 1
         tallCorridor(sim, 9)
         for (f in 0..6) assertTrue(sim.build(Catalog.ELEVATOR, f, 16).ok, "elevator $f")
@@ -84,7 +84,7 @@ class TransportTest {
 
     @Test
     fun expressElevatorsOnlyStopOnEveryFifthFloor() {
-        val sim = Simulation(startMoney = 10_000_000)
+        val sim = officeSim(startMoney = 10_000_000)
         sim.stage = 2
         tallCorridor(sim, 10)
         assertTrue(sim.build(sim.planColumn(Catalog.EXPRESS, 16, GROUND_FLOOR, 10)).ok)
@@ -101,7 +101,7 @@ class TransportTest {
 
     @Test
     fun expressAndNormalShaftsDoNotMix() {
-        val sim = Simulation(startMoney = 10_000_000)
+        val sim = officeSim(startMoney = 10_000_000)
         sim.stage = 2
         tallCorridor(sim, 6)
         assertTrue(sim.build(sim.planColumn(Catalog.ELEVATOR, 16, GROUND_FLOOR, 3)).ok)
@@ -110,7 +110,7 @@ class TransportTest {
 
     @Test
     fun skyLobbyEvery25FloorsBeforeBuildingHigher() {
-        val sim = Simulation(startMoney = 100_000_000)
+        val sim = officeSim(startMoney = 100_000_000)
         sim.stage = 3
         tallCorridor(sim, 24)
         sim.build(Catalog.LOBBY, 0, 16)
@@ -128,7 +128,7 @@ class TransportTest {
 
     @Test
     fun nothingAboveAMissingSkyLobby() {
-        val sim = Simulation(startMoney = 100_000_000)
+        val sim = officeSim(startMoney = 100_000_000)
         sim.stage = 3
         tallCorridor(sim, 25)
         assertEquals("Erst eine Sky-Lobby auf der 25. Etage bauen", sim.checkPlace(Catalog.CORRIDOR, 26, 10).reason)
@@ -137,7 +137,7 @@ class TransportTest {
 
     @Test
     fun everyFurtherShaftCostsMore() {
-        val sim = Simulation(startMoney = 10_000_000)
+        val sim = officeSim(startMoney = 10_000_000)
         assertTrue(sim.build(sim.planLobby(0, 59)).ok)
         assertEquals(6_000, sim.priceAt(Catalog.ELEVATOR, GROUND_FLOOR, 10))
         assertTrue(sim.build(Catalog.ELEVATOR, GROUND_FLOOR, 10).ok)
@@ -153,7 +153,7 @@ class TransportTest {
     fun theTowerCanChangeWithMoreThan2048People() {
         // Fleks keeps 2048 slots per component type; removing a component somebody beyond that
         // never had used to throw while routes were refreshed, and the elevator crashed after it
-        val sim = Simulation(seed = 5, startMoney = 100_000_000)
+        val sim = officeSim(seed = 5, startMoney = 100_000_000)
         sim.stage = 1
         tallCorridor(sim, 8)
         assertTrue(sim.build(sim.planColumn(Catalog.ELEVATOR, 16, GROUND_FLOOR, 8)).ok)
@@ -170,7 +170,7 @@ class TransportTest {
     @Test
     fun buildingKeepsRoutesAndRemovingReplansAFewAtATime() {
         // with thousands of people, planning everybody again in one tick froze the game
-        val sim = Simulation(seed = 5, startMoney = 100_000_000)
+        val sim = officeSim(seed = 5, startMoney = 100_000_000)
         sim.stage = 1
         tallCorridor(sim, 8)
         assertTrue(sim.build(sim.planColumn(Catalog.ELEVATOR, 16, GROUND_FLOOR, 8)).ok)
@@ -199,7 +199,7 @@ class TransportTest {
 
     @Test
     fun peopleRideTheElevatorToTheTop() {
-        val sim = Simulation(seed = 5, startMoney = 10_000_000)
+        val sim = officeSim(seed = 5, startMoney = 10_000_000)
         sim.stage = 1
         sim.build(Catalog.LOBBY, 0, 10)
         assertTrue(sim.build(Catalog.ELEVATOR, 0, 16).ok)
@@ -244,7 +244,7 @@ class TransportTest {
 
     @Test
     fun moreCabinsComeWithStars() {
-        val sim = Simulation(seed = 5, startMoney = 10_000_000)
+        val sim = officeSim(seed = 5, startMoney = 10_000_000)
         shaft(sim, 6)
         val car = sim.elevators.cars.values.single()
         assertEquals(1, car.cabins.size)
@@ -266,7 +266,7 @@ class TransportTest {
     @Test
     fun severalCabinsCarryACrowdFaster() {
         fun minutesFor(cabins: Int): Int {
-            val sim = Simulation(seed = 5, startMoney = 10_000_000)
+            val sim = officeSim(seed = 5, startMoney = 10_000_000)
             sim.eventsEnabled = false
             sim.stars = 5
             shaft(sim, 8)
@@ -287,7 +287,7 @@ class TransportTest {
 
     @Test
     fun cabinsStayBuyableWhenAStarIsLost() {
-        val sim = Simulation(seed = 5, startMoney = 10_000_000)
+        val sim = officeSim(seed = 5, startMoney = 10_000_000)
         shaft(sim, 5)
         sim.stars = 3
         sim.stars = 1

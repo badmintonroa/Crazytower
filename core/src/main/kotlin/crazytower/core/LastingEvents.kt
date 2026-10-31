@@ -150,7 +150,7 @@ object Lasting {
             onHour = { ev ->
                 val clowns = tower.room(ev.roomId ?: -1)
                 if (clowns != null && clock.hour == 0 && random.nextFloat() < CLOWN_SPREAD) {
-                    val victim = rentedRooms(RoomRole.OFFICE).filter { it.tenant?.id != "clown" && !it.type.luxury }
+                    val victim = rentedRooms(RoomRole.OFFICE).filter { it.tenant?.id != "clown" && !it.type.luxuryOffice }
                         .minByOrNull { abs(it.floor - clowns.floor) * 100 + abs(it.centerX - clowns.centerX) }
                     if (victim != null) {
                         val old = victim.tenant!!.name

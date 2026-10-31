@@ -9,7 +9,7 @@ import kotlin.test.assertTrue
 class TenantTest {
     @Test
     fun reachableRoomsGetRented() {
-        val sim = Simulation(seed = 11, startMoney = 10_000_000)
+        val sim = officeSim(seed = 11, startMoney = 10_000_000)
         val office = sim.buildReachable(Catalog.OFFICE, 10)
         sim.build(Catalog.LOBBY, 0, 20)
         val unreachable = sim.build(Catalog.HOME, 1, 20).room!!
@@ -32,7 +32,7 @@ class TenantTest {
 
     @Test
     fun crewsLookDifferent() {
-        val sim = Simulation(seed = 11, startMoney = 10_000_000)
+        val sim = officeSim(seed = 11, startMoney = 10_000_000)
         sim.eventsEnabled = false
         val room = sim.buildReachable(Catalog.OFFICE, 10)
         sim.moveIn(room, Tenants.byId("clown"), announce = false)

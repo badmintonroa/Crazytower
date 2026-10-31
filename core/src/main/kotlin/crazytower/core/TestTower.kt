@@ -22,6 +22,7 @@ object TestTower {
         sim.eventsEnabled = false
         sim.stage = stage
         sim.stars = stage.coerceIn(0, 5)
+        sim.bestStars = maxOf(sim.bestStars, 1) // offices come with the first star
         // only the first lot is filled, so the tower stays smooth and the plots bought later are free to try out
         val width = Lot.steps.first().width
         sim.build(sim.planLobby(0, width - 1))
