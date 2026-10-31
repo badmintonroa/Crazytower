@@ -23,6 +23,8 @@ data class SaveGame(
     val lastOpenDay: Double? = null,
     /** Room types the player has seen in the build menu; null in saves from before. */
     val seenTypes: List<String>? = null,
+    /** Money sinks and the moon mission; null in saves from before. */
+    val endgame: Endgame? = null,
 ) {
     fun toJson(): String = json.encodeToString(serializer(), this)
 
@@ -51,6 +53,8 @@ data class SavedRoom(
     val sold: Boolean = false,
     val dirty: Boolean = false,
     val paid: Long = 0,
+    val upgrade: Int = 0,
+    val tuning: Int = 0,
 )
 
 @Serializable

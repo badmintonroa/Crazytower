@@ -11,14 +11,26 @@ enum class MoneyKind(private val text: Tr, val income: Boolean) {
     HOTEL(Tr("Hotel", "Hotel"), true),
     PARKING(Tr("Parkgebühren", "Parking fees"), true),
     LUCK(Tr("Glück", "Luck"), true),
+    SPECTATORS(Tr("Schaulustige", "Sightseers"), true),
     BUILD(Tr("Bauen", "Building"), false),
     UPKEEP(Tr("Unterhalt", "Upkeep"), false),
     REFUND(Tr("Rückzahlung", "Refunds"), false),
     FINE(Tr("Strafen", "Fines"), false),
     EVENTS(Tr("Ereignisse", "Events"), false),
+    UPGRADE(Tr("Raum-Ausbau", "Room upgrades"), false),
+    TUNING(Tr("Aufzug-Tuning", "Elevator tuning"), false),
+    INSURANCE(Tr("Versicherungen", "Insurance"), false),
+    PROMOTION(Tr("Werbung und Feste", "Ads and parties"), false),
+    EXTRAS(Tr("Extras", "Extras"), false),
+    MISSION(Tr("Mondmission", "Moon mission"), false),
     ;
 
     val label: String get() = text.toString()
+
+    companion object {
+        /** Where money goes once the tower earns more than it can build. */
+        val SINKS: Set<MoneyKind> get() = setOf(UPGRADE, TUNING, INSURANCE, PROMOTION, EXTRAS, MISSION)
+    }
 }
 
 /** One booking. [where] places the floating amount in the tower. */
@@ -45,7 +57,7 @@ class Finance {
         val sums = byDay.getOrPut(day) { LinkedHashMap() }
         sums[payment.kind] = (sums[payment.kind] ?: 0L) + payment.amount
         while (byDay.size > KEEP_DAYS) byDay.remove(byDay.keys.first())
-        if (payment.kind != MoneyKind.BUILD) fresh += payment
+        if (payment.kind != MoneyKind.BUILD && payment.kind != MoneyKind.MISSION) fresh += payment
         while (fresh.size > 50) fresh.removeFirst()
     }
 
@@ -54,6 +66,9 @@ class Finance {
 
     fun income(day: Int): Long = day(day).filterKeys { it.income }.values.sum()
     fun expenses(day: Int): Long = -day(day).filterKeys { !it.income }.values.sum()
+
+    /** What went into the money sinks on [day]: upgrades, tuning, insurance, ads, extras and the moon mission. */
+    fun sinks(day: Int): Long = -day(day).filterKeys { it in MoneyKind.SINKS }.values.sum()
 
     companion object {
         const val KEEP_DAYS = 8

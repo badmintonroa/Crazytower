@@ -266,6 +266,51 @@ object Lasting {
                     "The tower is back! A few moon tourists came along and tip ${formatMoney(tips)}. In moon rock."), important = true)
             },
         ),
+        LastingKind(
+            "towerparty", Tr("Turmfest", "Tower party"),
+            Tr("Konfetti überall, doppelt so viele Besucher und alle +${Promotion.PARTY_MOOD.toInt()} Laune.", "Confetti everywhere, twice the visitors and +${Promotion.PARTY_MOOD.toInt()} mood for everyone."),
+            visitorBoost = true,
+            over = Tr("Das Turmfest ist vorbei. Der Hausmeister findet Konfetti bis in den Keller.", "The tower party is over. The caretaker finds confetti all the way down to the basement."),
+        ),
+        LastingKind(
+            "testflight", Tr("Probezünden", "Test firing"),
+            Tr("Der Turm wackelt. Fällt die Laune unter ${Mission.TESTFLIGHT_MOOD.toInt()} %, wird abgebrochen.", "The tower shakes. If the mood drops below ${Mission.TESTFLIGHT_MOOD.toInt()} %, it is called off."),
+            onHour = { ev ->
+                changeMood(-1.5f) { true }
+                if (satisfaction < Mission.TESTFLIGHT_MOOD) {
+                    endEvent(ev, expired = false)
+                    news.post(tr("Testflug abgebrochen: Die Laune ist zu tief gesunken. Die Kaffeetassen werden wieder eingesammelt.",
+                        "Test flight called off: the mood sank too low. The coffee cups are being collected again."), important = true)
+                } else if (random.nextInt(6) == 0) {
+                    news.post(tr("Probezünden: Im ${random.nextInt(1, 99)}. Stock fällt ein Bild von der Wand. Es zeigt den Mond.",
+                        "Test firing: a picture falls off the wall on floor ${random.nextInt(1, 99)}. It shows the moon."))
+                }
+            },
+            onEnd = { _, expired ->
+                if (expired) {
+                    news.post(tr("Testflug geglückt! Der Turm hat einen Tag gewackelt und steht noch. Fast gerade.", "Test flight successful! The tower shook for a day and is still standing. Almost straight."), important = true)
+                    addProgress(Mission.TESTFLIGHT)
+                }
+            },
+        ),
+        LastingKind(
+            "sabotage", Tr("Dr. Hämisch auf dem Dach", "Dr. Gloat on the roof"),
+            Tr("Dr. Hämisch will an die Kapsel. Der Sicherheitsdienst kann ihn aufhalten.", "Dr. Gloat is after the capsule. Security can stop him."),
+            remedy = Remedy(
+                Tr("Sicherheitsdienst schicken", "Send security"), 0,
+                Tr("Der Sicherheitsdienst hat Dr. Hämisch erwischt. Er behauptet, er wollte nur die Aussicht genießen.", "Security caught Dr. Gloat. He claims he only wanted to enjoy the view."),
+                blocked = { if (tower.allRooms.none { it.type.role == RoomRole.SECURITY }) tr("Kein Sicherheitsdienst im Turm", "No security in the tower") else null },
+                apply = { addProgress(Mission.SABOTAGE) },
+            ),
+            onEnd = { _, expired ->
+                if (expired) {
+                    val loot = (money * Mission.SABOTAGE_LOOT).toLong().coerceAtLeast(0)
+                    book(-loot, MoneyKind.EVENTS, tr("Dr. Hämisch", "Dr. Gloat"))
+                    news.post(tr("Dr. Hämisch ist entwischt, mit ${formatMoney(loot)} aus der Portokasse und einem Schraubenschlüssel.",
+                        "Dr. Gloat got away, with ${formatMoney(loot)} from the petty cash and a spanner."), important = true)
+                }
+            },
+        ),
     )
 
     private val byId = all.associateBy { it.id }

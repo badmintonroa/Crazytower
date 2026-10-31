@@ -1,5 +1,7 @@
 package crazytower.core.ecs
 
+import crazytower.core.missionHour
+
 import com.github.quillraven.fleks.Entity
 import com.github.quillraven.fleks.IntervalSystem
 import com.github.quillraven.fleks.IteratingSystem
@@ -50,9 +52,8 @@ class ScheduleSystem(
             if (!inside) return
             // luxury tenants drive in and come up from their parking space
             val car = sim.carSpot(room)
-            val fromLeft = sim.random.nextBoolean()
             pos.floor = car?.floor ?: GROUND_FLOOR
-            pos.x = car?.x ?: if (fromLeft) 0f else sim.lotWidth - 0.01f
+            pos.x = car?.x ?: sim.arrivalX(room)
             entity.configure { drop(it, Away) }
             sim.goTo(entity, sim.spotIn(room), Activity.ARRIVING)
             return
@@ -144,6 +145,7 @@ class EventSystem(
         sim.tickEvents(newHour)
         if (!newHour) return
         sim.checkStage()
+        sim.missionHour()
         if (sim.eventsEnabled) {
             crazytower.core.Events.roll(sim)
             crazytower.core.Vips.roll(sim)

@@ -139,7 +139,7 @@ class ElevatorSystem(
         }
         val here = cabin.position.roundToInt()
         if (abs(cabin.position - here) < 0.001f && stopAt(car, cabin, here, waitingCalls)) {
-            cabin.doorTimer = Elevators.DOOR_MINUTES
+            cabin.doorTimer = car.doorMinutes
             return
         }
         val calls = calls(cabin, waitingCalls)
@@ -192,7 +192,7 @@ class ElevatorSystem(
             cabin.riders += person
             boarded += person
             person.configure { it += Riding(car.id) }
-            car.waitingSince.remove(person)?.let { sim.onBoarded(person, sim.clock.totalMinutes - it) }
+            car.waitingSince.remove(person)?.let { sim.onBoarded(person, sim.clock.totalMinutes - it, car) }
             opened = true
         }
         // nobody boards two cabins in the same tick

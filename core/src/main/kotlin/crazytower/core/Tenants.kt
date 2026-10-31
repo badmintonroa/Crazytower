@@ -270,6 +270,20 @@ object Tenants {
         TenantKind("robo", Tr("Tante Robo (Automatenladen)", "Auntie Robo (Vending Shop)"), RoomRole.SHOP, "shop_robo", "npc_office_it",
             minStars = 4, rentPerDay = 1_100, plan = plan(Tr("rund um die Uhr", "around the clock"), WorkPlan.DAILY, 0, 24),
             quirk = Tr("Sagt „Danke für Ihren Einkauf“ auch zu Tauben.", "Says “Thank you for shopping” to pigeons too.")),
+
+        // The moon mission brings its own people, only while their task is open (see Mission)
+        TenantKind("rocket", Tr("Raketen für Anfänger GmbH", "Rockets for Beginners Ltd."), RoomRole.OFFICE, "office_rocket", "npc_office_it",
+            crew = listOf("npc_office_it", "npc_startup", "npc_timetraveller"), eventOnly = true, minStage = Mission.STAGE,
+            rentPerDay = 5_000, plan = plan(Tr("rund um die Uhr, 3 Schichten", "around the clock, 3 shifts"), WorkPlan.DAILY, 0, 24, crews = 3),
+            quirk = Tr("Zählt bei jedem Meeting von zehn rückwärts.", "Counts down from ten at every meeting.")),
+        TenantKind("astronauts", Tr("Astronauten-WG", "Astronaut Flatshare"), RoomRole.HOME, "home_astronauts", "npc_timetraveller",
+            crew = listOf("npc_timetraveller", "npc_office_it", "npc_student_bookworm"), eventOnly = true, minStage = Mission.STAGE,
+            salePrice = 15_000, plan = plan(Tr("täglich 6–14 Uhr (Training)", "daily 6 am–2 pm (training)"), WorkPlan.DAILY, 6, 14),
+            quirk = Tr("Schläft an die Wand geschnallt. Aus Gewohnheit.", "Sleeps strapped to the wall. Out of habit.")),
+        TenantKind("officials", Tr("Beamte vom Ministerium für Formulare", "Officials from the Ministry of Forms"), RoomRole.HOTEL, "hotel_officials", "npc_ministry",
+            crew = listOf("npc_ministry", "npc_office_boss"), eventOnly = true, minStage = Mission.STAGE,
+            rentPerDay = 900, plan = GUEST_PLAN,
+            quirk = Tr("Haben das Zimmer per Formular in dreifacher Ausfertigung gebucht.", "Booked the room with a form in triplicate.")),
     )
 
     fun byId(id: String): TenantKind = all.first { it.id == id }

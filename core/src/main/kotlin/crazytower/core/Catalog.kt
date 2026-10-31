@@ -369,7 +369,7 @@ object Catalog {
         listOf(
             LOBBY, CORRIDOR, FILLER, STAIRS, ELEVATOR, EXPRESS, OFFICE, LUXURY_OFFICE, HOME, DORM, PENTHOUSE, HOTEL, HOUSEKEEPING,
             FOOD, SHOP, COPYROOM, SECURITY, KITA, SUBWAY, CONFERENCE, TELEPORTER, UFO_PAD, PARKING,
-        )
+        ) + listOf(Mission.DECK, Mission.SOUVENIRS) + Mission.partTypes
 
     fun type(id: String): RoomType = roomTypes.first { it.id == id }
 }
