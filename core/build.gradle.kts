@@ -25,3 +25,9 @@ tasks.register<JavaExec>("playthrough") {
     // -Dbot=twin|wide|hub|all picks the bot, -Dcsv=<dir> writes a CSV line per day
     for (key in listOf("bot", "csv")) System.getProperty(key)?.let { systemProperty(key, it) }
 }
+
+// prints the classpath of the playthrough, for running several bots side by side without Gradle
+tasks.register("playthroughClasspath") {
+    dependsOn("testClasses")
+    doLast { println((sourceSets["test"].output + sourceSets["main"].output + configurations["testCompileClasspath"]).asPath) }
+}
