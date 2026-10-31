@@ -13,6 +13,42 @@ import crazytower.core.Tower
 import crazytower.core.GROUND_FLOOR
 import crazytower.core.nav.NavCosts
 import crazytower.core.transport.Elevators
+import crazytower.core.Decor
+import crazytower.core.Gates
+import crazytower.core.Insurances
+import crazytower.core.Mission
+import crazytower.core.Research
+import crazytower.core.SINK_STAGE
+import crazytower.core.Tuning
+import crazytower.core.Upgrades
+import crazytower.core.buyDecor
+import crazytower.core.buyGate
+import crazytower.core.campaignBlocked
+import crazytower.core.campaignCost
+import crazytower.core.currentPart
+import crazytower.core.decorBlocked
+import crazytower.core.doResearch
+import crazytower.core.gateBlocked
+import crazytower.core.kind
+import crazytower.core.liftedOff
+import crazytower.core.missionStarted
+import crazytower.core.partBlocked
+import crazytower.core.partyBlocked
+import crazytower.core.partyCost
+import crazytower.core.remedyBlocked
+import crazytower.core.researchBlocked
+import crazytower.core.researchCost
+import crazytower.core.startCampaign
+import crazytower.core.startTestflight
+import crazytower.core.taskOpen
+import crazytower.core.testflightBlocked
+import crazytower.core.throwParty
+import crazytower.core.toggleInsurance
+import crazytower.core.tuneElevator
+import crazytower.core.tuningBlocked
+import crazytower.core.upgradeBlocked
+import crazytower.core.upgradeRoom
+import crazytower.core.useRemedy
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -94,6 +130,8 @@ abstract class Bot(val sim: Simulation) {
         navStamp = -1
         buyCabins()
         specials()
+        if (sim.missionStarted && !sim.liftedOff) mission()
+        if (spends && sim.stage >= SINK_STAGE) spend()
         infrastructure()
         noSpot = false
         for (i in 0 until roomsPerHour) {
@@ -372,6 +410,96 @@ abstract class Bot(val sim: Simulation) {
         if (!afford(sim.listPrice(type))) return false
         val spot = findSpot(type) ?: return false
         return place(type, spot)
+    }
+
+    // ---------- where the money goes from stage 4 on ----------
+
+    /** False for the miser, who keeps everything and only pays what the mission needs. */
+    open val spends = true
+
+    /** Money the bot keeps on top of the reserve before buying extras. */
+    private fun spare(cost: Long, times: Int = 3) = sim.money - reserve() >= cost * times
+
+    /**
+     * The optional extras: tuning for busy shafts, upgrades for the best-paying rooms, insurance,
+     * the weekly party and ads, side entrances, research and, during the mission, decorations.
+     */
+    protected open fun spend() {
+        // shafts where people wait long get tuned first
+        for (car in sim.elevators.cars.values.sortedByDescending { avgWait(it.id) }) {
+            if ((carWaitN[car.id] ?: 0) < 30 || avgWait(car.id) < 3.0) break
+            if (sim.tuningBlocked(car) == null && spare(Tuning.cost(car))) { sim.tuneElevator(car); note("Tuning") ; break }
+        }
+        // insurance against what costs most; one a day at most
+        if (sim.clock.hour == 9) {
+            for (insurance in Insurances.all) {
+                if (insurance.id in sim.endgame.insurances) continue
+                if (spare(Insurances.fee(sim, insurance), 20)) { if (sim.toggleInsurance(insurance.id) == null) note("Versicherung"); break }
+            }
+        }
+        if (sim.partyBlocked() == null && spare(sim.partyCost(), 4)) { sim.throwParty(); note("Turmfest") }
+        if (sim.campaignBlocked() == null && spare(sim.campaignCost(), 6)) { sim.startCampaign(); note("Werbung") }
+        if (sim.gateBlocked() == null && spare(Gates.all[sim.endgame.gates].cost, 3)) { sim.buyGate(); note("Seiteneingang") }
+        Research.all.firstOrNull { sim.researchBlocked(it) == null }?.let { if (spare(sim.researchCost(), 3)) { sim.doResearch(it); note("Forschung") } }
+        if (sim.missionStarted) {
+            Decor.all.firstOrNull { it.id !in sim.endgame.decor && sim.decorBlocked(it) == null }?.let { if (spare(it.cost, 4)) { sim.buyDecor(it); note("Deko") } }
+        }
+        // upgrades: the rooms that pay most, a few per hour
+        var upgrades = 0
+        if (spare(Upgrades.COSTS[0], 10)) {
+            val best = sim.tower.allRooms.filter { it.tenant != null && Upgrades.applies(it) && it.upgrade < Upgrades.MAX_LEVEL }
+                .sortedByDescending { (it.tenant?.rentPerDay ?: 0L) * (Upgrades.MAX_LEVEL - it.upgrade) / Upgrades.cost(it).coerceAtLeast(1) }
+            for (room in best) {
+                if (upgrades >= 3 || sim.upgradeBlocked(room) != null || !spare(Upgrades.cost(room), 10)) break
+                if (sim.upgradeRoom(room).ok) { upgrades++; note("Ausbau") }
+            }
+        }
+    }
+
+    // ---------- the moon mission ----------
+    private var testflightTries = 0
+
+    /** What every bot does for the countdown: the rooms the tasks need, the buttons, the station parts. */
+    protected open fun mission() {
+        // spectators: a deck up high, then souvenir shops
+        if (count(Mission.DECK) == 0) placeAnywhere(Mission.DECK)
+        else if (count(Mission.SOUVENIRS) < 2) placeAnywhere(Mission.SOUVENIRS)
+        else if (count(Mission.DECK) < 2 && sim.endgame.parts >= 2) placeAnywhere(Mission.DECK)
+        // rooms for the open tasks
+        if (sim.taskOpen(Mission.SUITES) && sim.unlocked(Catalog.HOTEL) && count(Catalog.HOTEL) < 16) placeAnywhere(Catalog.HOTEL)
+        if (sim.taskOpen(Mission.PERMIT) && count(Catalog.COPYROOM) == 0) placeAnywhere(Catalog.COPYROOM)
+        if (sim.taskOpen(Mission.COFFEE) && count(Catalog.FOOD) * 8 < rentables().size) placeAnywhere(Catalog.FOOD)
+        if (sim.taskOpen(Mission.CONTROL) && emptyOffices() < 2 && sim.hasWorkersFor(Catalog.OFFICE.capacity)) placeAnywhere(Catalog.OFFICE)
+        if (sim.taskOpen(Mission.ASTRONAUTS) && unsoldHomes() < 2) placeAnywhere(Catalog.HOME)
+        if ((sim.taskOpen(Mission.SABOTAGE)) && count(Catalog.SECURITY) == 0) placeAnywhere(Catalog.SECURITY)
+        // Dr. Hämisch: send security straight away
+        for (event in sim.activeEvents.toList()) {
+            if (event.id == "sabotage" && sim.remedyBlocked(event) == null) { sim.useRemedy(event); note("Sabotage gestoppt") }
+        }
+        // the test flight only in a good mood, with the party if it helps
+        if (sim.testflightBlocked() == null) {
+            if (sim.satisfaction < Mission.TESTFLIGHT_MOOD + 8 && sim.partyBlocked() == null && afford(sim.partyCost())) { sim.throwParty(); note("Turmfest") }
+            if (sim.satisfaction >= Mission.TESTFLIGHT_MOOD + 6 || ++testflightTries > 24 * 5) { sim.startTestflight(); note("Testflug"); testflightTries = 0 }
+        }
+        buildPart()
+    }
+
+    /** The next station part on the top floor, tearing down what stands in the way if needed. */
+    private fun buildPart() {
+        val part = sim.currentPart ?: return
+        val type = part.type
+        if (sim.partBlocked(type, Mission.FLOOR) != null || !afford(type.cost)) return
+        val floor = Mission.FLOOR
+        val xs = (0..sim.lotWidth - type.width)
+        for (x in xs) if (sim.checkPlace(type, floor, x).ok && sim.build(type, floor, x).ok) { note(type.id); return }
+        // the top floor is full: clear a stretch that stands on solid floors, cheapest rooms first
+        for (x in xs step SLOT) {
+            if ((x until x + type.width).any { !sim.tower.isBuilt(floor - 1, it) }) continue
+            val inWay = sim.tower.allRooms.filter { it.floor == floor && it.x < x + type.width && it.x + it.width > x }
+            if (inWay.any { it.type.role.isWay || Mission.partOf(it.type) != null }) continue
+            inWay.forEach { sim.demolish(it.id) }
+            if (sim.build(type, floor, x).ok) { note(type.id); note("Platz für Station"); return }
+        }
     }
 
     // ---------- what the tower needs ----------

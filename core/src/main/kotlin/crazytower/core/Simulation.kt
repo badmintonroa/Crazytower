@@ -269,7 +269,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         val firstLobby = type.role == RoomRole.LOBBY && tower.allRooms.none { it.type.role == RoomRole.LOBBY }
         val price = priceAt(type, floor, x, width)
         var room = tower.place(type, floor, x, width)
-        book(-price, MoneyKind.BUILD, type.name.toString(), Loc(floor, x + width / 2f))
+        book(-price, if (Mission.partOf(type) != null) MoneyKind.MISSION else MoneyKind.BUILD, type.name.toString(), Loc(floor, x + width / 2f))
         if (type.pricePerStar > 0) room.paid = price
         room.since = clock.totalMinutes
         if (type.role == RoomRole.LOBBY) room = tower.mergeLobbies() ?: room

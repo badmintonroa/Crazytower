@@ -64,6 +64,12 @@ class Celebration(private val screenWidth: Double, private val screenHeight: Dou
         Sfx.play(Sfx.STAGE)
     }
 
+    /** A station part of the moon mission was built; [liftOff] for the last one, the moon lift. */
+    fun showMission(title: String, lines: List<String>, liftOff: Boolean) {
+        show(title, lines, stars = 5, seconds = if (liftOff) 12.0 else 6.5)
+        Sfx.play(Sfx.STAGE)
+    }
+
     private fun show(title: String, lines: List<String>, stars: Int, seconds: Double) {
         card.removeChildren()
         confetti.forEach { it.view.removeFromParent() }

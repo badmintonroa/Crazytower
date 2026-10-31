@@ -11,6 +11,13 @@ import crazytower.core.Simulation
 import crazytower.core.Stages
 import crazytower.core.Tenants
 import crazytower.core.formatMoneyRange
+import crazytower.core.Mission
+import crazytower.core.SINK_STAGE
+import crazytower.core.currentPart
+import crazytower.core.liftedOff
+import crazytower.core.missionProgress
+import crazytower.core.missionStarted
+import crazytower.core.spectatorsPerDay
 import crazytower.core.startOpenDay
 import crazytower.core.tr
 import crazytower.game.ui.Button
@@ -56,6 +63,13 @@ class Hud(
     private val options = OptionsWindow(onTestTower = { game.onTestTower(it) }, onMainMenu = game.onMainMenu) { game.optionsOpen = false }.addTo(this).also {
         it.xy((screenWidth - it.panelWidth) / 2, ((screenHeight - it.panelHeight) / 2).coerceAtLeast(84.0))
     }
+    // right of the build list where the screen is wide enough
+    private val extras = ExtrasWindow(sim, game) { game.extrasOpen = false }.addTo(this).also {
+        it.xy(((screenWidth - it.panelWidth) / 2).coerceAtLeast(110.0 + FLYOUT_WIDTH + 10).coerceAtMost(screenWidth - it.panelWidth - 12), 96.0)
+    }
+    private val mission = MissionWindow(sim, game) { game.missionOpen = false }.addTo(this).also {
+        it.xy(((screenWidth - it.panelWidth) / 2).coerceAtLeast(110.0 + FLYOUT_WIDTH + 10).coerceAtMost(screenWidth - it.panelWidth - 12), 96.0)
+    }
     private val celebration = Celebration(screenWidth, screenHeight).addTo(this)
     private val tooltip = container { visible = false }
     private val toast = container { visible = false }
@@ -74,6 +88,8 @@ class Hud(
     private lateinit var clockText: Text
     private val speedButtons = ArrayList<Pair<Int, TextButton>>()
     private lateinit var openDayButton: TextButton
+    private lateinit var extrasButton: TextButton
+    private var shownParts = -1
     private val categoryButtons = HashMap<Category, Button>()
 
     /** The little star on a category button that holds room types the player has not seen yet. */
@@ -100,6 +116,8 @@ class Hud(
             if (flyout.visible) add(Rectangle(flyout.x, flyout.y, flyout.panelWidth, flyout.panelHeight))
             if (inspector.visible) add(Rectangle(inspector.x, inspector.y, inspector.panelWidth, inspector.panelHeight))
             if (finance.visible) add(Rectangle(finance.x, finance.y, finance.panelWidth, finance.panelHeight))
+            if (extras.visible) add(Rectangle(extras.x, extras.y, extras.panelWidth, extras.panelHeight))
+            if (mission.visible) add(Rectangle(mission.x, mission.y, mission.panelWidth, mission.panelHeight))
             if (options.visible) add(Rectangle(options.x, options.y, options.panelWidth, options.panelHeight))
             if (celebration.isShowing) add(Rectangle(0.0, 0.0, screenWidth, screenHeight))
             add(Rectangle(0.0, screenHeight - 50.0, screenWidth, 50.0))
@@ -137,7 +155,7 @@ class Hud(
             label(tr("Bewohner", "Residents"), 12.0, Theme.TEXT_DIM).xy(95.0, 14.0).fitWidth(POP_LABEL)
             moodText = label("", 12.0, Theme.TEXT_DIM).also { it.xy(95.0, 30.0) }
         }
-        val stageWidth = screenWidth - 24 - x - 150 - 10 - 254 - 10 - 60 - 10 - 60
+        val stageWidth = screenWidth - 24 - x - 150 - 10 - 254 - 10 - 60 - 10 - 60 - 10 - 60
         box(stageWidth) {
             stars = container { xy(16.0, 12.0) }
             starHint = label("", 11.0, Theme.GOLD).also { it.xy(16.0, 36.0) }
@@ -145,6 +163,8 @@ class Hud(
             stageHint = label("", 12.0, Theme.TEXT_DIM).also { it.xy(152.0, 34.0) }
             stageBarWidth = stageWidth - 168.0
             stageBar = graphics { }.also { it.xy(152.0, 50.0) }
+            // from stage 5 on the stage box is the moon mission's countdown
+            onClick { if (sim.missionStarted) game.missionOpen = !game.missionOpen }
         }
         box(150.0) {
             sun(this, 16.0, 19.0)
@@ -169,6 +189,12 @@ class Hud(
             balloon(openDayButton.content)
             openDayButton.xy(10.0, 10.0)
             addChild(openDayButton)
+        }
+        box(60.0) {
+            // extras for rich towers: where the money goes from stage 4 on
+            extrasButton = TextButton(40.0, 40.0, "$", 20.0, onPress = { game.extrasOpen = !game.extrasOpen })
+            extrasButton.xy(10.0, 10.0)
+            addChild(extrasButton)
         }
         box(60.0) {
             val b = TextButton(40.0, 40.0, "", onPress = { game.optionsOpen = !game.optionsOpen })
@@ -442,10 +468,14 @@ class Hud(
             }
             down(Key.F) { game.financeOpen = !game.financeOpen }
             down(Key.O) { game.optionsOpen = !game.optionsOpen }
+            down(Key.X) { game.extrasOpen = !game.extrasOpen }
+            down(Key.M) { if (sim.missionStarted) game.missionOpen = !game.missionOpen }
             down(Key.ESCAPE) {
                 when {
                     game.optionsOpen -> game.optionsOpen = false
                     game.financeOpen -> game.financeOpen = false
+                    game.extrasOpen -> game.extrasOpen = false
+                    game.missionOpen -> game.missionOpen = false
                     game.tool != null || game.category != null -> game.cancel()
                     game.selection != null -> game.selection = null
                     else -> game.optionsOpen = true
@@ -468,6 +498,12 @@ class Hud(
         nextText.fitWidth(TOP_MONEY_TEXT)
         finance.visible = game.financeOpen
         if (finance.visible) finance.sync()
+        extras.visible = game.extrasOpen
+        if (extras.visible) extras.sync()
+        mission.visible = game.missionOpen
+        if (mission.visible) mission.sync()
+        extrasButton.selected = game.extrasOpen
+        extrasButton.alpha = if (sim.stage >= SINK_STAGE) 1.0 else 0.5
         options.visible = game.optionsOpen
         if (options.visible) options.sync()
         popText.text = formatNumber(sim.population.toLong())
@@ -519,11 +555,17 @@ class Hud(
             else -> tr("Stern ${sim.stars + 1}: ${missing.first()}", "Star ${sim.stars + 1}: ${missing.first()}")
         }
         starHint.fitWidth(STAR_HINT)
+        syncMission()
         val next = if (stage < Stages.last) Stages.info(stage + 1) else null
-        stageHint.text = next?.let { tr("Für Stufe ${it.number}: ${it.requirement}", "For stage ${it.number}: ${it.requirement}") }
-            ?: tr("Der Turm ist komplett verrückt.", "The tower is completely crazy.")
+        val part = sim.currentPart
+        stageHint.text = when {
+            next != null -> tr("Für Stufe ${next.number}: ${next.requirement}", "For stage ${next.number}: ${next.requirement}")
+            sim.liftedOff -> tr("ABGEHOBEN · ${sim.spectatorsPerDay} Schaulustige pro Tag", "LIFT-OFF · ${sim.spectatorsPerDay} spectators a day")
+            part != null -> tr("${part.step}: ${part.type.name} · M öffnet die Mission", "${part.step}: ${part.type.name} · M opens the mission")
+            else -> tr("Der Turm ist komplett verrückt.", "The tower is completely crazy.")
+        }
         stageHint.fitWidth(stageBarWidth)
-        val progress = sim.stageProgress.coerceIn(0.0, 1.0)
+        val progress = (if (next == null && sim.missionStarted) sim.missionProgress else sim.stageProgress).coerceIn(0.0, 1.0)
         val w = stageBarWidth
         // a new shape is drawn again from scratch, so only when it changed
         if (w to progress == drawnStageBar) return
@@ -535,6 +577,32 @@ class Hud(
     }
 
     private var drawnStageBar: Pair<Double, Double>? = null
+
+    /** A celebration for every station part, a long one for the lift-off. */
+    private fun syncMission() {
+        val parts = sim.endgame.parts
+        if (shownParts >= 0 && parts > shownParts) {
+            val built = Mission.parts[parts - 1]
+            val liftOff = parts >= Mission.parts.size
+            val next = Mission.parts.getOrNull(parts)
+            val lines = if (liftOff) listOf(
+                tr("Der Mondlift fährt! Von Etage ${Mission.FLOOR} geht es direkt zum Mond.", "The moon lift is running! From floor ${Mission.FLOOR} it goes straight to the moon."),
+                tr("Ab jetzt kommen ${sim.spectatorsPerDay} Schaulustige am Tag.", "From now on ${sim.spectatorsPerDay} spectators come every day."),
+                tr("Tag ${sim.clock.day} · ${formatNumber(sim.population.toLong())} Bewohner · ${formatMoney(sim.money)} in der Kasse",
+                    "Day ${sim.clock.day} · ${formatNumber(sim.population.toLong())} residents · ${formatMoney(sim.money)} in the till"),
+                tr("Der Turm ist fertig verrückt. Bau einfach weiter.", "The tower is done being crazy. Just keep building."),
+            )
+            else listOf(
+                tr("${built.type.name} steht auf Etage ${Mission.FLOOR}.", "${built.type.name} stands on floor ${Mission.FLOOR}."),
+                next?.let { tr("Weiter mit ${it.step}: ${it.type.name}. Die neuen Aufträge stehen in der Mission (M).", "Next, ${it.step}: ${it.type.name}. The new tasks are in the mission window (M).") } ?: "",
+            )
+            celebration.showMission(
+                if (liftOff) tr("ABGEHOBEN!", "LIFT-OFF!") else tr("COUNTDOWN ${built.step.toString().uppercase()}", "COUNTDOWN ${built.step.toString().uppercase()}"),
+                lines, liftOff,
+            )
+        }
+        shownParts = parts
+    }
 
     private fun syncTicker(dt: Double) {
         val items = sim.news.latest

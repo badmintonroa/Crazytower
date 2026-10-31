@@ -13,6 +13,10 @@ import crazytower.core.Loc
 import crazytower.core.MoneyKind
 import crazytower.core.RoomRole
 import crazytower.core.Simulation
+import crazytower.core.buyDecor
+import crazytower.core.buyGate
+import crazytower.core.toggleInsurance
+import crazytower.core.upgradeRoom
 import korlibs.image.format.PNG
 import korlibs.image.format.writeTo
 import korlibs.io.file.std.localVfs
@@ -22,7 +26,7 @@ import kotlin.system.exitProcess
 
 /**
  * Development helper: with CRAZYTOWER_SCREENSHOT=<file.png> the game builds a demo tower,
- * lets it run for a while, saves a screenshot and quits (CRAZYTOWER_FINANCE=1 opens the finance window, CRAZYTOWER_OPTIONS=1 the options, CRAZYTOWER_CELEBRATE=star or stage the celebration, CRAZYTOWER_EVENT=<id> starts an event). Used to check the rendering
+ * lets it run for a while, saves a screenshot and quits (CRAZYTOWER_FINANCE=1 opens the finance window, CRAZYTOWER_OPTIONS=1 the options, CRAZYTOWER_CELEBRATE=star or stage the celebration, CRAZYTOWER_EVENT=<id> starts an event, CRAZYTOWER_SPEND=1 buys extras, CRAZYTOWER_EXTRAS=1 and CRAZYTOWER_MISSION=1 open those windows). Used to check the rendering
  * on machines without a screen.
  */
 object Autopilot {
@@ -51,6 +55,16 @@ object Autopilot {
                 sim.whereOf(event)?.let { tower.lookAt(Loc(maxOf(2, it.floor - 1), it.x)) }
             }
         }
+        // CRAZYTOWER_SPEND=1 buys a few extras for a rich tower (with CRAZYTOWER_TEST=4 or 5)
+        if (System.getenv("CRAZYTOWER_SPEND") != null && sim.stage >= crazytower.core.SINK_STAGE) {
+            sim.book(100_000_000, MoneyKind.LUCK, crazytower.core.tr("Demo-Zuschuss", "Demo grant"))
+            sim.tower.allRooms.filter { it.type.role == RoomRole.OFFICE && it.floor <= 3 }.take(4).forEach { repeat(2) { _ -> sim.upgradeRoom(it) } }
+            crazytower.core.Decor.all.forEach { sim.buyDecor(it) }
+            sim.buyGate()
+            sim.toggleInsurance("pigeons")
+        }
+        if (System.getenv("CRAZYTOWER_EXTRAS") != null) game.extrasOpen = true
+        if (System.getenv("CRAZYTOWER_MISSION") != null) game.missionOpen = true
         if (System.getenv("CRAZYTOWER_FINANCE") != null) game.financeOpen = true
         if (System.getenv("CRAZYTOWER_OPTIONS") != null) game.optionsOpen = true
         System.getenv("CRAZYTOWER_CATEGORY")?.let { name -> Category.entries.firstOrNull { it.name == name }?.let { game.openCategory(it) } }

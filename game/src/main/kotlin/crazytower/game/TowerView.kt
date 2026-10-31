@@ -10,6 +10,7 @@ import crazytower.core.Room
 import crazytower.core.RoomRole
 import crazytower.core.RoomType
 import crazytower.core.Simulation
+import crazytower.core.Gates
 import crazytower.core.Tower
 import crazytower.core.ecs.Person
 import crazytower.core.ecs.Position
@@ -225,6 +226,64 @@ class TowerView(
     /** Writes the signs in the tower again, after the language changed. */
     fun relabel() = drawLot()
 
+    /** The decorations on the roof and Granny Hildegard's side entrances; redrawn when they change. */
+    private val extrasLayer = world.container()
+    private var drawnExtras: Any? = null
+
+    private fun syncExtras() {
+        val e = sim.endgame
+        val roof = sim.tower.allRooms.maxOfOrNull { it.floor } ?: return
+        val left = sim.tower.allRooms.filter { it.floor == roof }.minOf { it.x }
+        val right = sim.tower.allRooms.filter { it.floor == roof }.maxOf { it.x + it.width }
+        val key = listOf(e.decor.toList(), e.gates, roof, left, right)
+        if (key == drawnExtras) return
+        drawnExtras = key
+        extrasLayer.removeChildren()
+        val top = Metrics.floorTop(roof)
+        val mid = Metrics.x(left) + (Metrics.x(right) - Metrics.x(left)) / 2
+        if ("laser" in e.decor) {
+            // beams fanning out into the night sky
+            for (i in -3..3) {
+                extrasLayer.solidRect(6.0, 900.0, Theme.alpha(if (i % 2 == 0) Theme.SELECT else Theme.ALARM, 0.35)).also {
+                    it.xy(mid + i * 24.0, top - 4.0)
+                    it.anchor(0.5, 1.0)
+                    it.rotation = korlibs.math.geom.Angle.fromDegrees(i * 9.0)
+                }
+            }
+        }
+        if ("gold" in e.decor) {
+            // a gold spire and gold edges along the roof
+            extrasLayer.solidRect(Metrics.x(right) - Metrics.x(left), 6.0, Theme.GOLD).xy(Metrics.x(left), top - 6.0)
+            extrasLayer.solidRect(10.0, 140.0, Theme.GOLD).xy(mid - 5.0, top - 146.0)
+            extrasLayer.solidRect(26.0, 10.0, Theme.GOLD).xy(mid - 13.0, top - 40.0)
+        }
+        if ("neon" in e.decor) {
+            val sign = extrasLayer.text("CRAZYTOWER", textSize = 54.0, color = Theme.ALARM, font = Theme.bodyBold)
+            sign.xy(mid - sign.width / 2, top - 76.0)
+        }
+        if ("disco" in e.decor) {
+            val x = Metrics.x(right) - 70.0
+            extrasLayer.solidRect(2.0, 40.0, Theme.TEXT).xy(x + 19.0, top - 40.0)
+            extrasLayer.solidRect(40.0, 40.0, Theme.TEXT_DIM).xy(x, top - 80.0)
+            for (i in 0 until 4) for (j in 0 until 4) if ((i + j) % 2 == 0) extrasLayer.solidRect(10.0, 10.0, Theme.TEXT).xy(x + i * 10.0, top - 80.0 + j * 10.0)
+        }
+        if ("duck" in e.decor) {
+            // a giant rubber duck at the left end of the roof
+            val x = Metrics.x(left) + 20.0
+            extrasLayer.solidRect(110.0, 50.0, Theme.GOLD).xy(x, top - 50.0)
+            extrasLayer.solidRect(54.0, 46.0, Theme.GOLD).xy(x + 64.0, top - 92.0)
+            extrasLayer.solidRect(26.0, 12.0, Theme.ALARM).xy(x + 116.0, top - 72.0)
+            extrasLayer.solidRect(8.0, 8.0, Theme.INK).xy(x + 96.0, top - 82.0)
+        }
+        for (gate in Gates.all.take(e.gates)) {
+            // a side door in the ground floor, with Granny Hildegard's flower box
+            val x = Metrics.x(gate.x)
+            extrasLayer.solidRect(52.0, 74.0, Theme.INK).xy(x - 26.0, Metrics.floorBottom(0) - 74.0)
+            extrasLayer.solidRect(44.0, 66.0, Theme.GOLD.withAd(0.75)).xy(x - 22.0, Metrics.floorBottom(0) - 70.0)
+            extrasLayer.solidRect(60.0, 8.0, Theme.GOOD).xy(x - 30.0, Metrics.floorBottom(0) - 82.0)
+        }
+    }
+
     /** Lot markers, the plot that is for sale next and the locked basement. Redrawn when the lot changes. */
     private fun drawLot() {
         drawnLot = sim.lotWidth
@@ -262,6 +321,7 @@ class TowerView(
             rebuildRooms()
         }
         if (drawnLot != sim.lotWidth) drawLot()
+        syncExtras()
         syncSky()
         cull()
         lap(0)
@@ -366,7 +426,7 @@ class TowerView(
         roomViews.keys.filter { it !in alive }.forEach { roomViews.remove(it)?.removeFromParent() }
         for (room in alive.values) {
             // the key includes position and width: a lobby that grew by merging keeps its id and art
-            val art = "${artFor(room)}@${room.x}+${room.width}"
+            val art = "${artFor(room)}@${room.x}+${room.width}*${room.upgrade}"
             if (room.id !in roomViews || roomArt[room.id] != art) {
                 roomViews.remove(room.id)?.removeFromParent()
                 roomViews[room.id] = createRoomView(room)
@@ -459,6 +519,10 @@ class TowerView(
                 if (room.type.express) colorMul = EXPRESS_TINT
                 if (dimmed) colorMul = RGBA(120, 124, 165)
             }
+        }
+        // done-up rooms wear their level as little stars in the corner
+        for (i in 0 until room.upgrade) {
+            crazytower.game.ui.Icons.star(view, filled = true, size = 14.0).xy(Metrics.x(room.width) - 18.0 - i * 16.0, 4.0)
         }
         return view
     }

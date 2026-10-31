@@ -2,6 +2,7 @@ package crazytower.core
 
 import crazytower.core.bot.Bot
 import crazytower.core.bot.HubBot
+import crazytower.core.bot.MiserBot
 import crazytower.core.bot.TwinBot
 import crazytower.core.bot.WideBot
 import crazytower.core.ecs.Vip
@@ -9,12 +10,13 @@ import com.github.quillraven.fleks.Entity
 import java.io.File
 
 /**
- * Headless playthrough: a bot plays from an empty lot to stage 5 and logs a line per day.
- * Run: ./gradlew :core:playthrough --args="[days] [seed] [minutes]" -Dbot=twin|wide|hub|all
+ * Headless playthrough: a bot plays from an empty lot through stage 5 to the lift-off of the moon
+ * mission (or [days]) and logs a line per day.
+ * Run: ./gradlew :core:playthrough --args="[days] [seed] [minutes]" -Dbot=twin|wide|hub|miser|all
  * With -Dcsv=<dir> each run also writes one CSV line per day to <dir>/<bot>-<seed>.csv.
  */
 fun main(args: Array<String>) {
-    val days = args.getOrNull(0)?.toIntOrNull() ?: 120
+    val days = args.getOrNull(0)?.toIntOrNull() ?: 200
     val seed = args.getOrNull(1)?.toLongOrNull() ?: 42L
     val wallLimitMin = args.getOrNull(2)?.toIntOrNull() ?: 50
     val which = System.getProperty("bot") ?: System.getenv("BOT") ?: "all"
@@ -38,6 +40,7 @@ class Playthrough(private val seed: Long, makeBot: (Simulation) -> Bot, private 
         val money: Long, val mood: Float, val stageDay: Map<Int, Int>, val starDay: Map<Int, Int>,
         val far: Int, val empty: Int, val moveOuts: Int, val shafts: Int, val cabins: Int, val p95Wait: Double,
         val minMood: Float, val minMoney: Long, val rejectedFar: Int, val noMoneyHours: Int,
+        val partDay: Map<Int, Int>, val sinks: Map<MoneyKind, Long>, val moneyDays: Double,
     )
 
     // ---------- stats ----------
@@ -64,7 +67,10 @@ class Playthrough(private val seed: Long, makeBot: (Simulation) -> Bot, private 
     private var peakPop = 0
     private var minMood = 100f
     private var minMoney = Long.MAX_VALUE
-    private val csv = StringBuilder("tag;geld;stufe;sterne;leute;laune;bueros;wohnungen;wohnheime;hotels;luxus;leer;zu_weit;wartezeit_p95;auszuege;einnahmen;unterhalt;bau\n")
+    private val partDay = HashMap<Int, Int>()
+    private val sinkTotals = HashMap<MoneyKind, Long>()
+    private var moneyDays = 0.0
+    private val csv = StringBuilder("tag;geld;stufe;sterne;leute;laune;bueros;wohnungen;wohnheime;hotels;luxus;leer;zu_weit;wartezeit_p95;auszuege;einnahmen;unterhalt;bau;geld_in_tagen;ausbau;tuning;versicherung;werbung;extras;mission;countdown;aufgaben;schaulustige;verargert\n")
 
     fun run(days: Int, wallLimitMin: Int): Result {
         bot.setup()
@@ -84,7 +90,8 @@ class Playthrough(private val seed: Long, makeBot: (Simulation) -> Bot, private 
             if (sim.stars !in starDay) starDay[sim.stars] = sim.clock.day
             peakPop = maxOf(peakPop, sim.population)
             if (sim.clock.hour == 23) dayLine(ms)
-            if (sim.stage >= 5 && sim.clock.day > (stageDay[5] ?: 0) + 5) break
+            if (sim.missionStarted && sim.endgame.parts !in partDay) partDay[sim.endgame.parts] = sim.clock.day
+            if (sim.liftedOff) { println("ABGEHOBEN an Tag ${sim.clock.day}"); break }
             if ((System.nanoTime() - started) / 60e9 > wallLimitMin) { println("Zeitlimit erreicht"); break }
         }
         return summary()
@@ -165,12 +172,27 @@ class Playthrough(private val seed: Long, makeBot: (Simulation) -> Bot, private 
             inc, -(d[MoneyKind.UPKEEP] ?: 0L), -(d[MoneyKind.BUILD] ?: 0L), ms,
         )
         val kinds = listOf(MoneyKind.RENT, MoneyKind.FOOD, MoneyKind.SALE, MoneyKind.FEES, MoneyKind.HOTEL, MoneyKind.PARKING, MoneyKind.VIP, MoneyKind.GUESTS, MoneyKind.REFUND)
-        println(line + " | " + kinds.joinToString(" ") { "${it.name.lowercase()}=${(d[it] ?: 0L) / 1000}k" })
+        val sinks = MoneyKind.SINKS.associateWith { -(d[it] ?: 0L) }
+        sinks.forEach { (k, v) -> sinkTotals[k] = (sinkTotals[k] ?: 0L) + v }
+        moneyDays = if (inc > 0) sim.money.toDouble() / inc else 0.0
+        val part = sim.currentPart
+        val spent = sinks.filterValues { it > 0 }.map { "${it.key.name.lowercase()}=${it.value / 1000}k" }
+        val mission = when {
+            sim.missionStarted -> " | Countdown ${sim.endgame.parts}/4 Aufgaben %.0f %% (%s) Schaulustige %d/%d verärgert, Senken %s".format(
+            sim.missionProgress * 100, part?.tasks?.joinToString(" ") { "${it.id}=${sim.taskProgress(it)}/${it.goal}" } ?: "-",
+                sim.spectatorsPerDay, sim.endgame.spectatorsUnhappy, spent)
+            sim.stage >= SINK_STAGE -> " | Senken $spent"
+            else -> ""
+        }
+        println(line + " | " + kinds.joinToString(" ") { "${it.name.lowercase()}=${(d[it] ?: 0L) / 1000}k" } + " | Geld = %.1f Tage".format(moneyDays) + mission)
         fun n(t: RoomType) = rooms.count { it.type == t }
         csv.append(listOf(
             sim.clock.day, sim.money, sim.stage, sim.stars, sim.population, "%.1f".format(java.util.Locale.ROOT, sim.satisfaction),
             n(Catalog.OFFICE), n(Catalog.HOME), n(Catalog.DORM), n(Catalog.HOTEL), n(Catalog.LUXURY_OFFICE), empty, far,
             "%.1f".format(java.util.Locale.ROOT, p95), moveOuts, inc, -(d[MoneyKind.UPKEEP] ?: 0L), -(d[MoneyKind.BUILD] ?: 0L),
+            "%.1f".format(java.util.Locale.ROOT, moneyDays), sinks[MoneyKind.UPGRADE], sinks[MoneyKind.TUNING], sinks[MoneyKind.INSURANCE],
+            sinks[MoneyKind.PROMOTION], sinks[MoneyKind.EXTRAS], sinks[MoneyKind.MISSION], sim.endgame.parts,
+            "%.2f".format(java.util.Locale.ROOT, if (sim.missionStarted) sim.missionProgress else 0.0), sim.endgame.spectatorsToday, sim.endgame.spectatorsUnhappy,
         ).joinToString(";")).append('\n')
         allWaits += p95
         waitSamples.clear(); maxWait = 0.0
@@ -183,6 +205,12 @@ class Playthrough(private val seed: Long, makeBot: (Simulation) -> Bot, private 
         println("Stufen erreicht an Tag: ${stageDay.toSortedMap()}")
         println("Sterne erreicht an Tag: ${starDay.toSortedMap()}")
         println("Gebaut: ${bot.built}")
+        println("Countdown-Schritte an Tag: ${partDay.toSortedMap()} (0 = Mission begonnen, 4 = abgehoben)")
+        val steps = partDay.toSortedMap().entries.zipWithNext { a, b -> "${a.key}→${b.key}: ${b.value - a.value} Tage" }
+        if (steps.isNotEmpty()) println("Dauer je Schritt: $steps")
+        println("Ausgaben für Senken gesamt: ${sinkTotals.filterValues { it > 0 }.mapValues { "%,d".format(it.value) }}, Geld am Ende = %.1f Tage Einnahmen".format(moneyDays))
+        val e = sim.endgame
+        if (sim.missionStarted) println("Mission: Versicherungen ${e.insurances}, Deko ${e.decor}, Eingänge ${e.gates}, Forschung ${e.research}, Schaulustige/Tag ${sim.spectatorsPerDay}")
         println("Stunden ohne Geld: ${bot.skippedNoMoney}, Stunden ohne Platz: ${bot.noSpotHours}, Plätze verworfen (Weg zu lang): ${bot.rejectedFar}")
         println("VIPs: ${vipVisits.groupingBy { it }.eachCount()} | großzügig $vipHappy, knausrig $vipStingy, aufgegeben $vipGaveUp, Trinkgeld %,d".format(vipTipTotal))
         if (vipDurations.isNotEmpty()) println("VIP-Wege: Ø %.0f min, max %.0f min".format(vipDurations.average(), vipDurations.max()))
@@ -205,7 +233,7 @@ class Playthrough(private val seed: Long, makeBot: (Simulation) -> Bot, private 
             stageDay.toSortedMap(), starDay.toSortedMap(), sim.roomProblems.values.count { it.far },
             rooms.count { it.type.role.rentable && it.tenant == null }, moveOuts, sim.elevators.cars.size,
             sim.elevators.cars.values.sumOf { it.cabins.size }, pct(allWaits, 0.95), minMood, minMoney,
-            bot.rejectedFar, bot.skippedNoMoney,
+            bot.rejectedFar, bot.skippedNoMoney, partDay.toSortedMap(), sinkTotals.toMap(), moneyDays,
         )
     }
 
@@ -214,16 +242,19 @@ class Playthrough(private val seed: Long, makeBot: (Simulation) -> Bot, private 
             "twin" to ::TwinBot,
             "wide" to ::WideBot,
             "hub" to ::HubBot,
+            "miser" to ::MiserBot,
         )
 
         fun compare(results: List<Result>) {
             println("\n== Vergleich ==")
-            println("Bot | Tage | Stufe | ★ | Leute (Spitze) | Geld | Laune (tiefste) | Stufe 1/2/3/4/5 an Tag | ★ 3/4/5 an Tag | leer / zu weit | Auszüge | Schächte/Kabinen")
+            println("Bot | Tage | Stufe | ★ | Leute (Spitze) | Geld | Laune (tiefste) | Stufe 1/2/3/4/5 an Tag | ★ 3/4/5 an Tag | leer / zu weit | Auszüge | Schächte/Kabinen | Countdown 0/1/2/3/4 an Tag | Senken | Geld in Tagen")
             for (r in results) {
                 val st = (1..5).joinToString("/") { r.stageDay[it]?.toString() ?: "-" }
                 val sr = (3..5).joinToString("/") { r.starDay[it]?.toString() ?: "-" }
-                println("%s | %d | %d | %d | %d (%d) | %,d | %.0f (%.0f) | %s | %s | %d / %d | %d | %d/%d".format(
-                    r.bot, r.days, r.stage, r.stars, r.population, r.peak, r.money, r.mood, r.minMood, st, sr, r.empty, r.far, r.moveOuts, r.shafts, r.cabins))
+                val parts = (0..4).joinToString("/") { r.partDay[it]?.toString() ?: "-" }
+                println("%s | %d | %d | %d | %d (%d) | %,d | %.0f (%.0f) | %s | %s | %d / %d | %d | %d/%d | %s | %,d | %.1f".format(
+                    r.bot, r.days, r.stage, r.stars, r.population, r.peak, r.money, r.mood, r.minMood, st, sr, r.empty, r.far, r.moveOuts, r.shafts, r.cabins,
+                    parts, r.sinks.values.sum(), r.moneyDays))
             }
         }
 

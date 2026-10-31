@@ -13,10 +13,10 @@ import kotlin.math.abs
  * is more than two flights from an express stop. Few shafts keep the shaft surcharge low and the
  * money goes into business: offices, hotels, luxury offices and the conference centre.
  */
-class HubBot(sim: Simulation) : Bot(sim) {
-    override val id = "hub"
-    override val title = "Express-Treppen"
-    override val idea = "nur Expressaufzüge mit Treppenhaus daneben, höchstens zwei Etagen zu Fuß; Hotels und Geschäft"
+open class HubBot(sim: Simulation) : Bot(sim) {
+    override val id: String = "hub"
+    override val title: String = "Express-Treppen"
+    override val idea: String = "nur Expressaufzüge mit Treppenhaus daneben, höchstens zwei Etagen zu Fuß; Hotels und Geschäft"
 
     /** One hub: an express at [x] and its staircase at [stairX]. */
     class Hub(val x: Int, val stairX: Int) { val left get() = x < FINAL_WIDTH / 2 }

@@ -29,6 +29,8 @@ class GameController(val sim: Simulation) {
     var selection: Selection? = null
     var financeOpen = false
     var optionsOpen = false
+    var extrasOpen = false
+    var missionOpen = false
 
     /** Starts a ready-made tower of the given stage; set by the game screen. */
     var onTestTower: (Int) -> Unit = {}
