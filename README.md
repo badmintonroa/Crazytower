@@ -121,7 +121,7 @@ Stufe 5 ist die letzte Stufe, das Spiel geht aber weiter: Auf der obersten Etage
 | 1 | Kommandokapsel | 40 Mio. $ | 10 Astronauten mit über 75 % Laune; einen Tag Probezünden mit mindestens 65 % Turm-Laune |
 | Abheben! | Mondlift | 100 Mio. $ | Botschafter Zorg geht zufrieden nach Hause; der Sicherheitsdienst stoppt Dr. Hämisch dreimal |
 
-Mit jedem Teil kommen mehr Schaulustige (50 am Anfang, 1.500 nach dem Abheben). Sie fahren zur Aussichtsplattform (ab Etage 90, Eintritt 150 $) und kaufen danach im Souvenirladen ein. Dauert der Weg länger als eine Stunde oder fehlt die Plattform, gehen sie verärgert heim; sind es mehr als 30 % an einem Tag, lacht die Presse und der Countdown wartet einen Tag. Nach dem Abheben gibt es einen Abspann, und der Turm baut einfach weiter.
+Mit jedem Teil kommen mehr Schaulustige (50 am Anfang, 1.500 nach dem Abheben). Sie fahren zur Aussichtsplattform (ab Etage 90, Eintritt 150 $, auf einer schmutzigen Plattform nur die Hälfte) und kaufen danach im Souvenirladen ein. Dauert der Weg länger als zweieinhalb Stunden oder fehlt die Plattform, gehen sie verärgert heim; sind es mehr als 40 % an einem Tag, lacht die Presse und der Countdown wartet einen Tag. Nach dem Abheben gibt es einen Abspann, und der Turm baut einfach weiter.
 
 ## Bots
 

@@ -53,10 +53,10 @@ object Mission {
     const val SABOTAGE_LOOT = 0.01
 
     /** A spectator whose trip to the deck takes longer than this goes home grumbling. */
-    const val SPECTATOR_PATIENCE = 60.0
+    const val SPECTATOR_PATIENCE = 150.0
 
     /** When more than this share of the day's spectators grumble, the press laughs and the countdown waits a day. */
-    const val PRESS_SHARE = 0.3
+    const val PRESS_SHARE = 0.4
 
     /** Mission tenants take this share of the new tenants while their task is open. */
     const val MISSION_TENANT_CHANCE = 0.35f
@@ -292,7 +292,7 @@ object Spectators {
     const val SOUVENIR = 80L
 
     /** The deck needs cleaning after this many spectators. */
-    const val DIRTY_EVERY = 40
+    const val DIRTY_EVERY = 120
 }
 
 /** How many spectators come a day: more with every part, decorations and ads. */
@@ -307,7 +307,10 @@ val Simulation.spectatorsPerDay: Int get() {
 /** A spectator got to the deck after [minutes]: admission, a verdict and a bit of rubbish. */
 internal fun Simulation.spectatorAtDeck(deck: Room, minutes: Double) {
     endgame.spectatorsToday++
-    if (minutes > Mission.SPECTATOR_PATIENCE || deck.dirty) endgame.spectatorsUnhappy++ else endgame.spectatorsHappy++
+    endgame.spectatorMinutes += minutes
+    if (minutes > Mission.SPECTATOR_PATIENCE) endgame.spectatorsLate++
+    if (deck.dirty) endgame.spectatorsDirty++
+    if (minutes > Mission.SPECTATOR_PATIENCE) endgame.spectatorsUnhappy++ else endgame.spectatorsHappy++
     val fee = if (deck.dirty) Spectators.ENTRANCE / 2 else Spectators.ENTRANCE
     book(fee, MoneyKind.SPECTATORS, tr("Eintritt Aussichtsplattform", "Observation deck admission"), deck.center)
     deckVisits[deck.id] = (deckVisits[deck.id] ?: 0) + 1
@@ -320,6 +323,7 @@ internal fun Simulation.spectatorAtDeck(deck: Room, minutes: Double) {
 /** A spectator who never got there (no deck, no way up) goes home grumbling. */
 internal fun Simulation.spectatorGaveUp() {
     endgame.spectatorsToday++
+    endgame.spectatorsStuck++
     endgame.spectatorsUnhappy++
 }
 
@@ -330,6 +334,10 @@ internal fun Simulation.missionMidnight() {
     endgame.spectatorsToday = 0
     endgame.spectatorsHappy = 0
     endgame.spectatorsUnhappy = 0
+    endgame.spectatorsLate = 0
+    endgame.spectatorsDirty = 0
+    endgame.spectatorsStuck = 0
+    endgame.spectatorMinutes = 0.0
     if (!missionStarted || liftedOff || total < 10) return
     if (unhappy > total * Mission.PRESS_SHARE) {
         endgame.delayedUntil = clock.totalMinutes + GameClock.MINUTES_PER_DAY

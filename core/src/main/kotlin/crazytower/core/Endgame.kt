@@ -42,6 +42,12 @@ class Endgame {
     @kotlinx.serialization.Transient var spectatorsHappy: Int = 0
     @kotlinx.serialization.Transient var spectatorsUnhappy: Int = 0
     @kotlinx.serialization.Transient var spectatorsToday: Int = 0
+    /** Why today's spectators grumbled: a long way, a dirty deck, or no way at all. */
+    @kotlinx.serialization.Transient var spectatorsLate: Int = 0
+    @kotlinx.serialization.Transient var spectatorsDirty: Int = 0
+    @kotlinx.serialization.Transient var spectatorsStuck: Int = 0
+    /** Minutes today's spectators took to the deck, added up. */
+    @kotlinx.serialization.Transient var spectatorMinutes: Double = 0.0
 }
 
 /** Money sinks start at this stage: before it, every dollar goes into rooms anyway. */
@@ -484,7 +490,13 @@ fun Simulation.recruitCost(): Long = shareOfIncome(Recruiting.PERCENT, Recruitin
 fun Simulation.recruitable(room: Room): List<TenantKind> {
     val usual = Tenants.candidates(room.type, stars, stage)
     val clowns = if (room.type.role == RoomRole.OFFICE && !room.type.luxury) listOf(Tenants.byId("clown")) else emptyList()
-    return usual + clowns
+    // the moon mission's tenants can be asked for while their task is open
+    val mission = when {
+        room.type.role == RoomRole.OFFICE && !room.type.luxury && taskOpen(Mission.CONTROL) -> listOf(Tenants.byId("rocket"))
+        room.type.role == RoomRole.HOME && !room.type.luxury && taskOpen(Mission.ASTRONAUTS) -> listOf(Tenants.byId("astronauts"))
+        else -> emptyList()
+    }
+    return usual + clowns + mission
 }
 
 fun Simulation.recruitBlocked(room: Room): String? = when {

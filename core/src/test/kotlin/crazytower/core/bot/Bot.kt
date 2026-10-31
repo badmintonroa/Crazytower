@@ -41,6 +41,7 @@ import crazytower.core.researchCost
 import crazytower.core.startCampaign
 import crazytower.core.startTestflight
 import crazytower.core.taskOpen
+import crazytower.core.taskDone
 import crazytower.core.testflightBlocked
 import crazytower.core.throwParty
 import crazytower.core.toggleInsurance
@@ -49,6 +50,9 @@ import crazytower.core.tuningBlocked
 import crazytower.core.upgradeBlocked
 import crazytower.core.upgradeRoom
 import crazytower.core.useRemedy
+import crazytower.core.Tenants
+import crazytower.core.recruit
+import crazytower.core.recruitBlocked
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -131,7 +135,7 @@ abstract class Bot(val sim: Simulation) {
         buyCabins()
         specials()
         if (sim.missionStarted && !sim.liftedOff) mission()
-        if (spends && sim.stage >= SINK_STAGE) spend()
+        if (spends && sim.stage >= SINK_STAGE && !savingForPart()) spend()
         infrastructure()
         noSpot = false
         for (i in 0 until roomsPerHour) {
@@ -464,13 +468,19 @@ abstract class Bot(val sim: Simulation) {
         // spectators: a deck up high, then souvenir shops
         if (count(Mission.DECK) == 0) placeAnywhere(Mission.DECK)
         else if (count(Mission.SOUVENIRS) < 2) placeAnywhere(Mission.SOUVENIRS)
-        else if (count(Mission.DECK) < 2 && sim.endgame.parts >= 2) placeAnywhere(Mission.DECK)
+        else if (count(Mission.DECK) < 2 && (sim.endgame.parts >= 2 || sim.clock.totalMinutes < sim.endgame.delayedUntil)) placeAnywhere(Mission.DECK)
         // rooms for the open tasks
         if (sim.taskOpen(Mission.SUITES) && sim.unlocked(Catalog.HOTEL) && count(Catalog.HOTEL) < 16) placeAnywhere(Catalog.HOTEL)
         if (sim.taskOpen(Mission.PERMIT) && count(Catalog.COPYROOM) == 0) placeAnywhere(Catalog.COPYROOM)
         if (sim.taskOpen(Mission.COFFEE) && count(Catalog.FOOD) * 8 < rentables().size) placeAnywhere(Catalog.FOOD)
-        if (sim.taskOpen(Mission.CONTROL) && emptyOffices() < 2 && sim.hasWorkersFor(Catalog.OFFICE.capacity)) placeAnywhere(Catalog.OFFICE)
-        if (sim.taskOpen(Mission.ASTRONAUTS) && unsoldHomes() < 2) placeAnywhere(Catalog.HOME)
+        if (sim.taskOpen(Mission.CONTROL)) missionTenant(Catalog.OFFICE, "rocket")
+        if (sim.taskOpen(Mission.ASTRONAUTS)) {
+            missionTenant(Catalog.HOME, "astronauts")
+            // astronauts want it nice: their flats get done up
+            for (room in sim.tower.allRooms.filter { it.tenant?.id == "astronauts" }) {
+                if (sim.upgradeBlocked(room) == null && afford(Upgrades.cost(room))) { sim.upgradeRoom(room); note("Ausbau Astronauten") }
+            }
+        }
         if ((sim.taskOpen(Mission.SABOTAGE)) && count(Catalog.SECURITY) == 0) placeAnywhere(Catalog.SECURITY)
         // Dr. Hämisch: send security straight away
         for (event in sim.activeEvents.toList()) {
@@ -482,6 +492,31 @@ abstract class Bot(val sim: Simulation) {
             if (sim.satisfaction >= Mission.TESTFLIGHT_MOOD + 6 || ++testflightTries > 24 * 5) { sim.startTestflight(); note("Testflug"); testflightTries = 0 }
         }
         buildPart()
+    }
+
+    /**
+     * Gets a mission tenant into a room of [type]: an ad for an empty room, a new room, or, in a
+     * full tower, the cheapest ordinary room of that kind torn down and built again.
+     */
+    private fun missionTenant(type: RoomType, tenantId: String) {
+        val tenant = Tenants.byId(tenantId)
+        val empty = sim.tower.allRooms.firstOrNull { it.type == type && it.tenant == null && sim.recruitBlocked(it) == null }
+        if (empty != null) { if (sim.recruit(empty, tenant).ok) note("Anzeige $tenantId"); return }
+        if (placeAnywhere(type)) return
+        if (sim.clock.hour != 10) return // once a day at most
+        val victim = sim.tower.allRooms
+            .filter { it.type == type && it.tenant != null && it.tenant?.eventOnly != true && sim.roomProblems[it.id] == null && sim.checkDemolish(it).ok }
+            .minByOrNull { it.tenant!!.rentPerDay } ?: return
+        val floor = victim.floor
+        val x = victim.x
+        sim.demolish(victim.id)
+        if (sim.build(type, floor, x).ok) note("Umbau für $tenantId")
+    }
+
+    /** The tasks of the next station part are done: every dollar goes into the part. */
+    private fun savingForPart(): Boolean {
+        val part = sim.currentPart ?: return false
+        return part.tasks.all { sim.taskDone(it) } && sim.money - reserve() < part.type.cost * 2
     }
 
     /** The next station part on the top floor, tearing down what stands in the way if needed. */

@@ -178,9 +178,13 @@ class Playthrough(private val seed: Long, makeBot: (Simulation) -> Bot, private 
         val part = sim.currentPart
         val spent = sinks.filterValues { it > 0 }.map { "${it.key.name.lowercase()}=${it.value / 1000}k" }
         val mission = when {
-            sim.missionStarted -> " | Countdown ${sim.endgame.parts}/4 Aufgaben %.0f %% (%s) Schaulustige %d/%d verärgert, Senken %s".format(
+            sim.missionStarted -> " | Höhe ${rooms.maxOf { it.floor }} Plattformen ${rooms.count { it.type == Mission.DECK }} Läden ${rooms.count { it.type == Mission.SOUVENIRS }}" +
+                (if (sim.clock.totalMinutes < sim.endgame.delayedUntil) " PRESSE" else "") +
+                rooms.filter { it.tenant?.id == "astronauts" }.let { a -> if (a.isEmpty()) "" else " Astronauten ${a.size}x Laune ${a.map { sim.moodOf(it)?.toInt() }}" } +
+                rooms.count { it.tenant?.id == "rocket" }.let { if (it == 0) "" else " Raketenbüros $it" } +
+                " freie Fachkräfte ${sim.workforce - sim.jobs}" + " | Countdown ${sim.endgame.parts}/4 Aufgaben %.0f %% (%s) Schaulustige %d/%d verärgert (spät %d, schmutzig %d, kein Weg %d, Ø %.0f min), Senken %s".format(
             sim.missionProgress * 100, part?.tasks?.joinToString(" ") { "${it.id}=${sim.taskProgress(it)}/${it.goal}" } ?: "-",
-                sim.spectatorsPerDay, sim.endgame.spectatorsUnhappy, spent)
+                sim.spectatorsPerDay, sim.endgame.spectatorsUnhappy, sim.endgame.spectatorsLate, sim.endgame.spectatorsDirty, sim.endgame.spectatorsStuck, sim.endgame.spectatorMinutes / (sim.endgame.spectatorsToday - sim.endgame.spectatorsStuck).coerceAtLeast(1), spent)
             sim.stage >= SINK_STAGE -> " | Senken $spent"
             else -> ""
         }
