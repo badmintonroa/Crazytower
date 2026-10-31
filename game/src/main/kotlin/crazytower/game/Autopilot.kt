@@ -83,6 +83,8 @@ object Autopilot {
 object DemoTower {
     fun build(sim: Simulation) {
         sim.book(1_000_000, MoneyKind.LUCK, crazytower.core.tr("Demo-Zuschuss", "Demo grant"))
+        // offices and the snack bar come with the first star
+        sim.bestStars = maxOf(sim.bestStars, 1)
         val mid = sim.lotWidth / 2 - 12
         sim.build(sim.planLobby(mid, mid + 23))
         val plan = listOf(

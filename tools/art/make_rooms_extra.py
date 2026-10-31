@@ -822,6 +822,220 @@ def home_exchange():
     return r.save()
 
 
+
+# ---------------------------------------------------------------- rooms from 3 and 4 stars
+
+def bunk(r, x, blanket=(90, 140, 210), blanket2=(230, 120, 90)):
+    base = H - 24
+    r.box(x, base - 110, 10, 110, (120, 90, 70))
+    r.box(x + 120, base - 110, 10, 110, (120, 90, 70))
+    r.box(x + 10, base - 30, 110, 14, (250, 250, 250)); r.box(x + 40, base - 34, 80, 14, blanket)
+    r.box(x + 10, base - 92, 110, 14, (250, 250, 250)); r.box(x + 40, base - 96, 80, 14, blanket2)
+    r.d.line([x + 4, base - 50, x + 4, base - 70], fill=INK, width=2)
+
+
+def dorm_shell():
+    r = Room(6, (214, 220, 190), floor=(120, 104, 90))
+    r.window(250, 36, 90, 74, sky=(120, 150, 200))
+    return r
+
+
+def dorm_empty():
+    r = dorm_shell()
+    bunk(r, 30, blanket=(200, 200, 200), blanket2=(200, 200, 200))
+    bunk(r, 410, blanket=(200, 200, 200), blanket2=(200, 200, 200))
+    r.sign(232, 126, "6 BETTEN\nFREI", bg=(255, 255, 255), size=13)
+    return r.save()
+
+
+def dorm_full():
+    r = dorm_shell()
+    bunk(r, 30)
+    bunk(r, 410, blanket=(120, 190, 110), blanket2=(240, 200, 70))
+    for i in range(6):
+        r.box(196, 160 - i * 9, 56, 9, (230, 180, 110), 2)   # pizza boxes
+    r.box(300, 132, 70, 36, (60, 60, 70))   # speaker
+    r.d.ellipse([318, 140, 352, 164], fill=(120, 120, 140), outline=INK, width=2)
+    for i, c in enumerate([(255, 90, 140), (90, 220, 255), (255, 230, 90)]):
+        r.d.ellipse([380 + i * 10, 40 + i * 6, 392 + i * 10, 52 + i * 6], fill=c, outline=INK, width=1)
+    r.glow(250, 36, 90, 74)
+    r.sign(160, 40, "PARTY\nHEUTE\n(JEDEN TAG)", bg=(240, 90, 140), fg=(255, 255, 255), size=11)
+    return r.save()
+
+
+def shop_shell(wall=(250, 236, 200), awning=(220, 70, 70)):
+    r = Room(6, wall, floor=(110, 110, 120))
+    for i in range(12):
+        c = awning if i % 2 == 0 else (255, 255, 255)
+        r.d.polygon([(i * 48, 18), (i * 48 + 48, 18), (i * 48 + 48, 34), (i * 48, 40)], fill=c, outline=INK)
+    return r
+
+
+def shelves(r, x, w, colors):
+    base = H - 24
+    r.box(x, 58, w, base - 58, (190, 150, 100))
+    for k, y in enumerate((70, 102, 134)):
+        r.d.line([x, y + 24, x + w, y + 24], fill=INK, width=3)
+        for i in range(w // 16):
+            c = colors[(i + k) % len(colors)]
+            r.box(x + 4 + i * 16, y + 4, 12, 20, c, 2)
+
+
+def counter(r, x, w=140, color=(90, 110, 150)):
+    base = H - 24
+    r.box(x, base - 50, w, 50, color)
+    r.box(x + w - 50, base - 74, 40, 24, (40, 44, 60))   # till
+    r.d.rectangle([x + w - 46, base - 70, x + w - 14, base - 58], fill=(120, 240, 160))
+    r.glow(x + w - 46, base - 70, 32, 12)
+
+
+def shop_empty():
+    r = shop_shell(awning=(160, 160, 170))
+    r.box(40, 80, 200, 88, (190, 150, 100))
+    r.d.line([40, 124, 240, 124], fill=INK, width=3)
+    r.crate(300); r.crate(340, 28, 20)
+    r.sign(400, 70, "LADEN\nZU VERMIETEN", bg=(255, 255, 255), size=13)
+    return r.save()
+
+
+def shop_spaeti():
+    r = shop_shell()
+    shelves(r, 30, 220, [(240, 200, 60), (90, 160, 220), (220, 80, 80), (120, 200, 110)])
+    counter(r, 300)
+    r.box(470, 70, 80, 98, (230, 240, 250))   # fridge
+    for y in (86, 116, 146):
+        for i in range(4):
+            r.box(478 + i * 18, y, 12, 22, (140, 90, 50), 1)
+    r.sign(290, 50, "OFFEN\n24/7 (MEISTENS)", bg=(255, 244, 120), size=11)
+    return r.save()
+
+
+def shop_bio():
+    r = shop_shell(wall=(222, 236, 200), awning=(90, 160, 90))
+    shelves(r, 30, 200, [(120, 190, 90), (230, 140, 60), (200, 70, 70), (240, 220, 120)])
+    for i in range(3):   # baskets of vegetables
+        x = 260 + i * 66
+        r.box(x, H - 70, 56, 46, (170, 120, 70))
+        for k in range(4):
+            r.d.ellipse([x + 4 + k * 12, H - 84, x + 18 + k * 12, H - 70], fill=[(230, 90, 60), (250, 160, 40), (110, 180, 80)][(i + k) % 3], outline=INK, width=1)
+    r.plant(480); r.plant(530)
+    r.sign(270, 50, "GRÜNKERN\nALLES BIO, AUCH DIE PREISE", bg=(255, 255, 255), size=10)
+    return r.save()
+
+
+def shop_robo():
+    r = shop_shell(wall=(200, 210, 226), awning=(80, 110, 200))
+    for i in range(4):   # vending machines
+        x = 30 + i * 96
+        r.box(x, 52, 80, 116, (60, 80, 140))
+        r.d.rectangle([x + 8, 60, x + 52, 140], fill=(160, 220, 250))
+        r.glow(x + 8, 60, 44, 80)
+        for k in range(4):
+            r.box(x + 12, 64 + k * 18, 36, 12, [(240, 90, 90), (250, 210, 70), (120, 220, 120)][(i + k) % 3], 1)
+        r.box(x + 58, 80, 14, 30, (30, 30, 40), 2)
+    r.d.ellipse([440, 100, 500, 160], fill=(210, 214, 224), outline=INK, width=3)   # robot head
+    r.d.ellipse([452, 116, 468, 132], fill=(120, 255, 230), outline=INK, width=2)
+    r.d.ellipse([472, 116, 488, 132], fill=(120, 255, 230), outline=INK, width=2)
+    r.box(446, 160, 48, 8, (120, 124, 140), 2)
+    r.sign(420, 44, "TANTE ROBO\nHAT NIE PAUSE", bg=(255, 255, 255), size=11)
+    return r.save()
+
+
+def special_kita():
+    r = Room(6, (252, 230, 170), floor=(120, 170, 120))
+    for i, c in enumerate([(240, 90, 90), (90, 160, 240), (250, 210, 70), (120, 200, 110)]):
+        r.box(40 + i * 40, 140, 34, 28, c)   # building blocks
+        r.d.text((50 + i * 40, 144), "ABCD"[i], fill=(255, 255, 255), font=font(16))
+    r.window(230, 36, 110, 80)
+    r.d.polygon([(380, 168), (380, 90), (470, 168)], fill=(240, 90, 140), outline=INK)   # slide
+    r.box(370, 80, 14, 88, (90, 160, 240))
+    for k in range(4):
+        r.d.line([372, 96 + k * 18, 382, 96 + k * 18], fill=INK, width=2)
+    for k in range(7):   # crayon drawings
+        x = 40 + k * 26
+        r.box(x, 50 + (k % 2) * 10, 22, 26, (255, 255, 255), 2)
+        r.d.ellipse([x + 5, 56 + (k % 2) * 10, x + 17, 68 + (k % 2) * 10], fill=[(240, 90, 90), (250, 210, 70), (90, 160, 240)][k % 3])
+    r.sign(480, 50, "RABAUKEN\nKITA", bg=(255, 255, 255), size=13)
+    r.d.ellipse([500, 130, 536, 166], fill=(255, 90, 90), outline=INK, width=3)   # ball
+    return r.save()
+
+
+def special_subway():
+    r = Room(12, (210, 214, 200), floor=(80, 84, 92), ceiling=(50, 54, 64))
+    for x in range(0, r.w, 32):   # tiles
+        r.d.line([x, 24, x, H - 26], fill=shade((210, 214, 200), 0.9), width=1)
+    for y in range(24, H - 26, 24):
+        r.d.line([0, y, r.w, y], fill=shade((210, 214, 200), 0.9), width=1)
+    r.d.rectangle([0, 110, r.w, 118], fill=(240, 200, 60))   # stripe
+    # the train with its windows
+    r.box(140, 60, 760, 108, (90, 140, 210))
+    r.d.rectangle([140, 140, 900, 150], fill=(250, 250, 250))
+    for i in range(9):
+        x = 170 + i * 80
+        r.box(x, 74, 56, 46, (190, 220, 245))
+        r.glow(x, 74, 56, 46)
+        r.d.ellipse([x + 18, 90, x + 34, 106], fill=(240, 200, 160), outline=INK, width=2)   # a commuter
+    r.d.polygon([(900, 60), (960, 100), (960, 168), (900, 168)], fill=(90, 140, 210), outline=INK)
+    r.d.ellipse([930, 120, 950, 140], fill=(255, 240, 160), outline=INK, width=2)
+    r.glow(930, 120, 20, 20)
+    r.box(990, 30, 140, 50, (40, 50, 140))
+    r.d.text((1006, 38), "U  CRAZY", fill=(255, 255, 255), font=font(22))
+    r.sign(990, 92, "NÄCHSTER ZUG:\nGESTERN", bg=(30, 30, 40), fg=(255, 200, 60), size=12)
+    r.d.line([0, H - 30, r.w, H - 30], fill=(240, 200, 60), width=4)
+    return r.save()
+
+
+def special_conference():
+    r = luxury_shell(wall=(206, 214, 230), floor=(60, 70, 96), ceiling=(36, 42, 66))
+    r.box(100, 40, 300, 100, (250, 250, 250))   # projector screen
+    r.d.line([130, 120, 190, 90, 250, 104, 320, 60, 370, 70], fill=(220, 70, 70), width=5)
+    r.d.text((130, 46), "SYNERGIEN Q5", fill=INK, font=font(18))
+    r.glow(100, 40, 300, 100)
+    r.box(450, 120, 520, 20, (120, 80, 60))   # long table
+    for i in range(9):
+        x = 470 + i * 56
+        r.box(x, 102, 26, 18, (40, 44, 60), 2)   # chairs
+        r.box(x + 4, 112, 18, 6, (240, 240, 240), 1)   # name card
+    for x in (480, 640, 800, 940):
+        r.box(x, 106, 14, 14, (250, 250, 250), 2)   # coffee cups
+    for i in range(3):
+        r.d.ellipse([1000 + i * 26, 112, 1022 + i * 26, 130], fill=(196, 140, 80), outline=INK, width=2)   # biscuits
+    chandelier(r, 700)
+    r.sign(1000, 40, "KONFERENZ\nKEKSE INKLUSIVE", bg=(255, 255, 255), size=11)
+    return r.save()
+
+
+def penthouse_shell():
+    r = luxury_shell(wall=(244, 240, 232), floor=(110, 80, 60), ceiling=(60, 54, 64))
+    for x in (40, 360, 680):
+        r.window(x, 30, 260, 104, sky=(170, 210, 245))
+    return r
+
+
+def penthouse_empty():
+    r = penthouse_shell()
+    palm(r, 1000)
+    r.box(800, 150, 160, 18, (190, 40, 50))
+    r.sign(980, 40, "PENTHOUSE\nZU VERKAUFEN", bg=(255, 255, 255), size=12)
+    return r.save()
+
+
+def penthouse_full():
+    r = penthouse_shell()
+    r.sofa(90, 220, (240, 240, 236))
+    r.box(420, 150, 300, 18, (90, 190, 230))   # pool
+    r.d.rectangle([426, 152, 714, 166], fill=(130, 220, 250))
+    r.d.ellipse([560, 140, 600, 160], fill=(250, 210, 70), outline=INK, width=2)   # rubber duck
+    r.box(780, 110, 120, 58, (60, 50, 60))   # bar
+    r.box(772, 104, 136, 8, GOLD)
+    for i in range(4):
+        r.box(790 + i * 26, 84, 12, 20, [(120, 200, 110), (220, 80, 80), (250, 210, 70), (200, 200, 250)][i], 1)
+    chandelier(r, 560)
+    palm(r, 1060)
+    r.sign(960, 40, "BITTE NICHT\nINS AQUARIUM\nWINKEN", bg=(255, 255, 255), size=10)
+    return r.save()
+
+
 class Picture:
     """A finished room picture from the art folder: no lamp or window data, so its night look is a guess."""
 
@@ -949,6 +1163,10 @@ ROOMS = {
     "housekeeping_robots": housekeeping_robots, "housekeeping_housegeist": housekeeping_housegeist,
     "home_exchange": home_exchange,
     "extra_copyroom": lambda: Picture("extra_copyroom@4x.png"),
+    "dorm_empty": dorm_empty, "dorm_full": dorm_full,
+    "shop_empty": shop_empty, "shop_spaeti": shop_spaeti, "shop_bio": shop_bio, "shop_robo": shop_robo,
+    "special_kita": special_kita, "special_subway": special_subway, "special_conference": special_conference,
+    "penthouse_empty": penthouse_empty, "penthouse_full": penthouse_full,
 }
 
 # The old car park only shows in old saves, and the parking spaces are in the basement anyway.

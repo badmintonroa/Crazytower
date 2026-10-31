@@ -63,7 +63,7 @@ class BalanceScenarios {
     }
 
     private fun play(homeShare: Double, days: Int, seed: Long): String {
-        val sim = Simulation(seed = seed).apply { eventsEnabled = false }
+        val sim = officeSim(seed = seed).apply { eventsEnabled = false }
         val player = Player(sim, homeShare)
         player.start()
         val out = StringBuilder("== ${(homeShare * 100).toInt()} % Wohnungen, Seed $seed ==\n")

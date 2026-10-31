@@ -8,7 +8,7 @@ import kotlin.test.assertTrue
 class LotTest {
     @Test
     fun theLotGrowsWithTheStars() {
-        val sim = Simulation(startMoney = 10_000_000)
+        val sim = officeSim(startMoney = 10_000_000)
         assertEquals(64, sim.lotWidth)
         assertTrue(sim.checkPlace(Catalog.LOBBY, GROUND_FLOOR, 58).ok)
         assertEquals("Grundstück wird erst ab 3 Sternen breiter", sim.checkPlace(Catalog.LOBBY, GROUND_FLOOR, 60).reason)
@@ -24,10 +24,15 @@ class LotTest {
 
     @Test
     fun theBasementOpensAtFourStars() {
-        val sim = Simulation(startMoney = 10_000_000)
+        val sim = officeSim(startMoney = 10_000_000)
         sim.stars = 3
         assertEquals("Keller erst ab 4 Sternen", sim.checkPlace(Catalog.OFFICE, -1, 10).reason)
-        assertFalse(sim.planColumn(Catalog.ELEVATOR, 10, 0, -2).check.ok)
+        // the drag builds the ground floor and leaves the basement out
+        val plan = sim.planColumn(Catalog.ELEVATOR, 10, 0, -2)
+        assertEquals(listOf(0), plan.pieces.map { it.floor })
+        assertEquals(listOf(-1, -2), plan.blocked.map { it.floor })
+        assertEquals("Keller erst ab 4 Sternen", plan.blockedReason)
+        assertFalse(sim.planColumn(Catalog.ELEVATOR, 10, -1, -2).check.ok)
         sim.stars = 4
         assertTrue(sim.checkPlace(Catalog.OFFICE, -1, 10).ok)
         assertTrue(sim.planColumn(Catalog.ELEVATOR, 10, 0, -1).check.ok)
@@ -35,7 +40,7 @@ class LotTest {
 
     @Test
     fun aParkingSpaceOnlyGoesUndergroundAndEarnsFees() {
-        val sim = Simulation(startMoney = 10_000_000)
+        val sim = officeSim(startMoney = 10_000_000)
         assertEquals("Erst ab 4 Sternen", sim.checkPlace(Catalog.PARKING, -1, 10).reason)
         sim.stars = 4
         assertEquals("Parkplatz nur im Keller", sim.checkPlace(Catalog.PARKING, 1, 10).reason)
@@ -57,7 +62,7 @@ class LotTest {
 
     @Test
     fun specialRoomsExistOnlyOnce() {
-        val sim = Simulation(startMoney = 100_000_000)
+        val sim = officeSim(startMoney = 100_000_000)
         sim.stage = 5
         sim.build(sim.planLobby(0, 40))
         assertTrue(sim.build(Catalog.COPYROOM, 1, 0).ok)
@@ -70,7 +75,7 @@ class LotTest {
 
     @Test
     fun theGapFillerClosesTheWholeGap() {
-        val sim = Simulation(startMoney = 10_000_000)
+        val sim = officeSim(startMoney = 10_000_000)
         sim.build(sim.planLobby(0, 40))
         assertTrue(sim.build(Catalog.OFFICE, 1, 0).ok)
         assertTrue(sim.build(Catalog.OFFICE, 1, 9).ok) // three segments left free by mistake

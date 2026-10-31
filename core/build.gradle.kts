@@ -22,4 +22,6 @@ tasks.register<JavaExec>("bench") {
 tasks.register<JavaExec>("playthrough") {
     classpath = sourceSets["test"].output + sourceSets["main"].output + configurations["testCompileClasspath"]
     mainClass.set("crazytower.core.PlaythroughKt")
+    // -Dstrategy=office|home|mix picks how the bot builds
+    System.getProperty("strategy")?.let { systemProperty("strategy", it) }
 }

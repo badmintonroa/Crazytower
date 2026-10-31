@@ -7,7 +7,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class RoomProblemsTest {
-    private fun sim() = Simulation(seed = 11, startMoney = 50_000_000).also { it.eventsEnabled = false }
+    private fun sim() = officeSim(seed = 11, startMoney = 50_000_000).also { it.eventsEnabled = false }
 
     @Test
     fun reachableRoomsHaveNoProblem() {

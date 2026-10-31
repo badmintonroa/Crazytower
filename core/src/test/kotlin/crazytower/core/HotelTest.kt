@@ -8,7 +8,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class HotelTest {
-    private fun stage3(): Simulation = Simulation(seed = 5, startMoney = 10_000_000).apply {
+    private fun stage3(): Simulation = officeSim(seed = 5, startMoney = 10_000_000).apply {
         eventsEnabled = false
         stage = 3
         stars = 3

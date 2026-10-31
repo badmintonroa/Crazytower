@@ -69,7 +69,7 @@ object Events {
         },
         TowerEvent("clownriot", 2, bad = true, lasting = true) {
             val clowns = rentedBy("clown").randomOrNull(random) ?: return@TowerEvent false
-            if (rentedRooms(RoomRole.OFFICE).none { it.tenant?.id != "clown" && !it.type.luxury }) return@TowerEvent false
+            if (rentedRooms(RoomRole.OFFICE).none { it.tenant?.id != "clown" && !it.type.luxuryOffice }) return@TowerEvent false
             val now = clock.totalMinutes
             startEvent(
                 ActiveEvent("clownriot", now, now + 3 * GameClock.MINUTES_PER_DAY, roomId = clowns.id),

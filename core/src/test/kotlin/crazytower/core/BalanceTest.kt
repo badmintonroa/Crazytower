@@ -39,7 +39,7 @@ class BalanceTest {
     }
 
     private fun play(days: Int, seed: Long): Pair<Player, List<String>> {
-        val sim = Simulation(seed = seed).apply { eventsEnabled = false }
+        val sim = officeSim(seed = seed).apply { eventsEnabled = false }
         val player = Player(sim)
         player.start()
         val log = ArrayList<String>()

@@ -79,7 +79,7 @@ class ScheduleSystem(
         // Meanwhile the mood settles towards what the tower offers them: a long wait drags it
         // down for a while, a meal and the special rooms lift what it settles to.
         schedule.activity = Activity.AT_ROOM
-        schedule.mood += (sim.moodTarget(schedule, member.resident) - schedule.mood) * MOOD_SETTLE
+        schedule.mood += (sim.moodTarget(schedule, member.resident, room) - schedule.mood) * MOOD_SETTLE
         if (schedule.mood >= MOOD_BASE) schedule.grievance = null
         when (sim.random.nextInt(10)) {
             0 -> sim.goTo(entity, sim.spotIn(room), Activity.WANDERING)

@@ -11,7 +11,7 @@ class LastingEventsTest {
     private fun event(id: String) = Events.all.first { it.id == id }
 
     private fun towerWithElevator(): Simulation {
-        val sim = Simulation(seed = 4, startMoney = 2_000_000)
+        val sim = officeSim(seed = 4, startMoney = 2_000_000)
         sim.eventsEnabled = false
         sim.build(sim.planLobby(0, 11))
         sim.build(sim.planColumn(Catalog.ELEVATOR, 4, 0, 4))
@@ -43,7 +43,7 @@ class LastingEventsTest {
 
     @Test
     fun aRemedyCostsMoney() {
-        val sim = Simulation(seed = 6, startMoney = 1_000_000)
+        val sim = officeSim(seed = 6, startMoney = 1_000_000)
         sim.eventsEnabled = false
         val office = sim.buildReachable(Catalog.OFFICE, 10)
         sim.moveIn(office, Tenants.byId("supervillain"))
@@ -59,7 +59,7 @@ class LastingEventsTest {
 
     @Test
     fun aSnackBarStopsTheBloodDrive() {
-        val sim = Simulation(seed = 7, startMoney = 2_000_000)
+        val sim = officeSim(seed = 7, startMoney = 2_000_000)
         sim.eventsEnabled = false
         val office = sim.buildReachable(Catalog.OFFICE, 10)
         sim.moveIn(office, Tenants.byId("vampire"))
@@ -72,7 +72,7 @@ class LastingEventsTest {
 
     @Test
     fun socksStopTheRentBelow() {
-        val sim = Simulation(seed = 8, startMoney = 2_000_000)
+        val sim = officeSim(seed = 8, startMoney = 2_000_000)
         sim.eventsEnabled = false
         val below = sim.buildReachable(Catalog.OFFICE, 10, floor = 1)
         val archive = sim.buildReachable(Catalog.OFFICE, 10, floor = 2)
@@ -87,7 +87,7 @@ class LastingEventsTest {
 
     @Test
     fun termitesKeepTenantsOut() {
-        val sim = Simulation(seed = 9, startMoney = 2_000_000)
+        val sim = officeSim(seed = 9, startMoney = 2_000_000)
         sim.eventsEnabled = false
         val office = sim.buildReachable(Catalog.OFFICE, 10)
         sim.step(10 * 1440.0)
@@ -101,7 +101,7 @@ class LastingEventsTest {
 
     @Test
     fun theAliensGiveTheFlatBack() {
-        val sim = Simulation(seed = 10, startMoney = 2_000_000)
+        val sim = officeSim(seed = 10, startMoney = 2_000_000)
         sim.eventsEnabled = false
         sim.stage = 5
         val embassy = sim.buildReachable(Catalog.OFFICE, 10)
@@ -116,7 +116,7 @@ class LastingEventsTest {
 
     @Test
     fun theFireAlarmEmptiesTheTower() {
-        val sim = Simulation(seed = 11, startMoney = 2_000_000)
+        val sim = officeSim(seed = 11, startMoney = 2_000_000)
         sim.eventsEnabled = false
         val food = sim.buildReachable(Catalog.FOOD, 10)
         sim.moveIn(food, Tenants.byId("imbiss"))
@@ -130,7 +130,7 @@ class LastingEventsTest {
 
     @Test
     fun theOpenDayIsOncePerWeek() {
-        val sim = Simulation(seed = 12, startMoney = 2_000_000)
+        val sim = officeSim(seed = 12, startMoney = 2_000_000)
         sim.eventsEnabled = false
         sim.build(sim.planLobby(0, 11))
         assertFalse(sim.startOpenDay().ok, "needs stage 3")
@@ -157,7 +157,7 @@ class LastingEventsTest {
 
     @Test
     fun theTenantJokesFitTheirTenants() {
-        val sim = Simulation(seed = 13, startMoney = 2_000_000)
+        val sim = officeSim(seed = 13, startMoney = 2_000_000)
         sim.eventsEnabled = false
         val office = sim.buildReachable(Catalog.OFFICE, 10)
         sim.moveIn(office, Tenants.byId("excuses"))

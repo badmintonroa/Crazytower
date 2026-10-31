@@ -21,6 +21,8 @@ data class SaveGame(
     val news: List<SavedNews>,
     val activeEvents: List<ActiveEvent> = emptyList(),
     val lastOpenDay: Double? = null,
+    /** Room types the player has seen in the build menu; null in saves from before. */
+    val seenTypes: List<String>? = null,
 ) {
     fun toJson(): String = json.encodeToString(serializer(), this)
 

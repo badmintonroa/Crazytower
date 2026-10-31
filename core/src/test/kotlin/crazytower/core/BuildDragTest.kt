@@ -10,7 +10,7 @@ import kotlin.test.assertTrue
 class BuildDragTest {
     @Test
     fun groundFloorIsOnlyForTheLobby() {
-        val sim = Simulation(startMoney = 10_000_000)
+        val sim = officeSim(startMoney = 10_000_000)
         assertEquals("Im Erdgeschoss ist nur Platz für die Lobby", sim.checkPlace(Catalog.OFFICE, GROUND_FLOOR, 10).reason)
         assertTrue(sim.checkPlace(Catalog.LOBBY, GROUND_FLOOR, 10).ok)
         assertTrue(sim.checkPlace(Catalog.ELEVATOR, GROUND_FLOOR, 10).ok)
@@ -21,7 +21,7 @@ class BuildDragTest {
 
     @Test
     fun aDraggedLobbyCostsPerSegmentAndJoinsTheOldOne() {
-        val sim = Simulation(startMoney = 1_000_000)
+        val sim = officeSim(startMoney = 1_000_000)
         assertTrue(sim.build(sim.planLobby(10, 15)).ok)
         val before = sim.money
         val plan = sim.planLobby(12, 29) // half over the old lobby
@@ -37,7 +37,7 @@ class BuildDragTest {
 
     @Test
     fun theLobbyCannotBeDraggedThroughOtherRooms() {
-        val sim = Simulation(startMoney = 1_000_000)
+        val sim = officeSim(startMoney = 1_000_000)
         sim.build(Catalog.LOBBY, GROUND_FLOOR, 0, 4)
         sim.build(Catalog.LOBBY, GROUND_FLOOR, 10, 4)
         // a shaft in between is fine, it is on its own layer
@@ -50,7 +50,7 @@ class BuildDragTest {
 
     @Test
     fun anElevatorIsDraggedUpThroughTheRooms() {
-        val sim = Simulation(seed = 3, startMoney = 10_000_000)
+        val sim = officeSim(seed = 3, startMoney = 10_000_000)
         sim.build(sim.planLobby(10, 21))
         val office = sim.build(Catalog.OFFICE, 1, 10).room!!
         val home = sim.build(Catalog.HOME, 2, 10).room!!
@@ -72,7 +72,7 @@ class BuildDragTest {
 
     @Test
     fun grabbingTheEndOfAShaftExtendsAndShortensIt() {
-        val sim = Simulation(startMoney = 10_000_000)
+        val sim = officeSim(startMoney = 10_000_000)
         sim.stage = 1 // taller than the building site allows
         sim.build(sim.planLobby(10, 15))
         sim.build(sim.planColumn(Catalog.ELEVATOR, 10, GROUND_FLOOR, 3))
@@ -104,7 +104,7 @@ class BuildDragTest {
 
     @Test
     fun draggedStairsLeadUpToTheFloorWhereTheDragEnds() {
-        val sim = Simulation(startMoney = 10_000_000)
+        val sim = officeSim(startMoney = 10_000_000)
         sim.build(sim.planLobby(10, 15))
         for (f in 1..3) sim.build(Catalog.CORRIDOR, f, 10)
         val plan = sim.planColumn(Catalog.STAIRS, 12, 3, GROUND_FLOOR)
@@ -116,7 +116,7 @@ class BuildDragTest {
 
     @Test
     fun aRoomWithAShaftThroughItCanBeTornDown() {
-        val sim = Simulation(startMoney = 10_000_000)
+        val sim = officeSim(startMoney = 10_000_000)
         sim.build(sim.planLobby(10, 15))
         val office = sim.build(Catalog.OFFICE, 1, 10).room!!
         sim.build(sim.planColumn(Catalog.ELEVATOR, 10, GROUND_FLOOR, 2))
@@ -128,7 +128,7 @@ class BuildDragTest {
 
     @Test
     fun aStretchedLobbySurvivesSaving() {
-        val sim = Simulation(startMoney = 1_000_000)
+        val sim = officeSim(startMoney = 1_000_000)
         sim.build(sim.planLobby(3, 25))
         val loaded = Simulation.load(SaveGame.fromJson(sim.toSave().toJson()))
         assertEquals(3 to 23, loaded.tower.roomAt(GROUND_FLOOR, 3)!!.let { it.x to it.width })
@@ -136,7 +136,7 @@ class BuildDragTest {
 
     @Test
     fun oldSavesWithRoomsOnTheGroundFloorStillLoad() {
-        val sim = Simulation(startMoney = 1_000_000)
+        val sim = officeSim(startMoney = 1_000_000)
         val office = TowerTestAccess.forcePlace(sim.tower, Catalog.OFFICE, GROUND_FLOOR, 10)
         val loaded = Simulation.load(SaveGame.fromJson(sim.toSave().toJson()))
         assertEquals(Catalog.OFFICE, loaded.tower.room(office.id)?.type)
@@ -144,7 +144,7 @@ class BuildDragTest {
 
     @Test
     fun elevatorsKeepTheirDistance() {
-        val sim = Simulation(startMoney = 10_000_000)
+        val sim = officeSim(startMoney = 10_000_000)
         assertTrue(sim.build(Catalog.ELEVATOR, GROUND_FLOOR, 30).ok)
         val gap = Tower.ELEVATOR_GAP
         assertFalse(sim.checkPlace(Catalog.ELEVATOR, GROUND_FLOOR, 32).ok, "right next to it")

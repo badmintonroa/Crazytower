@@ -194,6 +194,38 @@ object Tenants {
             salePrice = 0, eventOnly = true, plan = plan(Tr("täglich 10–16 Uhr (Erde besichtigen)", "daily 10 am–4 pm (sightseeing on Earth)"), WorkPlan.DAILY, 10, 16),
             quirk = Tr("Halten den Kühlschrank für ein Raumschiff.", "Think the fridge is a spaceship.")),
 
+        // Penthouses: luxury flats, sold once for what they cost to build
+        TenantKind("heir", Tr("Erbe Konstantin von Yacht", "Heir Konstantin von Yacht"), RoomRole.HOME, "penthouse_full", "npc_vip",
+            crew = listOf("npc_vip", "npc_office_boss"),
+            minStars = 4, luxury = true, salePrice = 120_000, plan = plan(Tr("Mo–Fr 11–16 Uhr (Polo)", "Mon–Fri 11 am–4 pm (polo)"), WorkPlan.WEEKDAYS, 11, 16),
+            quirk = Tr("Hat das Penthouse vom Taschengeld bezahlt.", "Paid for the penthouse out of his pocket money.")),
+        TenantKind("popstar", Tr("Popstar Glitzer-Gabi", "Pop Star Glitter Gabi"), RoomRole.HOME, "penthouse_full", "npc_student_party",
+            crew = listOf("npc_student_party", "npc_student_artist"),
+            minStars = 4, luxury = true, salePrice = 120_000, plan = plan(Tr("täglich 19–2 Uhr (Konzert)", "daily 7 pm–2 am (concert)"), WorkPlan.DAILY, 19, 2),
+            quirk = Tr("Singt im Aufzug. Live. Mit Pyrotechnik.", "Sings in the elevator. Live. With pyrotechnics.")),
+        TenantKind("sheikh", Tr("Ein Scheich ohne Ölquelle", "A Sheikh Without an Oil Well"), RoomRole.HOME, "penthouse_full", "npc_ministry",
+            crew = listOf("npc_ministry", "npc_vip"),
+            minStars = 5, luxury = true, salePrice = 120_000, plan = plan(Tr("Mo–Sa 10–14 Uhr (Golf)", "Mon–Sat 10 am–2 pm (golf)"), WorkPlan.MON_TO_SAT, 10, 14),
+            quirk = Tr("Bezahlt in Kamelen. Die Bank ist skeptisch.", "Pays in camels. The bank is sceptical.")),
+
+        // Dorms: students out at the university, they pay their beds every day
+        TenantKind("dorm_chaos", Tr("WG Chaos 3000", "Flatshare Chaos 3000"), RoomRole.DORM, "dorm_full", "npc_student_hoodie",
+            crew = listOf("npc_student_hoodie", "npc_student_party", "npc_student_gamer", "npc_student_bookworm", "npc_student_artist"),
+            rentPerDay = 650, plan = plan(Tr("täglich 10–16 Uhr (Uni, angeblich)", "daily 10 am–4 pm (uni, allegedly)"), WorkPlan.DAILY, 10, 16),
+            quirk = Tr("Der Putzplan hängt seit 2019. Unberührt.", "The cleaning rota has been up since 2019. Untouched.")),
+        TenantKind("dorm_erasmus", Tr("Erasmus-Gruppe Babylon", "Erasmus Group Babylon"), RoomRole.DORM, "dorm_full", "npc_student_artist",
+            crew = listOf("npc_student_artist", "npc_tourist", "npc_student_party"),
+            rentPerDay = 700, plan = plan(Tr("Mo–Fr 9–15 Uhr (Sprachkurs)", "Mon–Fri 9 am–3 pm (language course)"), WorkPlan.WEEKDAYS, 9, 15),
+            quirk = Tr("Sprechen acht Sprachen. Keine davon beim Abwasch.", "Speak eight languages. None of them at the sink.")),
+        TenantKind("dorm_eternal", Tr("Ewige Studis (31. Semester)", "Eternal Students (31st term)"), RoomRole.DORM, "dorm_full", "npc_student_bookworm",
+            crew = listOf("npc_student_bookworm", "npc_retiree", "npc_student_hoodie"),
+            rentPerDay = 600, plan = plan(Tr("täglich 14–17 Uhr (Bibliothek)", "daily 2–5 pm (library)"), WorkPlan.DAILY, 14, 17),
+            quirk = Tr("Schreiben seit 2009 an derselben Hausarbeit.", "Have been writing the same essay since 2009.")),
+        TenantKind("dorm_phd", Tr("Doktoranden im Dauerstress", "PhD Students Under Pressure"), RoomRole.DORM, "dorm_full", "npc_office_it",
+            crew = listOf("npc_office_it", "npc_student_bookworm", "npc_office_intern"),
+            minStars = 4, rentPerDay = 750, plan = plan(Tr("täglich 8–20 Uhr (Labor)", "daily 8 am–8 pm (lab)"), WorkPlan.DAILY, 8, 20),
+            quirk = Tr("Ernähren sich von Kaffee und Fußnoten.", "Live on coffee and footnotes.")),
+
         // Hotel guests: out during the day, they pay [rentPerDay] per night when they check out
         TenantKind("business", Tr("Herr Eilig auf Geschäftsreise", "Mr Hurry on a Business Trip"), RoomRole.HOTEL, "hotel_business", "npc_office_blazer",
             crew = listOf("npc_office_blazer", "npc_office_sleeves"),
@@ -227,6 +259,17 @@ object Tenants {
             minStars = 2, rentPerDay = 1_400, plan = plan(Tr("täglich 12–22 Uhr", "daily 12–10 pm"), WorkPlan.DAILY, 12, 22), quirk = Tr("Man muss zum Sushi laufen.", "You have to walk to the sushi.")),
         TenantKind("cafe", Tr("Café Koffeinschock", "Café Caffeine Shock"), RoomRole.FOOD, "food_cafe", "npc_office_intern",
             rentPerDay = 1_000, plan = plan(Tr("täglich 7–18 Uhr", "daily 7 am–6 pm"), WorkPlan.DAILY, 7, 18), quirk = Tr("Der Espresso hat eine eigene Steuernummer.", "The espresso has its own tax number.")),
+
+        // Corner shops: opening hours
+        TenantKind("spaeti", Tr("Späti Alles Da", "Everything-Here Corner Shop"), RoomRole.SHOP, "shop_spaeti", "npc_family_dad",
+            rentPerDay = 900, plan = plan(Tr("täglich 7–24 Uhr", "daily 7 am–midnight"), WorkPlan.DAILY, 7, 24),
+            quirk = Tr("Hat alles. Außer Wechselgeld.", "Has everything. Except change.")),
+        TenantKind("bioladen", Tr("Bioladen Grünkern", "Green Grain Organic Store"), RoomRole.SHOP, "shop_bio", "npc_family_mom",
+            rentPerDay = 1_000, plan = plan(Tr("Mo–Sa 9–20 Uhr", "Mon–Sat 9 am–8 pm"), WorkPlan.MON_TO_SAT, 9, 20),
+            quirk = Tr("Die Tomaten haben Namen.", "The tomatoes have names.")),
+        TenantKind("robo", Tr("Tante Robo (Automatenladen)", "Auntie Robo (Vending Shop)"), RoomRole.SHOP, "shop_robo", "npc_office_it",
+            minStars = 4, rentPerDay = 1_100, plan = plan(Tr("rund um die Uhr", "around the clock"), WorkPlan.DAILY, 0, 24),
+            quirk = Tr("Sagt „Danke für Ihren Einkauf“ auch zu Tauben.", "Says “Thank you for shopping” to pigeons too.")),
     )
 
     fun byId(id: String): TenantKind = all.first { it.id == id }

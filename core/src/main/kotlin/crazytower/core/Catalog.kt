@@ -46,13 +46,31 @@ enum class RoomRole {
 
     /** Cleaning staff who walk to dirty hotel rooms and make them ready for the next guests. */
     HOUSEKEEPING,
+
+    /** Students who rent a bed by the day: many people on little room, but loud, and they need side jobs. */
+    DORM,
+
+    /** A corner shop: residents like having one, every shop serves [Simulation.SHOP_SERVES] flats. */
+    SHOP,
+
+    /** More families want to buy flats, see [Simulation.KITA_BUYERS]. */
+    DAYCARE,
+
+    /** Brings commuters for the offices, see [Simulation.SUBWAY_COMMUTERS]. */
+    SUBWAY,
+
+    /** Trade fair guests pay more for the hotel rooms, see [Simulation.CONFERENCE_HOTEL_BONUS]. */
+    CONFERENCE,
     ;
 
     /** Rooms that get a tenant. */
-    val rentable: Boolean get() = this == OFFICE || this == HOME || this == FOOD || this == HOTEL || this == HOUSEKEEPING
+    val rentable: Boolean get() = this == OFFICE || this == HOME || this == FOOD || this == HOTEL || this == HOUSEKEEPING || this == DORM || this == SHOP
 
     /** Its people live in the room (and are out during their plan) rather than work there. */
-    val residential: Boolean get() = this == HOME || this == HOTEL
+    val residential: Boolean get() = this == HOME || this == HOTEL || this == DORM
+
+    /** People who live in the tower for good, as opposed to hotel guests. They can take jobs in the offices. */
+    val housing: Boolean get() = this == HOME || this == DORM
 
     /** Stairs and elevators sit on their own layer in front of the rooms. */
     val isWay: Boolean get() = this == STAIRS || this == ELEVATOR
@@ -99,7 +117,12 @@ data class RoomType(
     val upkeep: Long? = null,
     /** The price grows by this share of [cost] for every star above two, see [Simulation.listPrice]. */
     val pricePerStar: Double = 0.0,
+    /** Only on this floor or higher. */
+    val minFloor: Int? = null,
 ) {
+    /** A luxury office: posh tenants who need parking spaces of their own. */
+    val luxuryOffice: Boolean get() = luxury && role == RoomRole.OFFICE
+
     /** Priced per segment rather than per room. */
     val perSegment: Boolean get() = stretchable || fillsGap
 
@@ -160,7 +183,7 @@ object Catalog {
     )
     val OFFICE = RoomType(
         id = "office", name = Tr("Büro", "Office"), category = Category.OFFICES, role = RoomRole.OFFICE,
-        width = 6, cost = 12_000, art = "office_empty", capacity = 6, pricePerStar = Simulation.OFFICE_PRICE_PER_STAR,
+        width = 6, cost = 12_000, minStars = 1, art = "office_empty", capacity = 6, pricePerStar = Simulation.OFFICE_PRICE_PER_STAR,
         description = Tr("Wird vermietet. Wer einzieht, entscheidet der Turm.", "For rent. The tower decides who moves in."),
         effects = listOf(
             Tr("ab 3 Sternen teurer: die Handwerker lesen auch Bewertungen", "dearer from 3 stars: the builders read reviews too"),
@@ -174,7 +197,7 @@ object Catalog {
     )
     val FOOD = RoomType(
         id = "food", name = Tr("Imbiss", "Snack bar"), category = Category.FOOD, role = RoomRole.FOOD,
-        width = 6, cost = 25_000, art = "food_empty", capacity = 3,
+        width = 6, cost = 25_000, minStars = 1, art = "food_empty", capacity = 3,
         description = Tr("Hier essen Angestellte und Besucher.", "Where workers and visitors eat."),
         effects = listOf(
             Tr("Essen hebt die Laune, ohne Imbiss bleibt sie mau", "a meal lifts the mood, without food it stays low"),
@@ -272,11 +295,81 @@ object Catalog {
         ),
     )
 
+    // ---------------------------------------------------------------- from 3 stars: more ways to grow
+
+    val DORM = RoomType(
+        id = "dorm", name = Tr("Wohnheim", "Student dorm"), category = Category.HOMES, role = RoomRole.DORM,
+        width = 6, cost = 20_000, minStars = 3, art = "dorm_empty", capacity = 6,
+        description = Tr("Sechs Betten, eine Kochplatte, null Ruhe.", "Six beds, one hot plate, zero peace."),
+        effects = listOf(
+            Tr("6 Bewohner, Miete jeden Tag, kein Käufer nötig", "6 residents, rent every day, no buyer needed"),
+            Tr("Studis brauchen Nebenjobs: höchstens halb so viele wie Büro-Angestellte", "students need side jobs: at most half as many as office workers"),
+            Tr("laut: Wohnungen auf derselben Etage −${Simulation.DORM_NOISE.toInt()} Laune", "loud: flats on the same floor −${Simulation.DORM_NOISE.toInt()} mood"),
+        ),
+    )
+    val SHOP = RoomType(
+        id = "shop", name = Tr("Späti", "Corner shop"), category = Category.FOOD, role = RoomRole.SHOP,
+        width = 6, cost = 30_000, minStars = 3, art = "shop_empty", capacity = 2,
+        description = Tr("Milch, Batterien und Lebensweisheiten.", "Milk, batteries and wisdom."),
+        effects = listOf(
+            Tr("versorgt ${Simulation.SHOP_SERVES} Wohnungen und Wohnheime", "serves ${Simulation.SHOP_SERVES} flats and dorms"),
+            Tr("Bewohner: bis +${Simulation.SHOP_MOOD.toInt()} Laune, wenn alle versorgt sind", "residents: up to +${Simulation.SHOP_MOOD.toInt()} mood when all are served"),
+        ),
+    )
+    val KITA = RoomType(
+        id = "kita", name = Tr("Kita", "Daycare"), category = Category.SPECIAL, role = RoomRole.DAYCARE,
+        width = 6, cost = 50_000, minStars = 3, art = "special_kita", maxCount = 3, upkeep = 800,
+        description = Tr("Hier wird gebaut, gemalt und gebissen.", "Building, painting and biting."),
+        effects = listOf(
+            Tr("+${Simulation.KITA_BUYERS} Wohnungskäufer pro Tag", "+${Simulation.KITA_BUYERS} flat buyers a day"),
+            Tr("höchstens 3 pro Turm", "at most 3 per tower"),
+            Tr("Unterhalt 800 \$ pro Tag", "upkeep \$800 a day"),
+        ),
+    )
+
+    // ---------------------------------------------------------------- from 4 stars
+
+    val PENTHOUSE = RoomType(
+        id = "penthouse", name = Tr("Penthouse", "Penthouse"), category = Category.HOMES, role = RoomRole.HOME,
+        width = 12, cost = 120_000, minStars = 4, art = "penthouse_empty", capacity = 4, luxury = true,
+        minFloor = Simulation.PENTHOUSE_FLOOR,
+        description = Tr("Mit Pool, Bar und Blick auf die Nachbarn.", "With a pool, a bar and a view of the neighbours."),
+        effects = listOf(
+            Tr("nur ab der ${Simulation.PENTHOUSE_FLOOR}. Etage, wegen der Aussicht", "only from floor ${Simulation.PENTHOUSE_FLOOR} up, for the view"),
+            Tr("${Simulation.PENTHOUSE_FEES}× Hausgeld einer Wohnung, braucht nur einen Käufer", "${Simulation.PENTHOUSE_FEES}× the service charge of a flat, needs only one buyer"),
+            Tr("viel Platz für nur 4 Bewohner", "lots of room for only 4 residents"),
+        ),
+    )
+    val SUBWAY = RoomType(
+        id = "subway", name = Tr("U-Bahn-Station", "Subway station"), category = Category.SPECIAL, role = RoomRole.SUBWAY,
+        width = 12, cost = 300_000, minStars = 4, basementOnly = true, art = "special_subway", maxCount = 1, upkeep = 3_000,
+        description = Tr("Der nächste Zug kommt gestern.", "The next train is due yesterday."),
+        effects = listOf(
+            Tr("+${grouped(Simulation.SUBWAY_COMMUTERS.toLong(), '.')} Pendler für die Büros", "+${grouped(Simulation.SUBWAY_COMMUTERS.toLong(), ',')} commuters for the offices"),
+            Tr("nur im Keller, nur einmal pro Turm", "basement only, only one per tower"),
+            Tr("Unterhalt 3.000 \$ pro Tag", "upkeep \$3,000 a day"),
+        ),
+    )
+    val CONFERENCE = RoomType(
+        id = "conference", name = Tr("Konferenzzentrum", "Conference centre"), category = Category.SPECIAL, role = RoomRole.CONFERENCE,
+        width = 12, cost = 250_000, minStars = 4, art = "special_conference", maxCount = 1, upkeep = 2_000,
+        description = Tr("Synergien, Flipcharts und Kekse, in dieser Reihenfolge.", "Synergies, flip charts and biscuits, in that order."),
+        effects = listOf(
+            Tr("Hotelgäste zahlen +${(Simulation.CONFERENCE_HOTEL_BONUS * 100).toInt()} % (Messepreise)", "hotel guests pay +${(Simulation.CONFERENCE_HOTEL_BONUS * 100).toInt()} % (trade fair prices)"),
+            Tr("Sehenswürdigkeit für Besucher", "a sight for visitors"),
+            ONCE,
+            Tr("Unterhalt 2.000 \$ pro Tag", "upkeep \$2,000 a day"),
+        ),
+    )
+
     /** The old car park for 40 cars; saves that still have one get single spaces instead. */
     const val OLD_CAR_PARK = "parking"
 
     val roomTypes: List<RoomType> =
-        listOf(LOBBY, CORRIDOR, FILLER, STAIRS, ELEVATOR, EXPRESS, OFFICE, LUXURY_OFFICE, HOME, HOTEL, HOUSEKEEPING, FOOD, COPYROOM, SECURITY, TELEPORTER, UFO_PAD, PARKING)
+        listOf(
+            LOBBY, CORRIDOR, FILLER, STAIRS, ELEVATOR, EXPRESS, OFFICE, LUXURY_OFFICE, HOME, DORM, PENTHOUSE, HOTEL, HOUSEKEEPING,
+            FOOD, SHOP, COPYROOM, SECURITY, KITA, SUBWAY, CONFERENCE, TELEPORTER, UFO_PAD, PARKING,
+        )
 
     fun type(id: String): RoomType = roomTypes.first { it.id == id }
 }
