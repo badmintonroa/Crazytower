@@ -80,7 +80,7 @@ class ExtrasWindow(private val sim: Simulation, private val game: GameController
         body.removeChildren()
         if (sim.stage < SINK_STAGE) {
             body.wrappedLabel(
-                tr("Ab Stufe $SINK_STAGE gibt es hier Versicherungen, Werbung, ein Turmfest, Deko, Seiteneingänge und das Labor für fragwürdige Wissenschaft. Bis dahin braucht jeder Dollar ein Zimmer.",
+                tr("Ab $SINK_STAGE Sternen gibt es hier Versicherungen, Werbung, ein Turmfest, Deko, Seiteneingänge und das Labor für fragwürdige Wissenschaft. Bis dahin braucht jeder Dollar ein Zimmer.",
                     "From stage $SINK_STAGE on you'll find insurance, ads, a tower party, decorations, side entrances and the Laboratory of Questionable Science here. Until then every dollar needs a room."),
                 panelWidth - 36, 14.0, Theme.TEXT_DIM,
             ).xy(18.0, 60.0)
@@ -195,7 +195,7 @@ class MissionWindow(private val sim: Simulation, private val game: GameControlle
         val w = panelWidth - 36
         if (!sim.missionStarted) {
             body.wrappedLabel(
-                tr("Mit Stufe 5 beginnt die Mondmission: Auf der obersten Etage entsteht Teil für Teil eine Mondstation, und jedes Teil braucht Aufträge im Turm.",
+                tr("Mit 5 Sternen beginnt die Mondmission: Auf der obersten Etage entsteht Teil für Teil eine Mondstation, und jedes Teil braucht Aufträge im Turm.",
                     "The moon mission starts at stage 5: part by part, a moon station rises on the top floor, and every part needs tasks done in the tower."),
                 w, 14.0, Theme.TEXT_DIM,
             ).xy(18.0, 60.0)

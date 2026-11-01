@@ -6,6 +6,7 @@ import crazytower.core.ecs.Position
 import crazytower.core.ecs.Schedule
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class LifeTest {
@@ -98,14 +99,30 @@ class LifeTest {
     }
 
     @Test
+    fun theFirstFlatsOfANewTowerFillUpOnTheFirstDay() {
+        val sim = officeSim(seed = 4, startMoney = 1_000_000).apply { eventsEnabled = false }
+        sim.build(sim.planLobby(10, 45))
+        val flats = listOf(sim.buildReachable(Catalog.HOME, 10)) + (16..40 step 6).map { sim.build(Catalog.HOME, 1, it).room!! }
+        assertTrue(flats.size > sim.flatBuyersPerDay)
+        stepTo(sim, 23)
+        assertEquals(flats.size, flats.count { it.tenant != null }, "no waiting for tomorrow's buyers at the start")
+    }
+
+    @Test
     fun onlyAFewFlatsFindBuyersEachDay() {
         val sim = officeSim(seed = 4, startMoney = 1_000_000).apply { eventsEnabled = false }
         sim.build(sim.planLobby(10, 45))
         val flats = listOf(sim.buildReachable(Catalog.HOME, 10)) + (16..40 step 6).map { sim.build(Catalog.HOME, 1, it).room!! }
+        // the first households of the tower are already there
+        val earlier = (2..3).flatMap { f -> (10..40 step 6).map { sim.build(Catalog.HOME, f, it).room!! } }
+        assertEquals(Simulation.FIRST_HOUSEHOLDS, earlier.size)
+        for (room in earlier) sim.moveIn(room, Tenants.byId("family"))
+        assertFalse(sim.firstHouseholdsWanted)
         stepTo(sim, 23)
-        assertEquals(sim.flatBuyersPerDay, flats.count { it.tenant != null }, "two buyers on the first day")
+        assertEquals(0, flats.count { it.tenant != null }, "the day's buyers already went to the earlier flats")
+        val before = flats.count { it.tenant != null }
         stepTo(sim, 23, day = 1)
-        assertEquals(2 * sim.flatBuyersPerDay, flats.count { it.tenant != null }, "two more the next day")
+        assertEquals(before + sim.flatBuyersPerDay, flats.count { it.tenant != null }, "only the day's buyers")
     }
 
     @Test
@@ -137,9 +154,14 @@ class LifeTest {
     @Test
     fun starsNeedPeopleMoodAndFood() {
         assertEquals(1, Rating.stars(10, 90f, true))
-        assertEquals(2, Rating.stars(200, 60f, false))
-        assertEquals(3, Rating.stars(200, 60f, true))
-        assertEquals(2, Rating.stars(200, 52f, true))
+        assertEquals(1, Rating.stars(200, 90f, true), "the second star takes more than a few flats")
+        assertEquals(2, Rating.stars(300, 60f, false))
+        assertEquals(1, Rating.stars(300, 45f, true))
+        assertEquals(2, Rating.stars(1_000, 70f, false), "the third star needs a snack bar")
+        assertEquals(3, Rating.stars(1_000, 70f, true))
+        assertEquals(3, Rating.stars(3_000, 70f, true), "the fourth star needs security")
+        assertEquals(4, Rating.stars(6_000, 70f, true, hasSecurity = true), "the fifth star needs a happy VIP")
+        assertEquals(5, Rating.stars(6_000, 70f, true, hasSecurity = true, vipSurvived = true))
     }
 
     @Test

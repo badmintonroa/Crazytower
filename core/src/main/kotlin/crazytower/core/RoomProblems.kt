@@ -58,9 +58,9 @@ object RoomProblems {
                 Tr("Keine Fachkräfte", "No staff"),
                 Tr(
                     "Die Firmen finden keine Leute: ${sim.jobs} Stellen, nur ${sim.workforce} Arbeitskräfte. " +
-                        "Mehr Wohnungen oder Wohnheime im Turm helfen" + if (sim.stars >= 4) ", oder eine U-Bahn-Station." else ", ab 4 Sternen auch eine U-Bahn-Station.",
+                        "Mehr Wohnungen oder Wohnheime im Turm helfen" + if (sim.stars >= Catalog.SUBWAY.minStars) ", oder eine U-Bahn-Station." else ", ab ${Catalog.SUBWAY.minStars} Sternen auch eine U-Bahn-Station.",
                     "The companies can't find people: ${sim.jobs} jobs, only ${sim.workforce} workers. " +
-                        "More flats or dorms in the tower help" + if (sim.stars >= 4) ", or a subway station." else ", from 4 stars a subway station too.",
+                        "More flats or dorms in the tower help" + if (sim.stars >= Catalog.SUBWAY.minStars) ", or a subway station." else ", from ${Catalog.SUBWAY.minStars} stars a subway station too.",
                 ),
             )
             room.type.role == RoomRole.DORM && !sim.hasSideJobsFor(room.type.capacity) -> RoomProblem(

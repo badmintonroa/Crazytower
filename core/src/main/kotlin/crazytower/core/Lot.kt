@@ -10,15 +10,14 @@ object Lot {
 
     val steps = listOf(
         Step(0, 64),
-        Step(3, 96),
-        Step(4, 128),
-        Step(5, 160),
+        Step(2, 128),
+        Step(3, 160),
     )
 
     /** The widest the lot ever gets; the tower is laid out for it from the start. */
     val maxWidth: Int get() = steps.last().width
 
-    const val BASEMENT_STARS = 4
+    const val BASEMENT_STARS = 3
 
     /** Lot width in segments for a tower that reached [stars]. */
     fun width(stars: Int): Int = steps.last { it.stars <= stars }.width

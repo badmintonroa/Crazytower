@@ -12,7 +12,7 @@ import crazytower.core.missionTenant
 /**
  * Lets tenants move into empty offices, homes and restaurants. A room only gets rented once
  * people can get there from the street in time, so upper floors need stairs or an elevator.
- * New flats find only a few buyers a day. Whatever keeps a room empty for good ends up in
+ * New flats find only a few buyers a day, apart from the first households of a new tower. Whatever keeps a room empty for good ends up in
  * [Simulation.roomProblems], for the exclamation marks over the rooms.
  */
 class TenantSystem(
@@ -30,6 +30,7 @@ class TenantSystem(
         // one search from each way in serves all empty rooms
         val searches = HashMap<Float, (crazytower.core.Loc) -> Float?>()
         val present by lazy { sim.tower.allRooms.mapNotNullTo(HashSet()) { it.tenant } }
+        val firstHouseholds by lazy { sim.firstHouseholdsWanted }
         for (room in sim.tower.allRooms) {
             if (!room.type.role.rentable || room.tenant != null) continue
             val street = sim.streetExit(room.centerX)
@@ -42,8 +43,8 @@ class TenantSystem(
             // termites at work
             if (sim.moveInBlocked(room)) continue
             if (now - room.since < VACANCY_MINUTES || sim.random.nextFloat() > MOVE_IN_CHANCE) continue
-            // only a few buyers a day for flats that were never sold
-            if (room.type.role == RoomRole.HOME && !room.sold && sim.flatsSoldToday >= sim.flatBuyersPerDay) continue
+            // only a few buyers a day for flats that were never sold, except for the first households of a new tower
+            if (room.type.role == RoomRole.HOME && !room.sold && sim.flatsSoldToday >= sim.flatBuyersPerDay && !firstHouseholds) continue
             // hotel guests only take clean rooms, and only in the afternoon and evening
             if (room.type.role == RoomRole.HOTEL && (room.dirty || sim.clock.hour !in Simulation.CHECK_IN_FROM until Simulation.CHECK_IN_UNTIL)) continue
             val candidates = Tenants.candidates(room.type, sim.stars, sim.stage)

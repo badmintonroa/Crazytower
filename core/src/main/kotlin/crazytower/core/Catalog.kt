@@ -304,7 +304,7 @@ object Catalog {
         description = Tr("Die Herren tragen Sonnenbrillen. Auch nachts.", "The gentlemen wear sunglasses. At night too."),
         effects = listOf(
             Tr("halb so viel Ärger, verhindert manchen ganz", "half the trouble, stops some of it entirely"),
-            Tr("Pflicht für Stufe 4", "required for stage 4"),
+            Tr("Pflicht für den 4. Stern", "required for the 4th star"),
             ONCE,
         ),
     )
@@ -350,7 +350,7 @@ object Catalog {
 
     val DORM = RoomType(
         id = "dorm", name = Tr("Wohnheim", "Student dorm"), category = Category.HOMES, role = RoomRole.DORM,
-        width = 6, cost = 20_000, minStars = 3, art = "dorm_empty", capacity = 6,
+        width = 6, cost = 20_000, minStars = 2, art = "dorm_empty", capacity = 6,
         description = Tr("Sechs Betten, eine Kochplatte, null Ruhe.", "Six beds, one hot plate, zero peace."),
         effects = listOf(
             Tr("6 Bewohner, Miete jeden Tag, kein Käufer nötig", "6 residents, rent every day, no buyer needed"),
@@ -360,7 +360,7 @@ object Catalog {
     )
     val SHOP = RoomType(
         id = "shop", name = Tr("Späti", "Corner shop"), category = Category.FOOD, role = RoomRole.SHOP,
-        width = 6, cost = 30_000, minStars = 3, art = "shop_empty", capacity = 2,
+        width = 6, cost = 30_000, minStars = 2, art = "shop_empty", capacity = 2,
         description = Tr("Milch, Batterien und Lebensweisheiten.", "Milk, batteries and wisdom."),
         effects = listOf(
             Tr("versorgt ${Simulation.SHOP_SERVES} Wohnungen und Wohnheime", "serves ${Simulation.SHOP_SERVES} flats and dorms"),
@@ -369,7 +369,7 @@ object Catalog {
     )
     val KITA = RoomType(
         id = "kita", name = Tr("Kita", "Daycare"), category = Category.SPECIAL, role = RoomRole.DAYCARE,
-        width = 6, cost = 50_000, minStars = 3, art = "special_kita", maxCount = 3, upkeep = 800,
+        width = 6, cost = 50_000, minStars = 2, art = "special_kita", maxCount = 3, upkeep = 800,
         description = Tr("Hier wird gebaut, gemalt und gebissen.", "Building, painting and biting."),
         effects = listOf(
             Tr("+${Simulation.KITA_BUYERS} Wohnungskäufer pro Tag", "+${Simulation.KITA_BUYERS} flat buyers a day"),
@@ -382,7 +382,7 @@ object Catalog {
 
     val PENTHOUSE = RoomType(
         id = "penthouse", name = Tr("Penthouse", "Penthouse"), category = Category.HOMES, role = RoomRole.HOME,
-        width = 12, cost = 120_000, minStars = 4, art = "penthouse_empty", capacity = 4, luxury = true,
+        width = 12, cost = 120_000, minStars = 3, art = "penthouse_empty", capacity = 4, luxury = true,
         minFloor = Simulation.PENTHOUSE_FLOOR,
         description = Tr("Mit Pool, Bar und Blick auf die Nachbarn.", "With a pool, a bar and a view of the neighbours."),
         effects = listOf(
@@ -393,7 +393,7 @@ object Catalog {
     )
     val SUBWAY = RoomType(
         id = "subway", name = Tr("U-Bahn-Station", "Subway station"), category = Category.SPECIAL, role = RoomRole.SUBWAY,
-        width = 12, cost = 300_000, minStars = 4, basementOnly = true, art = "special_subway", maxCount = 1, upkeep = 3_000,
+        width = 12, cost = 300_000, minStars = 3, basementOnly = true, art = "special_subway", maxCount = 1, upkeep = 3_000,
         description = Tr("Der nächste Zug kommt gestern.", "The next train is due yesterday."),
         effects = listOf(
             Tr("+${grouped(Simulation.SUBWAY_COMMUTERS.toLong(), '.')} Pendler für die Büros", "+${grouped(Simulation.SUBWAY_COMMUTERS.toLong(), ',')} commuters for the offices"),
@@ -403,7 +403,7 @@ object Catalog {
     )
     val CONFERENCE = RoomType(
         id = "conference", name = Tr("Konferenzzentrum", "Conference centre"), category = Category.SPECIAL, role = RoomRole.CONFERENCE,
-        width = 12, cost = 250_000, minStars = 4, art = "special_conference", maxCount = 1, upkeep = 2_000,
+        width = 12, cost = 250_000, minStars = 3, art = "special_conference", maxCount = 1, upkeep = 2_000,
         description = Tr("Synergien, Flipcharts und Kekse, in dieser Reihenfolge.", "Synergies, flip charts and biscuits, in that order."),
         effects = listOf(
             Tr("Hotelgäste zahlen +${(Simulation.CONFERENCE_HOTEL_BONUS * 100).toInt()} % (Messepreise)", "hotel guests pay +${(Simulation.CONFERENCE_HOTEL_BONUS * 100).toInt()} % (trade fair prices)"),

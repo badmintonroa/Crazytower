@@ -11,10 +11,10 @@ class LotTest {
         val sim = officeSim(startMoney = 10_000_000)
         assertEquals(64, sim.lotWidth)
         assertTrue(sim.checkPlace(Catalog.LOBBY, GROUND_FLOOR, 58).ok)
-        assertEquals("Grundstück wird erst ab 3 Sternen breiter", sim.checkPlace(Catalog.LOBBY, GROUND_FLOOR, 60).reason)
+        assertEquals("Grundstück wird erst ab 2 Sternen breiter", sim.checkPlace(Catalog.LOBBY, GROUND_FLOOR, 60).reason)
         assertEquals(63, sim.planLobby(0, 200).pieces.single().let { it.x + it.width - 1 }, "a drag stops at the lot edge")
-        sim.stars = 3
-        assertEquals(96, sim.lotWidth)
+        sim.stars = 2
+        assertEquals(128, sim.lotWidth)
         assertTrue(sim.checkPlace(Catalog.LOBBY, GROUND_FLOOR, 60).ok)
         sim.stars = 5
         assertEquals(Lot.maxWidth, sim.lotWidth)
@@ -23,17 +23,17 @@ class LotTest {
     }
 
     @Test
-    fun theBasementOpensAtFourStars() {
+    fun theBasementOpensAtThreeStars() {
         val sim = officeSim(startMoney = 10_000_000)
-        sim.stars = 3
-        assertEquals("Keller erst ab 4 Sternen", sim.checkPlace(Catalog.OFFICE, -1, 10).reason)
+        sim.stars = 2
+        assertEquals("Keller erst ab 3 Sternen", sim.checkPlace(Catalog.OFFICE, -1, 10).reason)
         // the drag builds the ground floor and leaves the basement out
         val plan = sim.planColumn(Catalog.ELEVATOR, 10, 0, -2)
         assertEquals(listOf(0), plan.pieces.map { it.floor })
         assertEquals(listOf(-1, -2), plan.blocked.map { it.floor })
-        assertEquals("Keller erst ab 4 Sternen", plan.blockedReason)
+        assertEquals("Keller erst ab 3 Sternen", plan.blockedReason)
         assertFalse(sim.planColumn(Catalog.ELEVATOR, 10, -1, -2).check.ok)
-        sim.stars = 4
+        sim.stars = 3
         assertTrue(sim.checkPlace(Catalog.OFFICE, -1, 10).ok)
         assertTrue(sim.planColumn(Catalog.ELEVATOR, 10, 0, -1).check.ok)
     }
@@ -41,8 +41,8 @@ class LotTest {
     @Test
     fun aParkingSpaceOnlyGoesUndergroundAndEarnsFees() {
         val sim = officeSim(startMoney = 10_000_000)
-        assertEquals("Erst ab 4 Sternen", sim.checkPlace(Catalog.PARKING, -1, 10).reason)
-        sim.stars = 4
+        assertEquals("Erst ab 3 Sternen", sim.checkPlace(Catalog.PARKING, -1, 10).reason)
+        sim.stars = 3
         assertEquals("Parkplatz nur im Keller", sim.checkPlace(Catalog.PARKING, 1, 10).reason)
         assertFalse(sim.checkPlace(Catalog.PARKING, -1, 10).ok, "no car, no space")
         rentOffices(sim, 1) // 3 cars

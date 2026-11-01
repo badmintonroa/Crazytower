@@ -106,7 +106,14 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     }
 
     /** What the next star still needs, e.g. "ein Imbiss"; empty at five stars. */
-    val nextStarMissing: List<String> get() = Rating.missing(stars, population, satisfaction, hasFood)
+    val nextStarMissing: List<String> get() = Rating.missing(stars, ratingFacts)
+
+    /** What the tower brings along for the next star. */
+    val ratingFacts: Rating.Facts get() = Rating.Facts(
+        population, satisfaction, hasFood,
+        hasSecurity = tower.allRooms.any { it.type.role == RoomRole.SECURITY },
+        vipSurvived = vipSurvived,
+    )
 
     /** The demo has reached its last star: the game stops and points to the full version. */
     val demoOver: Boolean get() = Edition.demo && stars >= Edition.DEMO_STARS
@@ -218,7 +225,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
 
     /** What stage, stars and lot allow, before money and the tower itself are asked. */
     internal fun checkRules(type: RoomType, floor: Int, x: Int, width: Int): PlaceCheck {
-        if (type.minStage > stage) return PlaceCheck.no(tr("Erst ab Stufe ${type.minStage}", "Only from stage ${type.minStage}"))
+        if (type.minStage > stage) return PlaceCheck.no(tr("Erst ab ${type.minStage} Sternen", "Only from ${type.minStage} stars"))
         if (type.minStars > bestStars) return PlaceCheck.no(tr("Erst ab ${type.minStars} Sternen", "Only from ${type.minStars} stars"))
         val maxFloor = Stages.info(stage).maxFloor
         if (floor >= maxFloor) return PlaceCheck.no(floorLimit(maxFloor))
@@ -853,39 +860,6 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             moveOut(room)
             news.post(tr("$name zieht aus. Grund: $reason", "$name moves out. Reason: $reason"), room.center, important = true)
         }
-        val newStars = Rating.earned(population, satisfaction, hasFood)
-        if (newStars > stars) {
-            news.post(tr("Der Turm hat jetzt $newStars Sterne! Neue Mieter werden neugierig.", "The tower now has $newStars stars! New tenants are getting curious."), important = true)
-            val oldLot = lotWidth
-            val hadBasement = basementOpen
-            val before = Catalog.roomTypes.filter { unlocked(it) }.toSet()
-            stars = newStars
-            val fresh = Catalog.roomTypes.filter { unlocked(it) && it !in before }
-            if (fresh.isNotEmpty()) {
-                news.post(tr("Neu im Baumenü: ", "New in the build menu: ") + fresh.joinToString(", ") { it.name.toString() }, important = true)
-            }
-            if (newStars >= WORKFORCE_STARS && stars - 1 < WORKFORCE_STARS) {
-                news.post(
-                    tr("Ab jetzt suchen Firmen Fachkräfte: Neue Büros brauchen Leute aus der Stadt oder Bewohner im Turm. Wohnungen und Wohnheime helfen.",
-                        "From now on companies look for staff: new offices need people from the city or residents of the tower. Flats and dorms help."),
-                    important = true,
-                )
-            }
-            if (lotWidth > oldLot) {
-                news.post(
-                    tr("Die Stadt verkauft dir das Nachbargrundstück. Der Turm darf jetzt $lotWidth Felder breit werden. Der Nachbar zieht murrend mit seinem Gartenzwerg um.",
-                        "The city sells you the plot next door. The tower may now be $lotWidth tiles wide. The neighbour moves out grumbling, garden gnome in hand."),
-                    Loc(GROUND_FLOOR, oldLot.toFloat()), important = true,
-                )
-            }
-            if (basementOpen && !hadBasement) {
-                news.post(
-                    tr("Der Keller ist frei! Bis zur ${-Tower.MIN_FLOOR}. Untergeschoss darf gegraben werden, zum Beispiel für ein Parkhaus. Die Maulwürfe sind informiert.",
-                        "The basement is open! You may dig down to basement ${-Tower.MIN_FLOOR}, for a car park for example. The moles have been informed."),
-                    important = true,
-                )
-            }
-        }
         val fees = parkingFees()
         if (fees > 0) book(fees, MoneyKind.PARKING, MoneyKind.PARKING.label, tower.allRooms.firstOrNull { it.type.role == RoomRole.PARKING }?.center)
         moveOutUnhappiest(leaving)
@@ -918,7 +892,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         (grievance?.let { GRIEVANCE_REASONS.getValue(it) } ?: MOVE_OUT_REASONS[random.nextInt(MOVE_OUT_REASONS.size)]).toString()
     }
 
-    private fun floorLimit(maxFloor: Int): String = tr("Stufe $stage erlaubt nur $maxFloor Etagen", "Stage $stage only allows $maxFloor floors")
+    private fun floorLimit(maxFloor: Int): String = tr("Höchstens $maxFloor Etagen, mehr mit dem nächsten Stern", "At most $maxFloor floors, more with the next star")
 
     /**
      * Cars that want a space: those of the rented offices and occupied flats, plus the spaces
@@ -996,7 +970,14 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     val flatBuyersPerDay: Int get() =
         FLAT_BUYERS_BASE + stars + KITA_BUYERS * tower.allRooms.count { it.type.role == RoomRole.DAYCARE } + jobs / JOBS_PER_BUYER
 
-    /** Tower rating, 0 to 5 stars. Updated every midnight; it only goes up. */
+    /**
+     * A new tower draws a crowd: the first [FIRST_HOUSEHOLDS] households move in without
+     * waiting for the next day's buyers, so the first flats don't stand empty overnight.
+     */
+    val firstHouseholdsWanted: Boolean get() =
+        tower.allRooms.count { it.type.role == RoomRole.HOME && it.tenant != null } < FIRST_HOUSEHOLDS
+
+    /** Tower rating, 0 to 5 stars, which is also the stage. Checked every game hour; it only goes up. */
     var stars: Int = 0
         set(value) {
             field = value
@@ -1012,9 +993,10 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     /** People who live or work in the tower. Visitors don't count. */
     val population: Int get() = members.numEntities
 
-    /** Current tower stage, 1 to 5. */
-    var stage: Int = 0
-        internal set // tests jump ahead
+    /** Current tower stage, 0 to 5: the same as the stars, see [Stages]. */
+    var stage: Int
+        get() = stars
+        internal set(value) { stars = value } // tests jump ahead
 
     /** Progress towards the next stage, 0 to 1. */
     val stageProgress: Double get() = Stages.progress(this)
@@ -1029,17 +1011,51 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     var lastVipVisit: Double = -Vips.COOLDOWN_MINUTES
         internal set
 
-    /** Checks whether the tower reached the next stage. Called every game hour. */
+    /**
+     * Checks whether the tower earned the next star, which is also the next stage. Called every
+     * game hour, so a star does not wait for midnight.
+     */
     fun checkStage() {
-        if (stage >= Stages.last || !Stages.reached(this, stage + 1)) return
-        stage++
+        val newStars = Rating.earned(ratingFacts)
+        if (newStars <= stars) return
+        val oldStars = stars
+        val oldLot = lotWidth
+        val hadBasement = basementOpen
+        val before = Catalog.roomTypes.filter { unlocked(it) }.toSet()
+        stars = newStars
         looksVersion++ // the lobbies get a new look
-        val info = Stages.info(stage)
+        val info = Stages.info(newStars)
+        val title = if (newStars == 1) tr("1 STERN", "1 STAR") else tr("$newStars STERNE", "$newStars STARS")
         news.post(
-            tr("STUFE $stage: Der Turm ist jetzt ein ${info.name}! Bis zur ${info.maxFloor}. Etage darf gebaut werden. ${info.unlocks}",
-                "STAGE $stage: The tower is now a ${info.name}! You may build up to floor ${info.maxFloor}. ${info.unlocks}"),
+            tr("$title: Der Turm ist jetzt ein ${info.name}! Bis zur ${info.maxFloor}. Etage darf gebaut werden. ${info.unlocks}",
+                "$title: The tower is now a ${info.name}! You may build up to floor ${info.maxFloor}. ${info.unlocks}"),
             important = true,
         )
+        val fresh = Catalog.roomTypes.filter { unlocked(it) && it !in before }
+        if (fresh.isNotEmpty()) {
+            news.post(tr("Neu im Baumenü: ", "New in the build menu: ") + fresh.joinToString(", ") { it.name.toString() }, important = true)
+        }
+        if (newStars >= WORKFORCE_STARS && oldStars < WORKFORCE_STARS) {
+            news.post(
+                tr("Ab jetzt suchen Firmen Fachkräfte: Neue Büros brauchen Leute aus der Stadt oder Bewohner im Turm. Wohnungen und Wohnheime helfen.",
+                    "From now on companies look for staff: new offices need people from the city or residents of the tower. Flats and dorms help."),
+                important = true,
+            )
+        }
+        if (lotWidth > oldLot) {
+            news.post(
+                tr("Die Stadt verkauft dir das Nachbargrundstück. Der Turm darf jetzt $lotWidth Felder breit werden. Der Nachbar zieht murrend mit seinem Gartenzwerg um.",
+                    "The city sells you the plot next door. The tower may now be $lotWidth tiles wide. The neighbour moves out grumbling, garden gnome in hand."),
+                Loc(GROUND_FLOOR, oldLot.toFloat()), important = true,
+            )
+        }
+        if (basementOpen && !hadBasement) {
+            news.post(
+                tr("Der Keller ist frei! Bis zur ${-Tower.MIN_FLOOR}. Untergeschoss darf gegraben werden, zum Beispiel für ein Parkhaus. Die Maulwürfe sind informiert.",
+                    "The basement is open! You may dig down to basement ${-Tower.MIN_FLOOR}, for a car park for example. The moles have been informed."),
+                important = true,
+            )
+        }
     }
 
     fun toSave(): SaveGame = SaveGame(
@@ -1067,9 +1083,9 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     private fun restore(save: SaveGame) {
         clock.set(save.minutes)
         money = save.money
-        stage = save.stage
-        stars = save.stars
-        bestStars = maxOf(save.bestStars, save.stars)
+        // older saves kept stars and stages apart; the higher of the two counts now
+        stars = maxOf(save.stars, save.stage)
+        bestStars = maxOf(save.bestStars, stars)
         vipSurvived = save.vipSurvived
         val oldCarParks = save.rooms.filter { it.type == Catalog.OLD_CAR_PARK }
         for (saved in save.rooms - oldCarParks.toSet()) {
@@ -1287,6 +1303,9 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         const val FEE_EVERY_DAYS = 1
         const val HOME_FEE = 300L
         const val FLAT_BUYERS_BASE = 2
+
+        /** Households that move into a new tower without the daily limit on buyers, see [firstHouseholdsWanted]. */
+        const val FIRST_HOUSEHOLDS = 12
         const val UNHAPPY = 40f
         const val MOVE_OUT = 25f
         const val MIN_STAY_MINUTES = 2 * 1440.0

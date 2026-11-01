@@ -43,6 +43,20 @@ class StageEventSaveTest {
     }
 
     @Test
+    fun starsAndStagesAreOneLadder() {
+        val sim = officeSim()
+        sim.stars = 3
+        assertEquals(3, sim.stage)
+        assertEquals(50, Stages.info(sim.stage).maxFloor)
+        assertEquals(Rating.population(3), Stages.info(3).population)
+        // older saves kept the two apart: the higher one counts
+        val old = sim.toSave().copy(stars = 1, stage = 3)
+        val loaded = Simulation.load(old)
+        assertEquals(3, loaded.stars)
+        assertEquals(3, loaded.stage)
+    }
+
+    @Test
     fun clownsTakeOverAnOffice() {
         val sim = officeSim(seed = 5, startMoney = 1_000_000)
         val office = sim.buildReachable(Catalog.OFFICE, 10)

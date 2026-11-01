@@ -67,8 +67,8 @@ object TestTower {
         sim.money = MONEY
         sim.eventsEnabled = true
         sim.news.post(
-            tr("Testturm Stufe $stage: ${sim.population} Leute, ${sim.stars} Sterne. Wird nicht gespeichert.",
-                "Test tower stage $stage: ${sim.population} people, ${sim.stars} stars. Will not be saved."),
+            tr("Testturm ${Stages.info(stage).name}: ${sim.population} Leute, ${sim.stars} Sterne. Wird nicht gespeichert.",
+                "Test tower ${Stages.info(stage).name}: ${sim.population} people, ${sim.stars} stars. Will not be saved."),
             important = true,
         )
         return sim
