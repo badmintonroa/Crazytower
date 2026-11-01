@@ -1,6 +1,7 @@
 package crazytower.game
 
 import crazytower.core.Catalog
+import crazytower.core.Edition
 import crazytower.core.Category
 import crazytower.core.GameClock
 import crazytower.core.NewsItem
@@ -79,6 +80,7 @@ class Hud(
         it.xy((screenWidth - it.panelWidth) / 2, ((screenHeight - it.panelHeight) / 2).coerceAtLeast(84.0))
     }
     private val celebration = Celebration(screenWidth, screenHeight).addTo(this)
+    private val demoEnd = DemoEndWindow(screenWidth, screenHeight, game.onMainMenu) { game.onQuit() }.addTo(this)
     /** Darkens the game behind the pause menu and questions; they need an answer first. */
     private val dim = solidRect(screenWidth, screenHeight, Theme.alpha(Theme.INK, 0.55)).also { it.visible = false }
     private val pauseMenu = PauseMenu(game).addTo(this).also {
@@ -129,6 +131,8 @@ class Hud(
         buildBuildBar()
         buildTicker()
         setupKeys()
+        // the end of the demo covers everything, toasts and windows too
+        addChild(demoEnd)
     }
 
     /** True when [point] (screen coordinates) lies on a HUD element, so the tower ignores the click. */
@@ -145,7 +149,7 @@ class Hud(
             if (mission.visible) add(Rectangle(mission.x, mission.y, mission.panelWidth, mission.panelHeight))
             if (options.visible) add(Rectangle(options.x, options.y, options.panelWidth, options.panelHeight))
             if (help.visible) add(Rectangle(help.x, help.y, help.panelWidth, help.panelHeight))
-            if (celebration.isShowing) add(Rectangle(0.0, 0.0, screenWidth, screenHeight))
+            if (celebration.isShowing || demoEnd.visible) add(Rectangle(0.0, 0.0, screenWidth, screenHeight))
             add(Rectangle(0.0, screenHeight - 50.0, screenWidth, 50.0))
         }
         return rects.any { it.contains(point) }
@@ -622,6 +626,8 @@ class Hud(
         moodText.color = if (mood < 40) Theme.ALARM else Theme.TEXT_DIM
         syncStage()
         celebration.update(dtSeconds)
+        // the demo ends once the star celebration is over
+        demoEnd.visible = sim.demoOver && !celebration.isShowing
         clockText.text = sim.clock.format() + if (game.speed > 0 && game.nightBoost > 1) " »" else ""
         clockText.color = if (game.speed == 0) Theme.ALARM else Theme.TEXT
         speedButtons.forEach { (speed, b) -> b.selected = game.speed == speed }
@@ -709,6 +715,7 @@ class Hud(
         val missing = sim.nextStarMissing
         starHint.text = when {
             sim.stars >= Rating.steps.size -> ""
+            sim.stars >= Edition.maxStars -> tr("Stern ${sim.stars + 1}: in der Vollversion", "Star ${sim.stars + 1}: in the full version")
             // everything is there, the rating catches up at the next check
             missing.isEmpty() -> tr("Stern ${sim.stars + 1}: kommt bald", "Star ${sim.stars + 1}: coming soon")
             else -> tr("Stern ${sim.stars + 1}: ${missing.first()}", "Star ${sim.stars + 1}: ${missing.first()}")

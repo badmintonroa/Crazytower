@@ -64,6 +64,12 @@ class GameController(val sim: Simulation) {
 
     /** Saves (unless it is a test tower) and goes back to the title screen; set by the game screen. */
     var onMainMenu: (() -> Unit)? = null
+
+    /** Saves (unless it is a test tower) and closes the game; set by the game screen. */
+    var onQuit: () -> Unit = {}
+
+    /** The game stands still at the end of the demo; the title screen's tower keeps living. */
+    var stopsAtDemoEnd = true
     var toast: String? = null
         private set
     private var toastLeft = 0.0
@@ -74,7 +80,7 @@ class GameController(val sim: Simulation) {
             toastLeft -= seconds
             if (toastLeft <= 0) toast = null
         }
-        if (speed > 0) sim.step(seconds.coerceAtMost(0.25) * GAME_MINUTES_PER_SECOND * speed * nightBoost)
+        if (speed > 0 && !(stopsAtDemoEnd && sim.demoOver)) sim.step(seconds.coerceAtMost(0.25) * GAME_MINUTES_PER_SECOND * speed * nightBoost)
     }
 
     /** Between 23 and 6 o'clock the clock runs four times faster, if the player wants. */

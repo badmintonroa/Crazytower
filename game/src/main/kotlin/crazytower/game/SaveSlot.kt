@@ -1,5 +1,6 @@
 package crazytower.game
 
+import crazytower.core.Edition
 import crazytower.core.SaveGame
 import crazytower.core.Simulation
 import crazytower.core.tr
@@ -8,27 +9,39 @@ import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 
 /**
- * The one save slot, in the user's home folder. Every save keeps the one before as
- * [backup], and writes to a temporary file first, so a crash while saving never leaves
- * a half-written game behind. When the save game doesn't load, the backup does.
+ * The one save slot, in the user's home folder. The demo keeps its own file, so it never
+ * overwrites a tower of the full game; the full game picks up the demo tower while it has none.
+ * Every save keeps the one before as a backup (`spielstand.bak.json`) and writes to a new file first,
+ * so a crash while saving never leaves a half-written game behind. When the save game doesn't
+ * load, its backup does.
  */
 object SaveSlot {
-    val file: File = File(System.getProperty("user.home"), ".crazytower/spielstand.json")
+    private val folder = File(System.getProperty("user.home"), ".crazytower")
+    private val demoFile = File(folder, "spielstand_demo.json")
+    private val fullFile = File(folder, "spielstand.json")
 
-    /** The save before the last one. */
-    val backup: File get() = File(file.parentFile, "spielstand.bak.json")
+    /** Where this edition saves. */
+    private val ownFile: File get() = if (Edition.demo) demoFile else fullFile
+
+    /** Where this edition loads from: its own save, or for the full game the demo tower. */
+    val file: File get() = if (!Edition.demo && !fullFile.exists() && demoFile.exists()) demoFile else ownFile
+
+    /** The save before the last one, next to the file it loads from. */
+    val backup: File get() = backupOf(file)
+
+    private fun backupOf(save: File): File = File(save.parentFile, save.nameWithoutExtension + ".bak.json")
 
     /** Saves and returns a message for the player. */
     fun save(sim: Simulation): String = trySave(sim).second
 
     /** Saves and returns whether it worked and a message for the player. */
     fun trySave(sim: Simulation): Pair<Boolean, String> = runCatching {
-        file.parentFile.mkdirs()
-        val fresh = File(file.parentFile, "spielstand.neu.json")
+        ownFile.parentFile.mkdirs()
+        val fresh = File(folder, ownFile.nameWithoutExtension + ".neu.json")
         fresh.writeText(sim.toSave().toJson())
         // only a save that loads becomes the backup
-        if (file.exists() && readable(file)) Files.copy(file.toPath(), backup.toPath(), StandardCopyOption.REPLACE_EXISTING)
-        Files.move(fresh.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+        if (ownFile.exists() && readable(ownFile)) Files.copy(ownFile.toPath(), backupOf(ownFile).toPath(), StandardCopyOption.REPLACE_EXISTING)
+        Files.move(fresh.toPath(), ownFile.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
         true to tr("Gespeichert (${sim.clock.format()})", "Saved (${sim.clock.format()})")
     }.getOrElse { false to tr("Speichern ging schief: ${it.message}", "Saving failed: ${it.message}") }
 
