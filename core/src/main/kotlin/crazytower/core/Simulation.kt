@@ -105,6 +105,9 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     /** What the next star still needs, e.g. "ein Imbiss"; empty at five stars. */
     val nextStarMissing: List<String> get() = Rating.missing(stars, population, satisfaction, hasFood)
 
+    /** The demo has reached its last star: the game stops and points to the full version. */
+    val demoOver: Boolean get() = Edition.demo && stars >= Edition.DEMO_STARS
+
     private val hasFood: Boolean get() = tower.allRooms.any { it.type.role == RoomRole.FOOD && it.tenant != null }
 
     /** Rent and fees grow with the star rating: [STAR_BONUS] per star above the first. */
@@ -843,7 +846,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             moveOut(room)
             news.post(tr("$name zieht aus. Grund: $reason", "$name moves out. Reason: $reason"), room.center, important = true)
         }
-        val newStars = Rating.stars(population, satisfaction, hasFood)
+        val newStars = Rating.earned(population, satisfaction, hasFood)
         if (newStars > stars) {
             news.post(tr("Der Turm hat jetzt $newStars Sterne! Neue Mieter werden neugierig.", "The tower now has $newStars stars! New tenants are getting curious."), important = true)
             val oldLot = lotWidth

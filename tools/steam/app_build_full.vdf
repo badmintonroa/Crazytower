@@ -1,0 +1,20 @@
+"AppBuild"
+{
+	"AppID" "FULL_APP_ID"
+	"Desc" "CrazyTower"
+	// the unzipped Windows folder (with CrazyTower.exe), relative to this file
+	"ContentRoot" "content\CrazyTower\"
+	"BuildOutput" "output\"
+	"Depots"
+	{
+		"FULL_DEPOT_ID"
+		{
+			"FileMapping"
+			{
+				"LocalPath" "*"
+				"DepotPath" "."
+				"recursive" "1"
+			}
+		}
+	}
+}

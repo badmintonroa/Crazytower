@@ -1,5 +1,6 @@
 package crazytower.game
 
+import crazytower.core.Edition
 import crazytower.core.Language
 import crazytower.core.Settings
 import crazytower.core.TestTower
@@ -55,7 +56,7 @@ class OptionsWindow(
     )
 
     init {
-        panelHeight = 72.0 + rows.size * 40.0 + 40.0 + (if (onMainMenu != null) 40.0 else 0.0) + 70.0
+        panelHeight = 72.0 + rows.size * 40.0 + (if (Edition.demo) 0.0 else 40.0) + (if (onMainMenu != null) 40.0 else 0.0) + 70.0
         Panel(panelWidth, panelHeight).addTo(this)
         label(tr("OPTIONEN", "OPTIONS"), 20.0, Theme.TEXT, Theme.bodyBold).xy(18.0, 14.0)
         val hint = label(tr("O oder Esc schließt", "O or Esc closes"), 12.0, Theme.TEXT_DIM)
@@ -71,15 +72,17 @@ class OptionsWindow(
             buttons += button to row.value
             y += 40.0
         }
-        // test mode: jump into a finished tower of each stage
-        label(tr("Testturm", "Test tower"), 15.0, Theme.TEXT, Theme.bodyBold).xy(22.0, y + 9).fitWidth(TITLE_WIDTH)
-        for (stage in 1..TestTower.MAXIMUM) {
-            val max = stage == TestTower.MAXIMUM
-            TextButton(if (max) 50.0 else 30.0, 34.0, if (max) "Max" else "$stage", 14.0) { onTestTower(stage) }
-                .addTo(this).xy(panelWidth - 240.0 + (stage - 1) * 34.0, y)
+        // test mode: jump into a finished tower of each stage; not in the demo, which ends at two stars
+        if (!Edition.demo) {
+            label(tr("Testturm", "Test tower"), 15.0, Theme.TEXT, Theme.bodyBold).xy(22.0, y + 9).fitWidth(TITLE_WIDTH)
+            for (stage in 1..TestTower.MAXIMUM) {
+                val max = stage == TestTower.MAXIMUM
+                TextButton(if (max) 50.0 else 30.0, 34.0, if (max) "Max" else "$stage", 14.0) { onTestTower(stage) }
+                    .addTo(this).xy(panelWidth - 240.0 + (stage - 1) * 34.0, y)
+            }
+            y += 40.0
         }
         if (onMainMenu != null) {
-            y += 40.0
             label(tr("Spiel", "Game"), 15.0, Theme.TEXT, Theme.bodyBold).xy(22.0, y + 9).fitWidth(TITLE_WIDTH)
             TextButton(220.0, 34.0, tr("Zum Hauptmenü", "Main menu"), 14.0) { onMainMenu.invoke() }.addTo(this).xy(panelWidth - 240.0, y)
         }
