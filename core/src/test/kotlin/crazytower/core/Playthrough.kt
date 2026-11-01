@@ -7,6 +7,9 @@ import crazytower.core.bot.TwinBot
 import crazytower.core.bot.WideBot
 import crazytower.core.ecs.Vip
 import com.github.quillraven.fleks.Entity
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.io.File
 
 /**
@@ -27,6 +30,8 @@ fun main(args: Array<String>) {
         Playthrough(seed, make, csv).run(days, wallLimitMin)
     }
     if (results.size > 1) Playthrough.compare(results)
+    // -Dresult=<file>: the parallel bot runs (BotFarm.kt) read the result back from here
+    System.getProperty("result")?.let { File(it).writeText(Json.encodeToString(results)) }
 }
 
 class Playthrough(private val seed: Long, makeBot: (Simulation) -> Bot, private val csvDir: File? = null) {
@@ -35,6 +40,7 @@ class Playthrough(private val seed: Long, makeBot: (Simulation) -> Bot, private 
     private val started = System.nanoTime()
 
     /** What a run ended with, for the comparison table. */
+    @Serializable
     data class Result(
         val bot: String, val days: Int, val stage: Int, val stars: Int, val population: Int, val peak: Int,
         val money: Long, val mood: Float, val stageDay: Map<Int, Int>, val starDay: Map<Int, Int>,
