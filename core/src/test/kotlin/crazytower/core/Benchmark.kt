@@ -7,7 +7,7 @@ import crazytower.core.ecs.Route
 
 /**
  * Runs the maximum test tower without graphics and prints the time per game hour and per system.
- * `./gradlew :core:bench` (optional arguments: game hours, tower number).
+ * `./gradlew :core:bench` (optional arguments: game hours, tower number; `-Dcrazytower.threads=1` without helper threads).
  * At 1x a game hour lasts 15 real seconds, so 15 000 ms per game hour is the limit for 1x.
  */
 fun main(args: Array<String>) {
@@ -15,7 +15,7 @@ fun main(args: Array<String>) {
     val number = args.getOrNull(1)?.toIntOrNull() ?: TestTower.MAXIMUM
     val built = System.nanoTime()
     val sim = TestTower.create(number)
-    println("Turm gebaut in ${(System.nanoTime() - built) / 1_000_000} ms: ${sim.population} Leute, ${sim.elevators.cars.size} Schächte")
+    println("Turm gebaut in ${(System.nanoTime() - built) / 1_000_000} ms: ${sim.population} Leute, ${sim.elevators.cars.size} Schächte, ${Workers.threads} Threads (-Dcrazytower.threads=n)")
     // warm up the JIT, then start at the same hour every run
     sim.step(60.0)
     val start = sim.profiler.snapshot()
@@ -48,7 +48,7 @@ fun main(args: Array<String>) {
         println("  %-14s %8.1f ms  %5.1f %%".format(sim.profiler.names[i], total.nanos[i] / 1e6 / hours, 100.0 * total.nanos[i] / sum))
     }
     println("  %-14s %8.1f ms".format("Summe", sum / 1e6 / hours))
-    println("Pfadsuche (in den Systemen enthalten): %.1f ms pro Spielstunde, %d Suchen, %.1f µs je Suche".format(
+    println("Pfadsuche (in den Systemen enthalten, Rechenzeit aller Threads zusammen): %.1f ms pro Spielstunde, %d Suchen, %.1f µs je Suche".format(
         total.pathNanos / 1e6 / hours, total.pathSearches, total.pathNanos / 1e3 / total.pathSearches.coerceAtLeast(1)))
     println("Bei 1x stehen 15 000 ms pro Spielstunde zur Verfügung: %.0f %% davon braucht die Simulation".format(sum / 1e6 / hours / 150))
 }

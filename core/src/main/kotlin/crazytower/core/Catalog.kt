@@ -77,6 +77,28 @@ enum class RoomRole {
 }
 
 /**
+ * How posh a hotel room is. Posher rooms are wider, the guests pay more per night, cleaning takes
+ * longer and VIPs like the tower better, see [Vips.judge].
+ *
+ * @param comfort what a room of this class adds to the VIPs' luxury score, 0..1
+ * @param cleanFactor cleaning takes this many times [Simulation.CLEAN_MINUTES]
+ */
+enum class HotelClass(private val text: Tr, val comfort: Float, val cleanFactor: Double) {
+    SINGLE(Tr("Einzelzimmer", "Single room"), 0f, 0.5),
+    DOUBLE(Tr("Doppelzimmer", "Double room"), 0.4f, 1.0),
+    SUITE(Tr("Suite", "Suite"), 1f, 2.0),
+    ;
+
+    val label: String get() = text.toString()
+
+    /** Game minutes the staff need to clean a room of this class. */
+    val cleanMinutes: Int get() = Math.round(Simulation.CLEAN_MINUTES * cleanFactor).toInt()
+
+    /** One to three stars for the build menu: how much the VIPs like it. */
+    val vipStars: Int get() = ordinal + 1
+}
+
+/**
  * A buildable room type.
  *
  * @param width width in segments; for [stretchable] types the width of a single click
@@ -119,6 +141,8 @@ data class RoomType(
     val pricePerStar: Double = 0.0,
     /** Only on this floor or higher. */
     val minFloor: Int? = null,
+    /** For hotel rooms: single, double or suite; only guests of the same class check in. */
+    val hotelClass: HotelClass = HotelClass.DOUBLE,
 ) {
     /** A luxury office: posh tenants who need parking spaces of their own. */
     val luxuryOffice: Boolean get() = luxury && role == RoomRole.OFFICE
@@ -131,6 +155,9 @@ data class RoomType(
 }
 
 object Catalog {
+    const val SINGLE_UPKEEP = 250L
+    const val SUITE_UPKEEP = 1_500L
+
     private val ONCE = Tr("nur einmal pro Turm", "only one per tower")
 
     /** A fixed amount with its thousands grouped by [separator], for texts built once. */
@@ -216,14 +243,38 @@ object Catalog {
             Tr("Unterhalt 2.000 \$ pro Tag", "upkeep \$2,000 a day"),
         ),
     )
+    val HOTEL_SINGLE = RoomType(
+        id = "hotel_single", name = Tr("Einzelzimmer", "Single room"), category = Category.HOMES, role = RoomRole.HOTEL,
+        width = 4, cost = 20_000, minStage = 3, art = "hotel_single_empty", capacity = 1, upkeep = SINGLE_UPKEEP,
+        hotelClass = HotelClass.SINGLE,
+        description = Tr("Ein Bett, ein Stuhl, ein Haken. Der Haken ist neu.", "One bed, one chair, one hook. The hook is new."),
+        effects = listOf(
+            Tr("1 Gast pro Nacht, billig zu bauen, schnell geputzt", "1 guest a night, cheap to build, quickly cleaned"),
+            Tr("viele kleine Zimmer halten den Reinigungsdienst auf Trab", "lots of small rooms keep housekeeping busy"),
+            Tr("VIPs finden Einzelzimmer knauserig", "VIPs think single rooms are stingy"),
+            Tr("Unterhalt $SINGLE_UPKEEP \$ pro Tag", "upkeep \$$SINGLE_UPKEEP a day"),
+        ),
+    )
     val HOTEL = RoomType(
-        id = "hotel", name = Tr("Hotelzimmer", "Hotel room"), category = Category.HOMES, role = RoomRole.HOTEL,
+        id = "hotel", name = Tr("Doppelzimmer", "Double room"), category = Category.HOMES, role = RoomRole.HOTEL,
         width = 6, cost = 40_000, minStage = 3, art = "hotel_empty", capacity = 2,
         description = Tr("Frische Handtücher, gelegentlich.", "Fresh towels, occasionally."),
         effects = listOf(
             Tr("Gäste checken ab 14 Uhr ein, zahlen beim Auschecken", "guests check in from 2 pm, pay on check-out"),
             Tr("danach schmutzig, bis der Reinigungsdienst kommt", "then dirty until housekeeping comes"),
             Tr("Unterhalt ${Simulation.HOTEL_UPKEEP} \$ pro Tag", "upkeep \$${Simulation.HOTEL_UPKEEP} a day"),
+        ),
+    )
+    val HOTEL_SUITE = RoomType(
+        id = "hotel_suite", name = Tr("Suite", "Suite"), category = Category.HOMES, role = RoomRole.HOTEL,
+        width = 12, cost = 180_000, minStage = 3, minStars = 4, art = "hotel_suite_empty", capacity = 4, luxury = true,
+        upkeep = SUITE_UPKEEP, hotelClass = HotelClass.SUITE,
+        description = Tr("Whirlpool, Butler und ein Kissen für jeden Wochentag.", "Hot tub, butler and a pillow for every day of the week."),
+        effects = listOf(
+            Tr("nur feine Gäste, die sehr viel pro Nacht zahlen", "only posh guests who pay a lot per night"),
+            Tr("VIPs lieben Suiten: je mehr Luxus, desto mehr Trinkgeld", "VIPs love suites: the more luxury, the bigger the tip"),
+            Tr("Putzen dauert doppelt so lange", "cleaning takes twice as long"),
+            Tr("Unterhalt ${grouped(SUITE_UPKEEP, '.')} \$ pro Tag", "upkeep \$${grouped(SUITE_UPKEEP, ',')} a day"),
         ),
     )
     val HOUSEKEEPING = RoomType(
@@ -367,7 +418,7 @@ object Catalog {
 
     val roomTypes: List<RoomType> =
         listOf(
-            LOBBY, CORRIDOR, FILLER, STAIRS, ELEVATOR, EXPRESS, OFFICE, LUXURY_OFFICE, HOME, DORM, PENTHOUSE, HOTEL, HOUSEKEEPING,
+            LOBBY, CORRIDOR, FILLER, STAIRS, ELEVATOR, EXPRESS, OFFICE, LUXURY_OFFICE, HOME, DORM, PENTHOUSE, HOTEL_SINGLE, HOTEL, HOTEL_SUITE, HOUSEKEEPING,
             FOOD, SHOP, COPYROOM, SECURITY, KITA, SUBWAY, CONFERENCE, TELEPORTER, UFO_PAD, PARKING,
         ) + listOf(Mission.DECK, Mission.SOUVENIRS) + Mission.partTypes
 

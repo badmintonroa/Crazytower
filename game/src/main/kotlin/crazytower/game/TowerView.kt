@@ -21,6 +21,8 @@ import crazytower.core.transport.Elevators
 import crazytower.core.transport.Car
 import crazytower.core.tr
 import crazytower.core.whereOf
+import crazytower.core.undoableBuild
+import crazytower.core.undoableDemolish
 import crazytower.game.ui.Icons
 import crazytower.game.ui.chamferPath
 import crazytower.game.ui.formatMoney
@@ -1106,9 +1108,9 @@ class TowerView(
                 grabbedEnd != null -> {
                     val modules = sim.planRetract(grabbedEnd!!, h.floor)
                     if (modules.isNotEmpty()) {
-                        val refund = sim.demolishAll(modules)
+                        val refund = sim.undoableDemolish(modules)
                         Sfx.play(Sfx.DEMOLISH)
-                        game.say(shortenedText(tool.type.name.toString(), modules.size, refund))
+                        game.say(shortenedText(tool.type.name.toString(), modules.size, refund) + undoHint())
                     } else {
                         val plan = planFor(tool.type, h)
                         if (plan.pieces.isNotEmpty()) build(plan)
@@ -1117,7 +1119,7 @@ class TowerView(
                 tool.type.stretchable || tool.type.fillsGap || tool.type.dragRow || tool.type.role.isWay -> build(planFor(tool.type, h))
                 else -> {
                     val x = BuildRules.snapX(h.segment, tool.type.width, sim.lotWidth)
-                    val result = sim.build(tool.type, h.floor, x)
+                    val result = sim.undoableBuild { sim.build(tool.type, h.floor, x) }
                     feedback(result.ok, result.reason)
                 }
             }
@@ -1127,10 +1129,11 @@ class TowerView(
                 if (room != null && blocked != null && !blocked.ok) {
                     game.say(blocked.reason)
                     Sfx.play(Sfx.ERROR)
+                } else if (room != null && room.tenant != null && Options.current.confirmDemolish) {
+                    // tenants can't be put back, so ask first
+                    game.confirm = demolishQuestion(room)
                 } else if (room != null) {
-                    val refund = sim.demolish(room.id)
-                    Sfx.play(Sfx.DEMOLISH)
-                    game.say(tr("${room.type.name} abgerissen, ${formatMoney(refund)} zurück", "${room.type.name} torn down, ${formatMoney(refund)} back"))
+                    tearDown(room)
                 }
             }
             null -> select(h)
@@ -1141,9 +1144,9 @@ class TowerView(
         val (removed, plan) = arrowPlan(end, h)
         when {
             removed.isNotEmpty() -> {
-                val refund = sim.demolishAll(removed)
+                val refund = sim.undoableDemolish(removed)
                 Sfx.play(Sfx.DEMOLISH)
-                game.say(shortenedText(end.type.name.toString(), removed.size, refund))
+                game.say(shortenedText(end.type.name.toString(), removed.size, refund) + undoHint())
             }
             plan != null -> build(plan)
         }
@@ -1155,8 +1158,32 @@ class TowerView(
     }
 
     private fun build(plan: BuildPlan) {
-        val result = sim.build(plan)
+        val result = sim.undoableBuild { sim.build(plan) }
         feedback(result.ok, result.reason)
+    }
+
+    private fun tearDown(room: Room) {
+        if (sim.tower.room(room.id) == null) return
+        val refund = sim.undoableDemolish(listOf(room))
+        Sfx.play(Sfx.DEMOLISH)
+        game.say(tr("${room.type.name} abgerissen, ${formatMoney(refund)} zurück", "${room.type.name} torn down, ${formatMoney(refund)} back") + undoHint())
+    }
+
+    /** " · Strg+Z holt es zurück" when the step just done can be taken back. */
+    private fun undoHint(): String = if (sim.undoStep != null) tr(" · Strg+Z holt es zurück", " · Ctrl+Z brings it back") else ""
+
+    /** What tearing down a rented [room] means, before the player says yes. */
+    fun demolishQuestion(room: Room): Confirm {
+        val tenant = room.tenant!!
+        val owners = if (room.salePaid > 0) tr(" Den Besitzern zahlst du ihren Kaufpreis von ${formatMoney(room.salePaid)} zurück.", " You pay the owners back their price of ${formatMoney(room.salePaid)}.") else ""
+        return Confirm(
+            tr("${tenant.name} abreißen?", "Tear down ${tenant.name}?"),
+            "${room.type.name} · ${floorName(room.floor)}. " +
+                tr("Die Mieter ziehen aus, und das lässt sich nicht rückgängig machen.", "The tenants move out, and that can't be undone.") + " " +
+                (if (sim.refundFor(room) > 0) tr("Du bekommst ${formatMoney(sim.refundFor(room))} zurück.", "You get ${formatMoney(sim.refundFor(room))} back.")
+                else tr("Du bekommst nichts zurück, die Wohnung ist verkauft.", "You get nothing back, the flat is sold.")) + owners,
+            tr("Abreißen", "Tear down"),
+        ) { tearDown(room) }
     }
 
     private fun feedback(ok: Boolean, reason: String) {

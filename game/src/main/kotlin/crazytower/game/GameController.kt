@@ -12,6 +12,9 @@ sealed interface Tool {
     data object Demolish : Tool
 }
 
+/** A question that needs a yes before something that can't be undone, see [GameController.confirm]. */
+data class Confirm(val title: String, val body: String, val yes: String, val onYes: () -> Unit)
+
 /** What the inspector shows. */
 sealed interface Selection {
     data class RoomSel(val roomId: Int) : Selection
@@ -32,6 +35,29 @@ class GameController(val sim: Simulation) {
     var extrasOpen = false
     var missionOpen = false
     var helpOpen = false
+
+    /** The question on screen, if any; Enter says yes, Esc no. */
+    var confirm: Confirm? = null
+
+    /**
+     * The pause menu (Esc). While it is open the game stands still; closing it brings back
+     * the speed from before, unless the player paused on purpose meanwhile.
+     */
+    var pauseMenuOpen = false
+        set(value) {
+            if (field == value) return
+            field = value
+            if (value) {
+                speedBeforeMenu = speed
+                speed = 0
+            } else if (speed == 0) {
+                speed = speedBeforeMenu
+            }
+        }
+    private var speedBeforeMenu = 1
+
+    /** Saves the game and returns a message for the player; set by the game screen. */
+    var onSave: (() -> String)? = null
 
     /** Starts a ready-made tower of the given stage; set by the game screen. */
     var onTestTower: (Int) -> Unit = {}

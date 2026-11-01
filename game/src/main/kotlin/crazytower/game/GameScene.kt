@@ -43,6 +43,7 @@ class GameScene(private val assets: Assets, private val loaded: Simulation? = nu
             if (!test) SaveSlot.save(sim)
             launchImmediately { sceneContainer.changeTo { TitleScene(assets) } }
         }
+        game.onSave = { if (test) tr("Testtürme werden nicht gespeichert", "Test towers are not saved") else SaveSlot.save(sim) }
         game.onQuit = {
             if (!test) SaveSlot.save(sim)
             views.gameWindow.close()

@@ -97,24 +97,59 @@ class BalanceScenarios {
     /** A stage-3 test tower gets a floor of hotel rooms and one cleaning service: what do they earn? */
     @Test
     fun printHotelFloor() {
+        println(hotelFloor(Catalog.HOTEL, stars = 3).first)
+    }
+
+    /**
+     * Single rooms, double rooms and suites side by side: one floor of each at four stars, one
+     * cleaning service per floor, a week long. Prints what a segment earns a day after upkeep.
+     */
+    @Test
+    fun printHotelClasses() {
+        val out = StringBuilder("== Hotelklassen bei 4 Sternen, je eine Etage + 1 Reinigungsdienst, 7 Tage ==\n")
+        out.append("Klasse | Zimmer | Bau | Einnahmen/Tag | Unterhalt/Tag | netto pro Segment und Tag | Bau pro Segment\n")
+        for (type in listOf(Catalog.HOTEL_SINGLE, Catalog.HOTEL, Catalog.HOTEL_SUITE)) {
+            val (log, row) = hotelFloor(type, stars = 4)
+            println(log)
+            out.append(row).append('\n')
+        }
+        println(out)
+    }
+
+    /** Builds 54 segments of [type] on a new floor of a test tower and plays a week; returns the log and a summary row. */
+    private fun hotelFloor(type: RoomType, stars: Int): Pair<String, String> {
         val sim = TestTower.build(3, seed = 42L)
         sim.eventsEnabled = false
+        sim.stars = stars
+        sim.bestStars = maxOf(sim.bestStars, stars)
         val floor = sim.tower.allRooms.maxOf { it.floor } + 1
         val shaft = sim.elevators.cars.values.filter { !it.express }.maxBy { it.top }
-        val hotels = (0 until 9).mapNotNull { i -> sim.build(Catalog.HOTEL, floor, i * 6).room }
+        val hotels = (0 until 54 / type.width).mapNotNull { i -> sim.build(type, floor, i * type.width).room }
+        // the cleaning service right next to the last room, so the floor has no gap
         sim.build(Catalog.HOUSEKEEPING, floor, 54).also { check(it.ok) { it.reason } }
+        val end = hotels.size * type.width
+        val gap = if (54 - end >= Catalog.CORRIDOR.width) sim.build(Catalog.CORRIDOR, floor, end) else if (end < 54) sim.build(sim.planGap(floor, end)) else null
+        gap?.also { check(it.ok) { "Lücke: " + it.reason } }
         sim.build(sim.planColumn(Catalog.ELEVATOR, shaft.x, shaft.top, floor)).also { check(it.ok) { "Schacht: " + it.reason } }
-        val out = StringBuilder("== Hotel-Etage: ${hotels.size} Zimmer, 1 Reinigungsdienst, ${sim.stars} Sterne ==\n")
+        val out = StringBuilder("== ${type.name}: ${hotels.size} Zimmer, 1 Reinigungsdienst, ${sim.stars} Sterne ==\n")
         out.append("Tag | Hotel-Einnahmen | belegt um 23 Uhr | schmutzig um 23 Uhr\n")
+        var income = 0L
         repeat(7 * 24) {
             sim.step(60.0)
             if (sim.clock.hour == 23) {
-                out.append("${sim.clock.day} | ${sim.finance.day(sim.clock.day)[MoneyKind.HOTEL] ?: 0} | ${hotels.count { it.tenant != null }} | ${hotels.count { it.dirty }}\n")
+                val today = sim.finance.day(sim.clock.day)[MoneyKind.HOTEL] ?: 0
+                income += today
+                out.append("${sim.clock.day} | $today | ${hotels.count { it.tenant != null }} | ${hotels.count { it.dirty }}\n")
             }
         }
-        val upkeep = hotels.size * Simulation.HOTEL_UPKEEP + Simulation.HOUSEKEEPING_UPKEEP
-        out.append("Bau ${hotels.size * Catalog.HOTEL.cost + Catalog.HOUSEKEEPING.cost} \$, Unterhalt $upkeep \$ pro Tag\n")
-        println(out)
+        val segments = hotels.sumOf { it.width }
+        val upkeep = hotels.sumOf { it.type.upkeep ?: Simulation.HOTEL_UPKEEP } + Simulation.HOUSEKEEPING_UPKEEP
+        val build = hotels.size * type.cost + Catalog.HOUSEKEEPING.cost
+        out.append("Bau $build \$, Unterhalt $upkeep \$ pro Tag\n")
+        // day 0 has no check-outs yet: average over the six full days
+        val perDay = income / 6
+        val row = "${type.name} | ${hotels.size} | $build | $perDay | $upkeep | ${(perDay - upkeep) / segments} | ${hotels.size * type.cost / segments}"
+        return out.toString() to row
     }
 
     companion object {

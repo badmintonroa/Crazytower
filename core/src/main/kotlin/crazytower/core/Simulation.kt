@@ -90,6 +90,9 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
 
     /** Money sinks and the moon mission, see [Endgame]. */
     var endgame: Endgame = Endgame()
+
+    /** What Ctrl+Z can take back: the last build or demolition, for a while (see Undo.kt). Not saved. */
+    var undoStep: UndoStep? = null
         internal set
 
     /** Spectators per observation deck, so it gets dirty now and then. */
@@ -221,7 +224,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     fun isNew(type: RoomType): Boolean = unlocked(type) && type.id !in seenTypes
 
     /** What stage, stars and lot allow, before money and the tower itself are asked. */
-    private fun checkRules(type: RoomType, floor: Int, x: Int, width: Int): PlaceCheck {
+    internal fun checkRules(type: RoomType, floor: Int, x: Int, width: Int): PlaceCheck {
         if (type.minStage > stage) return PlaceCheck.no(tr("Erst ab ${type.minStage} Sternen", "Only from ${type.minStage} stars"))
         if (type.minStars > bestStars) return PlaceCheck.no(tr("Erst ab ${type.minStars} Sternen", "Only from ${type.minStars} stars"))
         val maxFloor = Stages.info(stage).maxFloor
@@ -753,6 +756,10 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         looksVersion++
     }
 
+    /** How long the staff need for [room]: suites take longer, the self-cleaning towels halve it. */
+    fun cleanMinutes(room: Room): Int =
+        room.type.hotelClass.cleanMinutes / (if (researched("towels")) 2 else 1)
+
     /** Hotel rooms that wait for the cleaning staff. */
     val dirtyRooms: List<Room> get() = tower.allRooms.filter { it.dirty }
 
@@ -1171,7 +1178,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
                     entity.configure { drop(it, Cleaning) }
                     if (target != null && target.dirty) {
                         schedule.activity = Activity.CLEANING
-                        entity.configure { it += Idle(clock.totalMinutes + CLEAN_MINUTES / (if (researched("towels")) 2 else 1)) }
+                        entity.configure { it += Idle(clock.totalMinutes + cleanMinutes(target)) }
                         cleaned(target)
                     }
                 }
@@ -1270,7 +1277,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         /** The visitor whose visit unlocks the last stage. */
         val VIP_NAME = Tr("Frau Dr. Wichtig", "Dr. Bigwig")
 
-        private val NO_MONEY: String get() = tr("Zu wenig Geld", "Not enough money")
+        internal val NO_MONEY: String get() = tr("Zu wenig Geld", "Not enough money")
         private val NO_CAR: PlaceCheck get() = PlaceCheck.no(tr("Jedes Auto hat schon einen Parkplatz. Mehr Büros, Wohnungen oder Luxusbüros!", "Every car has a space already. More offices, flats or luxury offices!"))
 
         const val START_MONEY = 120_000L
