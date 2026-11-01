@@ -19,6 +19,8 @@ suspend fun main() {
         title = "CrazyTower",
         backgroundColor = Theme.SKY,
     ).start {
+        // KorGE opens its own view inspector on F7 and F12; players should never see it
+        views.supportTogglingDebug = false
         views.gameWindow.vsync = settings.vsync
         if (settings.fullscreen && !Autopilot.active) views.gameWindow.fullscreen = true
         if (borderless) Borderless.cover(views.gameWindow)

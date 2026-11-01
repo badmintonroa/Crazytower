@@ -18,3 +18,9 @@ application {
         "java.desktop/sun.lwawt", "java.desktop/sun.lwawt.macosx", "java.desktop/com.apple.eawt", "java.desktop/com.apple.eawt.event",
     ).map { "--add-opens=$it=ALL-UNNAMED" }
 }
+
+// `./gradlew :game:run` is the developer's start: F7 shows FPS and time per system (DevMode.kt).
+// Packaged builds (installer, Steam, demo) do not go through this task and never get the flag.
+tasks.named<JavaExec>("run") {
+    systemProperty("crazytower.dev", "true")
+}

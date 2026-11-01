@@ -47,7 +47,7 @@ class GameScene(private val assets: Assets, private val loaded: Simulation? = nu
         val (w, h) = fitScreen(views)
         tower = TowerView(sim, game, assets, w, h).addTo(screenRoot)
         val hud = layoutHud(sim, game, w, h)
-        val debug = DebugOverlay(sim, tower, views).addTo(this).xy(8.0, 80.0)
+        val debug = DebugOverlay(sim, views).addTo(this).xy(8.0, 80.0)
         this@GameScene.debug = debug
         System.getenv("CRAZYTOWER_SPEED")?.toIntOrNull()?.let { game.speed = it }
         Autopilot.attachIfRequested(this, sim, game, tower, hud)
@@ -89,7 +89,8 @@ class GameScene(private val assets: Assets, private val loaded: Simulation? = nu
                 if (restored == null) game.say(message) else sceneContainer.changeTo { GameScene(assets, restored) }
             }
             down(Key.F11) { Options.update { it.copy(fullscreen = !it.fullscreen) } }
-            down(Key.F3) { debug.toggle() }
+            // developers only: FPS and time per system (KorGE's own F7/F12 view is off, see Main.kt)
+            if (DevMode.active) down(Key.F7) { debug.toggle() }
         }
         var lastDay = sim.clock.day
         addUpdater { realDt ->
