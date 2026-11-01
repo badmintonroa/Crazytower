@@ -102,7 +102,7 @@ open class HubBot(sim: Simulation) : Bot(sim) {
         if (!sim.unlocked(Catalog.OFFICE)) return if (unsoldHomes() < 2) Catalog.HOME else null
         val n = rentables().size + 1
         if (foodNeeded(12)) return Catalog.FOOD
-        if (sim.stage >= 3 && count(Catalog.HOTEL) * 5 < n) return Catalog.HOTEL
+        if (sim.stage >= 3 && hotelRooms() * 5 < n) return hotelType()
         if (sim.stage >= 4 && sim.money > 400_000 && luxuryOk() && count(Catalog.LUXURY_OFFICE) * 8 < n) return Catalog.LUXURY_OFFICE
         if (shopNeeded()) return Catalog.SHOP
         if (officeOk()) return Catalog.OFFICE

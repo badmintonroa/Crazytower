@@ -554,9 +554,13 @@ class Hud(
                 tr("plus ${formatMoneyRange(Simulation.MEAL_PRICE, Simulation.VISITOR_MEAL_PRICE)} pro Essen", "plus ${formatMoneyRange(Simulation.MEAL_PRICE, Simulation.VISITOR_MEAL_PRICE)} per meal"),
             )
             RoomRole.HOTEL -> listOf(
-                tr("${type.capacity} Gäste, ab ${Simulation.CHECK_IN_FROM} Uhr, eine Nacht", "${type.capacity} guests, from ${Simulation.CHECK_IN_FROM}:00, one night"),
-                tr("pro Nacht: ", "per night: ") + range(tenants.map { it.rentPerDay }),
-                tr("danach schmutzig, braucht Reinigungsdienst", "then dirty, needs housekeeping"),
+                if (type.capacity == 1) tr("1 Gast, ab ${Simulation.CHECK_IN_FROM} Uhr, eine Nacht", "1 guest, from ${Simulation.CHECK_IN_FROM}:00, one night")
+                else tr("${type.capacity} Gäste, ab ${Simulation.CHECK_IN_FROM} Uhr, eine Nacht", "${type.capacity} guests, from ${Simulation.CHECK_IN_FROM}:00, one night"),
+                tr("pro Nacht: ", "per night: ") + range(tenants.map { it.rentPerDay }) +
+                    tr(", ${formatMoney(type.upkeep ?: Simulation.HOTEL_UPKEEP)} Unterhalt", ", ${formatMoney(type.upkeep ?: Simulation.HOTEL_UPKEEP)} upkeep"),
+                tr("danach schmutzig, putzen dauert ${type.hotelClass.cleanMinutes} Min.",
+                    "then dirty, cleaning takes ${type.hotelClass.cleanMinutes} min"),
+                tr("Luxus für VIPs: ", "luxury for VIPs: ") + "★".repeat(type.hotelClass.vipStars),
             )
             RoomRole.PARKING -> type.effects.map { it.toString() } +
                 tr("${sim.parkingSpaces} Plätze für ${sim.carsWanted} Autos, ${sim.carsWithoutSpace.coerceAtLeast(0)} suchen noch",

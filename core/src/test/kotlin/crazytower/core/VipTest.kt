@@ -50,6 +50,25 @@ class VipTest {
     }
 
     @Test
+    fun vipsLikeAPoshHotelBetter() {
+        // a so-so tower, so the score is nowhere near the top
+        fun tower(vararg hotel: RoomType): Simulation = towerWithOffice(mood = 30f).first.also { sim ->
+            sim.stage = 3
+            sim.bestStars = 4
+            hotel.forEachIndexed { i, type -> sim.buildReachable(type, 20 + 14 * i) }
+        }
+        assertEquals(0f, Vips.hotelLuxury(tower()), "no hotel, nothing to show off")
+        assertEquals(0f, Vips.hotelLuxury(tower(Catalog.HOTEL_SINGLE)))
+        assertEquals(1f, Vips.hotelLuxury(tower(Catalog.HOTEL_SUITE)), "nothing but suites")
+        val mixed = Vips.hotelLuxury(tower(Catalog.HOTEL_SINGLE, Catalog.HOTEL_SUITE))
+        assertTrue(mixed > 0f && mixed < 1f, "one single room and one suite: $mixed")
+        // the same visit in the same tower with the same whim scores higher with a suite, by the luxury bonus
+        val withSuite = Vips.judge(tower(Catalog.HOTEL_SUITE), null, Vips.QUICK_MINUTES)
+        val withSingle = Vips.judge(tower(Catalog.HOTEL_SINGLE), null, Vips.QUICK_MINUTES)
+        assertEquals(Vips.LUXURY_BONUS, withSuite.score - withSingle.score, 0.001f)
+    }
+
+    @Test
     fun noVipsWithoutEnoughStars() {
         val (sim, _) = towerWithOffice(mood = 100f, stars = Vips.MIN_STARS - 1)
         repeat(20 * 24) {

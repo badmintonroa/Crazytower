@@ -159,7 +159,8 @@ abstract class Bot(val sim: Simulation) {
 
     /** Something narrower to try when [type] fits nowhere. */
     protected open fun fallback(type: RoomType): RoomType? =
-        if (type.width > SLOT) (if (sim.unlocked(Catalog.OFFICE)) Catalog.OFFICE else Catalog.HOME) else null
+        if (type == Catalog.HOTEL_SUITE) Catalog.HOTEL
+        else if (type.width > SLOT) (if (sim.unlocked(Catalog.OFFICE)) Catalog.OFFICE else Catalog.HOME) else null
 
     /** Floors the bot fills, lowest first. */
     protected open fun floors(type: RoomType): IntProgression = maxOf(1, type.minFloor ?: 1) until top
@@ -316,6 +317,14 @@ abstract class Bot(val sim: Simulation) {
 
     fun count(type: RoomType) = sim.tower.allRooms.count { it.type == type }
 
+    /** Hotel rooms of every class. */
+    protected fun hotelRooms() = sim.tower.allRooms.count { it.type.role == RoomRole.HOTEL }
+
+    /** The next hotel room: once they are unlocked and money is no worry, every fourth one a suite. */
+    protected fun hotelType(): RoomType =
+        if (sim.unlocked(Catalog.HOTEL_SUITE) && sim.money > SUITE_MONEY && count(Catalog.HOTEL_SUITE) * 3 < count(Catalog.HOTEL)) Catalog.HOTEL_SUITE
+        else Catalog.HOTEL
+
     fun note(what: String) { built[what] = (built[what] ?: 0) + 1 }
 
     // ---------- elevators ----------
@@ -388,8 +397,10 @@ abstract class Bot(val sim: Simulation) {
         if (sim.stage >= 3 && count(Catalog.SECURITY) == 0) placeAnywhere(Catalog.SECURITY)
         if (sim.stage >= 2 && count(Catalog.COPYROOM) == 0) placeAnywhere(Catalog.COPYROOM)
         if (sim.stage >= 5 && count(Catalog.UFO_PAD) == 0 && sim.money > 1_000_000) placeAnywhere(Catalog.UFO_PAD)
-        val hotels = count(Catalog.HOTEL)
-        if (hotels > 0 && count(Catalog.HOUSEKEEPING) < (hotels + 7) / 8) placeAnywhere(Catalog.HOUSEKEEPING)
+        val hotels = hotelRooms()
+        // a suite is as much work as two double rooms; a single room is quick, but the walk there is not
+        val cleaning = sim.tower.allRooms.sumOf { if (it.type.role == RoomRole.HOTEL) maxOf(1.0, it.type.hotelClass.cleanFactor) else 0.0 }
+        if (hotels > 0 && count(Catalog.HOUSEKEEPING) < (cleaning.toInt() + 7) / 8) placeAnywhere(Catalog.HOUSEKEEPING)
         if (wantsKita && sim.unlocked(Catalog.KITA) && count(Catalog.KITA) < minOf(3, 1 + count(Catalog.HOME) / 30)) placeAnywhere(Catalog.KITA)
         if (wantsConference && sim.unlocked(Catalog.CONFERENCE) && count(Catalog.CONFERENCE) == 0 && hotels >= 10) placeAnywhere(Catalog.CONFERENCE)
         if (wantsSubway && sim.unlocked(Catalog.SUBWAY) && count(Catalog.SUBWAY) == 0 && afford(Catalog.SUBWAY.cost)) {
@@ -570,6 +581,7 @@ abstract class Bot(val sim: Simulation) {
 
     companion object {
         const val SLOT = 6
+        const val SUITE_MONEY = 600_000L
 
         /** Luxury offices the basement can park: three floors of spaces, a good part for them. */
         const val MAX_LUXURY = 40

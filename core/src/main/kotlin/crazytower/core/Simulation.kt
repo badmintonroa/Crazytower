@@ -749,6 +749,10 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         looksVersion++
     }
 
+    /** How long the staff need for [room]: suites take longer, the self-cleaning towels halve it. */
+    fun cleanMinutes(room: Room): Int =
+        room.type.hotelClass.cleanMinutes / (if (researched("towels")) 2 else 1)
+
     /** Hotel rooms that wait for the cleaning staff. */
     val dirtyRooms: List<Room> get() = tower.allRooms.filter { it.dirty }
 
@@ -1158,7 +1162,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
                     entity.configure { drop(it, Cleaning) }
                     if (target != null && target.dirty) {
                         schedule.activity = Activity.CLEANING
-                        entity.configure { it += Idle(clock.totalMinutes + CLEAN_MINUTES / (if (researched("towels")) 2 else 1)) }
+                        entity.configure { it += Idle(clock.totalMinutes + cleanMinutes(target)) }
                         cleaned(target)
                     }
                 }
