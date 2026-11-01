@@ -26,6 +26,8 @@ data class Settings(
     val volume: Int = 80,
     /** Saves the game every this many game days at midnight; 0 is off. */
     val autosaveDays: Int = 1,
+    /** Asks before tearing down a room somebody rents or owns. */
+    val confirmDemolish: Boolean = true,
     /** The language of all texts; a new player gets the one of the system. */
     val language: Language = Language.system(),
 ) {

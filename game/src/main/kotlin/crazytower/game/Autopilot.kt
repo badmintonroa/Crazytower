@@ -74,6 +74,11 @@ object Autopilot {
             crazytower.game.ui.Tips.fakeMouse = korlibs.math.geom.Point(it[0], it[1])
         }
         if (System.getenv("CRAZYTOWER_HELP") != null) game.helpOpen = true
+        // CRAZYTOWER_PAUSE=1 opens the pause menu, CRAZYTOWER_CONFIRM=1 asks about tearing down the first rented room
+        if (System.getenv("CRAZYTOWER_PAUSE") != null) game.pauseMenuOpen = true
+        if (System.getenv("CRAZYTOWER_CONFIRM") != null) {
+            sim.tower.allRooms.firstOrNull { it.tenant != null && it.salePaid > 0 }?.let { game.confirm = tower.demolishQuestion(it) }
+        }
         screenshotAfter(root, target, 20)
     }
 

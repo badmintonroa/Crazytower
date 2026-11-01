@@ -18,7 +18,6 @@ import korlibs.korge.view.*
 class OptionsWindow(
     private val onTestTower: (Int) -> Unit,
     private val onMainMenu: (() -> Unit)? = null,
-    private val onHelp: (() -> Unit)? = null,
     private val onClose: () -> Unit,
 ) : Container() {
     val panelWidth = 520.0
@@ -45,6 +44,7 @@ class OptionsWindow(
         Row(tr("Geld-Anzeigen", "Money pop-ups"), { onOff(it.moneyPopups) }) { it.copy(moneyPopups = !it.moneyPopups) },
         Row(tr("Nachts vorspulen", "Fast-forward nights"), { onOff(it.fastNights) }) { it.copy(fastNights = !it.fastNights) },
         Row(tr("Lautstärke", "Volume"), { if (it.volume == 0) tr("stumm", "muted") else "${it.volume} %" }) { it.copy(volume = (it.volume + 20) % 120) },
+        Row(tr("Abriss nachfragen", "Ask before demolishing"), { onOff(it.confirmDemolish) }) { it.copy(confirmDemolish = !it.confirmDemolish) },
         Row(tr("Autospeichern", "Autosave"), {
             when (it.autosaveDays) {
                 0 -> onOff(false)
@@ -56,38 +56,33 @@ class OptionsWindow(
     )
 
     init {
-        panelHeight = 72.0 + rows.size * 40.0 + 40.0 + (if (onMainMenu != null) 40.0 else 0.0) + (if (onHelp != null) 40.0 else 0.0) + 70.0
+        panelHeight = 72.0 + rows.size * ROW + ROW + (if (onMainMenu != null) ROW else 0.0) + 70.0
         Panel(panelWidth, panelHeight).addTo(this)
         label(tr("OPTIONEN", "OPTIONS"), 20.0, Theme.TEXT, Theme.bodyBold).xy(18.0, 14.0)
         val hint = label(tr("O oder Esc schließt", "O or Esc closes"), 12.0, Theme.TEXT_DIM)
         hint.xy(panelWidth - 22.0 - hint.width, 20.0)
         var y = 60.0
         for (row in rows) {
-            label(row.title, 15.0, Theme.TEXT, Theme.bodyBold).xy(22.0, y + 9).fitWidth(TITLE_WIDTH)
-            val button = TextButton(220.0, 34.0, row.value(Options.current), 14.0) {
+            label(row.title, 15.0, Theme.TEXT, Theme.bodyBold).xy(22.0, y + 7).fitWidth(TITLE_WIDTH)
+            val button = TextButton(220.0, 32.0, row.value(Options.current), 14.0) {
                 Options.update(row.next)
             }
             button.xy(panelWidth - 240.0, y)
             addChild(button)
             buttons += button to row.value
-            y += 40.0
+            y += ROW
         }
         // test mode: jump into a finished tower of each stage
-        label(tr("Testturm", "Test tower"), 15.0, Theme.TEXT, Theme.bodyBold).xy(22.0, y + 9).fitWidth(TITLE_WIDTH)
+        label(tr("Testturm", "Test tower"), 15.0, Theme.TEXT, Theme.bodyBold).xy(22.0, y + 7).fitWidth(TITLE_WIDTH)
         for (stage in 1..TestTower.MAXIMUM) {
             val max = stage == TestTower.MAXIMUM
-            TextButton(if (max) 50.0 else 30.0, 34.0, if (max) "Max" else "$stage", 14.0) { onTestTower(stage) }
+            TextButton(if (max) 50.0 else 30.0, 32.0, if (max) "Max" else "$stage", 14.0) { onTestTower(stage) }
                 .addTo(this).xy(panelWidth - 240.0 + (stage - 1) * 34.0, y)
         }
         if (onMainMenu != null) {
-            y += 40.0
-            label(tr("Spiel", "Game"), 15.0, Theme.TEXT, Theme.bodyBold).xy(22.0, y + 9).fitWidth(TITLE_WIDTH)
-            TextButton(220.0, 34.0, tr("Zum Hauptmenü", "Main menu"), 14.0) { onMainMenu.invoke() }.addTo(this).xy(panelWidth - 240.0, y)
-        }
-        if (onHelp != null) {
-            y += 40.0
-            label(tr("Tasten", "Keys"), 15.0, Theme.TEXT, Theme.bodyBold).xy(22.0, y + 9).fitWidth(TITLE_WIDTH)
-            TextButton(220.0, 34.0, tr("Alle Tasten · F1", "All keys · F1"), 14.0) { onHelp.invoke() }.addTo(this).xy(panelWidth - 240.0, y)
+            y += ROW
+            label(tr("Spiel", "Game"), 15.0, Theme.TEXT, Theme.bodyBold).xy(22.0, y + 7).fitWidth(TITLE_WIDTH)
+            TextButton(220.0, 32.0, tr("Zum Hauptmenü", "Main menu"), 14.0) { onMainMenu.invoke() }.addTo(this).xy(panelWidth - 240.0, y)
         }
         label(tr("Gespeichert in ", "Saved in ") + Options.file.path.replace(System.getProperty("user.home"), "~"), 11.0, Theme.TEXT_DIM)
             .xy(22.0, panelHeight - 40.0).fitWidth(panelWidth - 128.0 - 34.0)
@@ -107,6 +102,9 @@ class OptionsWindow(
 
         /** Row names end before the buttons. */
         const val TITLE_WIDTH = 520.0 - 240.0 - 22.0 - 12.0
+
+        /** Height of one row; small enough that every row fits on an 800 high screen. */
+        const val ROW = 36.0
 
         fun <T> next(choices: List<T>, now: T): T = choices[(choices.indexOf(now) + 1) % choices.size]
     }

@@ -43,6 +43,7 @@ class GameScene(private val assets: Assets, private val loaded: Simulation? = nu
             if (!test) SaveSlot.save(sim)
             launchImmediately { sceneContainer.changeTo { TitleScene(assets) } }
         }
+        game.onSave = { if (test) tr("Testtürme werden nicht gespeichert", "Test towers are not saved") else SaveSlot.save(sim) }
         screenRoot = container()
         val (w, h) = fitScreen(views)
         tower = TowerView(sim, game, assets, w, h).addTo(screenRoot)
