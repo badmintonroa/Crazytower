@@ -3,6 +3,7 @@ package crazytower.core.ecs
 import com.github.quillraven.fleks.Component
 import com.github.quillraven.fleks.ComponentType
 import com.github.quillraven.fleks.Entity
+import com.github.quillraven.fleks.EntityComponentContext
 import com.github.quillraven.fleks.EntityUpdateContext
 import crazytower.core.Loc
 import crazytower.core.Tr
@@ -16,6 +17,18 @@ import crazytower.core.nav.Leg
  */
 inline fun <reified T : Component<*>> EntityUpdateContext.drop(entity: Entity, type: ComponentType<T>) {
     if (entity has type) entity -= type
+}
+
+/**
+ * Fleks sets up the storage of a component type the first time anybody asks for it. Helper
+ * threads must only read, so a system that uses them asks on its own thread first, with any
+ * [entity], for every type the helpers look at.
+ */
+fun EntityComponentContext.prepareForWorkers(entity: Entity) {
+    entity.getOrNull(Position)
+    entity.getOrNull(Route)
+    entity.getOrNull(Goal)
+    entity.getOrNull(Schedule)
 }
 
 /**

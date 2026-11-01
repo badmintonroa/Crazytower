@@ -32,7 +32,8 @@ class NavGraph(private val tower: Tower, private val providers: List<LinkProvide
     private var builtVersion = -1
     private val nodes = ArrayList<Node>()
     private val nodesBySpan = HashMap<Long, MutableList<Node>>()
-    private val spansByFloor = HashMap<Int, List<IntRange>>()
+    // filled lazily, also by helper threads during [findPaths]
+    private val spansByFloor = java.util.concurrent.ConcurrentHashMap<Int, List<IntRange>>()
 
     // The graph again in flat arrays, so the search does without maps and boxed numbers.
     // Links leaving node n are outTo/outLink[outStart[n] until outStart[n + 1]].
@@ -63,16 +64,13 @@ class NavGraph(private val tower: Tower, private val providers: List<LinkProvide
         outTo = IntArray(edges.size) { edges[it].second }
         outLink = Array(edges.size) { edges[it].third }
         peers = Array(nodes.size) { n -> nodesBySpan.getValue(nodes[n].spanKey).map { it.id }.toIntArray() }
-        val states = nodes.size * CLIMBS + 1
-        best = FloatArray(states)
-        cameFrom = IntArray(states)
-        cameBy = arrayOfNulls(states)
-        seen = IntArray(states)
-        closed = IntArray(states)
-        generation = 0
+        stateCount = nodes.size * CLIMBS + 1
     }
 
-    private fun spans(floor: Int) = spansByFloor.getOrPut(floor) { tower.walkableSpans(floor) }
+    /** Search states of the current graph: node * CLIMBS + climbed, and one for the goal. */
+    private var stateCount = 1
+
+    private fun spans(floor: Int) = spansByFloor.computeIfAbsent(floor) { tower.walkableSpans(floor) }
 
     private fun spanKey(loc: Loc): Long? {
         val segment = floor(loc.x).toInt().coerceIn(0, tower.width - 1)
@@ -97,11 +95,13 @@ class NavGraph(private val tower: Tower, private val providers: List<LinkProvide
         return spanKey(loc) != null
     }
 
-    /** Nanoseconds spent in [findPath] and how many searches there were, for the profiler. */
-    var searchNanos: Long = 0
-        private set
-    var searches: Long = 0
-        private set
+    /** Nanoseconds spent in path searches (summed over all threads) and how many there were, for the profiler. */
+    val searchNanos: Long get() = main.nanos + helpers.sumOf { it?.nanos ?: 0L }
+    val searches: Long get() = main.count + helpers.sumOf { it?.count ?: 0L }
+
+    /** Search scratch space of the calling thread, and of each helper of [findPaths]. */
+    private val main = Searcher()
+    private val helpers = arrayOfNulls<Searcher>(crazytower.core.Workers.MAX_THREADS)
 
     /**
      * Finds the cheapest route from [from] to [to], or null if there is none.
@@ -110,12 +110,20 @@ class NavGraph(private val tower: Tower, private val providers: List<LinkProvide
      * between lets them catch their breath.
      */
     fun findPath(from: Loc, to: Loc): List<Leg>? {
-        val started = System.nanoTime()
-        try {
-            return search(from, to)
-        } finally {
-            searchNanos += System.nanoTime() - started
-            searches++
+        ensureBuilt()
+        return main.timed { search(from, to) }
+    }
+
+    /**
+     * [findPath] for `0 until count` at once, from `from(i)` to `to(i)` into `out[i]`, spread
+     * over the [crazytower.core.Workers]. [from] and [to] are called on helper threads, so they
+     * may only read. Every result is the same as from [findPath].
+     */
+    fun findPaths(count: Int, from: (Int) -> Loc, to: (Int) -> Loc, out: Array<List<Leg>?>) {
+        ensureBuilt()
+        crazytower.core.Workers.chunks(count, PATHS_PER_CHUNK) { worker, a, b ->
+            val searcher = if (worker == 0) main else helpers[worker] ?: Searcher().also { helpers[worker] = it }
+            for (i in a until b) out[i] = searcher.timed { search(from(i), to(i)) }
         }
     }
 
@@ -123,7 +131,7 @@ class NavGraph(private val tower: Tower, private val providers: List<LinkProvide
      * Minutes the cheapest route from [from] to [to] takes, waiting for elevators included,
      * or null if there is none. Rooms whose way from the street takes too long find no tenants.
      */
-    fun travelMinutes(from: Loc, to: Loc): Float? = findPath(from, to)?.let { lastCost }
+    fun travelMinutes(from: Loc, to: Loc): Float? = findPath(from, to)?.let { main.lastCost }
 
     /**
      * [travelMinutes] from [from] to many goals with one search instead of one per goal: the
@@ -131,64 +139,17 @@ class NavGraph(private val tower: Tower, private val providers: List<LinkProvide
      * tower changes or the queues move.
      */
     fun travelMinutesFrom(from: Loc): (Loc) -> Float? {
-        val started = System.nanoTime()
-        try {
-            ensureBuilt()
-            val startKey = spanKey(from) ?: return { null }
-            val reached = explore(from, startKey)
-            return { to ->
-                val goalKey = spanKey(to)
-                when (goalKey) {
-                    null -> null
-                    startKey -> walkCost(from.x, to.x)
-                    else -> nodesBySpan[goalKey].orEmpty().minOfOrNull { reached[it.id] + walkCost(it.loc.x, to.x) }?.takeIf { it.isFinite() }
-                }
-            }
-        } finally {
-            searchNanos += System.nanoTime() - started
-            searches++
-        }
-    }
-
-    /** Dijkstra from [from] to every node; the cheapest cost per node, infinite where there is no way. */
-    private fun explore(from: Loc, startKey: Long): FloatArray {
-        if (++generation == Int.MAX_VALUE) {
-            seen.fill(0); closed.fill(0); generation = 1
-        }
-        val gen = generation
-        open.clear()
-        fun relax(state: Int, cost: Float) {
-            if (seen[state] != gen || cost < best[state]) {
-                seen[state] = gen
-                best[state] = cost
-                open.push(state, cost)
+        ensureBuilt()
+        val startKey = spanKey(from) ?: return main.timed { { null } }
+        val reached = main.timed { explore(from, startKey) }
+        return { to ->
+            val goalKey = spanKey(to)
+            when (goalKey) {
+                null -> null
+                startKey -> walkCost(from.x, to.x)
+                else -> nodesBySpan[goalKey].orEmpty().minOfOrNull { reached[it.id] + walkCost(it.loc.x, to.x) }?.takeIf { it.isFinite() }
             }
         }
-        for (n in nodesBySpan[startKey].orEmpty()) relax(n.id * CLIMBS, walkCost(from.x, n.loc.x))
-        val reached = FloatArray(nodes.size) { Float.POSITIVE_INFINITY }
-        while (open.isNotEmpty()) {
-            val current = open.pop()
-            if (closed[current] == gen) continue
-            closed[current] = gen
-            val cost = best[current]
-            val nodeId = current / CLIMBS
-            if (cost < reached[nodeId]) reached[nodeId] = cost
-            val climbed = current % CLIMBS
-            for (e in outStart[nodeId] until outStart[nodeId + 1]) {
-                val link = outLink[e]
-                val next = outTo[e]
-                val leg = link.leg
-                val nowClimbed = if (leg is Leg.Stairs) climbed + abs(leg.toFloor - leg.fromFloor) else 0
-                if (nowClimbed > NavCosts.MAX_STAIRS_FLOORS) continue
-                val arrival = nodes[next]
-                val afterLink = cost + link.cost()
-                relax(next * CLIMBS + nowClimbed, afterLink)
-                for (other in peers[next]) {
-                    if (other != next && other != nodeId) relax(other * CLIMBS + nowClimbed, afterLink + walkCost(arrival.loc.x, nodes[other].loc.x))
-                }
-            }
-        }
-        return reached
     }
 
     /**
@@ -220,102 +181,183 @@ class NavGraph(private val tower: Tower, private val providers: List<LinkProvide
         return nodesBySpan[key].orEmpty().isNotEmpty()
     }
 
-    /** Cost of the path the last successful [search] found. */
-    private var lastCost = 0f
+    /**
+     * Scratch space of the searches, reused between them. One thread uses one searcher at a
+     * time; the graph itself is only read while searching.
+     *
+     * A state is a node plus the floors climbed on foot since the last ride:
+     * node * CLIMBS + climbed; the last state stands for the goal. An entry only counts when
+     * its [seen] stamp is the current [generation], so nothing has to be cleared.
+     */
+    private inner class Searcher {
+        var nanos = 0L
+        var count = 0L
 
-    // Search state, reused between searches. A state is a node plus the floors climbed on foot
-    // since the last ride: node * CLIMBS + climbed; the last state stands for the goal. An entry
-    // only counts when its [seen] stamp is the current [generation], so nothing has to be cleared.
-    private var best = FloatArray(1)
-    private var cameFrom = IntArray(1) // previous state, or START
-    private var cameBy = arrayOfNulls<Link>(1) // link used to get here, null for walking
-    private var seen = IntArray(1)
-    private var closed = IntArray(1)
-    private var generation = 0
-    private val open = StateHeap()
+        /** Cost of the path the last successful [search] found. */
+        var lastCost = 0f
 
-    private fun search(from: Loc, to: Loc): List<Leg>? {
-        ensureBuilt()
-        val startKey = spanKey(from) ?: return null
-        val goalKey = spanKey(to) ?: return null
-        if (startKey == goalKey) {
-            lastCost = walkCost(from.x, to.x)
-            return listOfNotNull(walk(from, to.x))
-        }
+        private var best = FloatArray(1)
+        private var cameFrom = IntArray(1) // previous state, or START
+        private var cameBy = arrayOfNulls<Link>(1) // link used to get here, null for walking
+        private var seen = IntArray(1)
+        private var closed = IntArray(1)
+        private var generation = 0
+        private val open = StateHeap()
 
-        val goal = nodes.size * CLIMBS
-        if (++generation == Int.MAX_VALUE) {
-            seen.fill(0); closed.fill(0); generation = 1
-        }
-        val gen = generation
-        open.clear()
-
-        fun h(floor: Int) = abs(floor - to.floor) * NavCosts.FASTEST_PER_FLOOR
-        fun relax(state: Int, previous: Int, link: Link?, cost: Float, floor: Int) {
-            if (seen[state] != gen || cost < best[state]) {
-                seen[state] = gen
-                best[state] = cost
-                cameFrom[state] = previous
-                cameBy[state] = link
-                open.push(state, cost + h(floor))
+        inline fun <T> timed(block: Searcher.() -> T): T {
+            val started = System.nanoTime()
+            try {
+                return block()
+            } finally {
+                nanos += System.nanoTime() - started
+                count++
             }
         }
 
-        for (n in nodesBySpan[startKey].orEmpty()) relax(n.id * CLIMBS, START, null, walkCost(from.x, n.loc.x), n.loc.floor)
+        /** Starts a new search: sizes the arrays to the graph and moves on the [generation]. */
+        private fun begin(): Int {
+            if (best.size != stateCount) {
+                best = FloatArray(stateCount)
+                cameFrom = IntArray(stateCount)
+                cameBy = arrayOfNulls(stateCount)
+                seen = IntArray(stateCount)
+                closed = IntArray(stateCount)
+                generation = 0
+            }
+            if (++generation == Int.MAX_VALUE) {
+                seen.fill(0); closed.fill(0); generation = 1
+            }
+            open.clear()
+            return generation
+        }
 
-        while (open.isNotEmpty()) {
-            val current = open.pop()
-            if (current == goal) break
-            if (closed[current] == gen) continue // already expanded with a better cost
-            closed[current] = gen
-            val cost = best[current]
-            val nodeId = current / CLIMBS
-            val node = nodes[nodeId]
-            val climbed = current % CLIMBS
-            if (node.spanKey == goalKey) relax(goal, current, null, cost + walkCost(node.loc.x, to.x), to.floor)
-            for (e in outStart[nodeId] until outStart[nodeId + 1]) {
-                val link = outLink[e]
-                val next = outTo[e]
-                val leg = link.leg
-                val nowClimbed = if (leg is Leg.Stairs) climbed + abs(leg.toFloor - leg.fromFloor) else 0
-                if (nowClimbed > NavCosts.MAX_STAIRS_FLOORS) continue
-                val arrival = nodes[next]
-                val afterLink = cost + link.cost()
-                val arrived = next * CLIMBS + nowClimbed
-                relax(arrived, current, link, afterLink, arrival.loc.floor)
-                // walking from the arrival point to the other nodes of that span
-                for (other in peers[next]) {
-                    if (other != next && other != nodeId) {
-                        val loc = nodes[other].loc
-                        relax(other * CLIMBS + nowClimbed, arrived, null, afterLink + walkCost(arrival.loc.x, loc.x), loc.floor)
+        /** Dijkstra from [from] to every node; the cheapest cost per node, infinite where there is no way. */
+        fun explore(from: Loc, startKey: Long): FloatArray {
+            val gen = begin()
+            // the graph in locals: the search loop reads them all the time
+            val nodes = nodes
+            val outStart = outStart
+            val outTo = outTo
+            val outLink = outLink
+            val peers = peers
+            fun relax(state: Int, cost: Float) {
+                if (seen[state] != gen || cost < best[state]) {
+                    seen[state] = gen
+                    best[state] = cost
+                    open.push(state, cost)
+                }
+            }
+            for (n in nodesBySpan[startKey].orEmpty()) relax(n.id * CLIMBS, walkCost(from.x, n.loc.x))
+            val reached = FloatArray(nodes.size) { Float.POSITIVE_INFINITY }
+            while (open.isNotEmpty()) {
+                val current = open.pop()
+                if (closed[current] == gen) continue
+                closed[current] = gen
+                val cost = best[current]
+                val nodeId = current / CLIMBS
+                if (cost < reached[nodeId]) reached[nodeId] = cost
+                val climbed = current % CLIMBS
+                for (e in outStart[nodeId] until outStart[nodeId + 1]) {
+                    val link = outLink[e]
+                    val next = outTo[e]
+                    val leg = link.leg
+                    val nowClimbed = if (leg is Leg.Stairs) climbed + abs(leg.toFloor - leg.fromFloor) else 0
+                    if (nowClimbed > NavCosts.MAX_STAIRS_FLOORS) continue
+                    val arrival = nodes[next]
+                    val afterLink = cost + link.cost()
+                    relax(next * CLIMBS + nowClimbed, afterLink)
+                    for (other in peers[next]) {
+                        if (other != next && other != nodeId) relax(other * CLIMBS + nowClimbed, afterLink + walkCost(arrival.loc.x, nodes[other].loc.x))
                     }
                 }
             }
+            return reached
         }
-        if (seen[goal] != gen) return null
-        lastCost = best[goal]
 
-        // Rebuild the chain of states, then turn it into legs.
-        val chain = ArrayList<Int>()
-        var cursor = goal
-        while (cursor != START) {
-            chain += cursor
-            cursor = cameFrom[cursor]
-        }
-        chain.reverse()
-        val legs = ArrayList<Leg>()
-        var position = from
-        for (state in chain) {
-            val loc = if (state == goal) to else nodes[state / CLIMBS].loc
-            val link = cameBy[state]
-            if (link != null) {
-                legs += link.leg
-            } else {
-                walk(position, loc.x)?.let { legs += it }
+        fun search(from: Loc, to: Loc): List<Leg>? {
+            val startKey = spanKey(from) ?: return null
+            val goalKey = spanKey(to) ?: return null
+            if (startKey == goalKey) {
+                lastCost = walkCost(from.x, to.x)
+                return listOfNotNull(walk(from, to.x))
             }
-            position = loc
+
+            val gen = begin()
+            // the graph in locals: the search loop reads them all the time
+            val nodes = nodes
+            val outStart = outStart
+            val outTo = outTo
+            val outLink = outLink
+            val peers = peers
+            val goal = nodes.size * CLIMBS
+
+            fun h(floor: Int) = abs(floor - to.floor) * NavCosts.FASTEST_PER_FLOOR
+            fun relax(state: Int, previous: Int, link: Link?, cost: Float, floor: Int) {
+                if (seen[state] != gen || cost < best[state]) {
+                    seen[state] = gen
+                    best[state] = cost
+                    cameFrom[state] = previous
+                    cameBy[state] = link
+                    open.push(state, cost + h(floor))
+                }
+            }
+
+            for (n in nodesBySpan[startKey].orEmpty()) relax(n.id * CLIMBS, START, null, walkCost(from.x, n.loc.x), n.loc.floor)
+
+            while (open.isNotEmpty()) {
+                val current = open.pop()
+                if (current == goal) break
+                if (closed[current] == gen) continue // already expanded with a better cost
+                closed[current] = gen
+                val cost = best[current]
+                val nodeId = current / CLIMBS
+                val node = nodes[nodeId]
+                val climbed = current % CLIMBS
+                if (node.spanKey == goalKey) relax(goal, current, null, cost + walkCost(node.loc.x, to.x), to.floor)
+                for (e in outStart[nodeId] until outStart[nodeId + 1]) {
+                    val link = outLink[e]
+                    val next = outTo[e]
+                    val leg = link.leg
+                    val nowClimbed = if (leg is Leg.Stairs) climbed + abs(leg.toFloor - leg.fromFloor) else 0
+                    if (nowClimbed > NavCosts.MAX_STAIRS_FLOORS) continue
+                    val arrival = nodes[next]
+                    val afterLink = cost + link.cost()
+                    val arrived = next * CLIMBS + nowClimbed
+                    relax(arrived, current, link, afterLink, arrival.loc.floor)
+                    // walking from the arrival point to the other nodes of that span
+                    for (other in peers[next]) {
+                        if (other != next && other != nodeId) {
+                            val loc = nodes[other].loc
+                            relax(other * CLIMBS + nowClimbed, arrived, null, afterLink + walkCost(arrival.loc.x, loc.x), loc.floor)
+                        }
+                    }
+                }
+            }
+            if (seen[goal] != gen) return null
+            lastCost = best[goal]
+
+            // Rebuild the chain of states, then turn it into legs.
+            val chain = ArrayList<Int>()
+            var cursor = goal
+            while (cursor != START) {
+                chain += cursor
+                cursor = cameFrom[cursor]
+            }
+            chain.reverse()
+            val legs = ArrayList<Leg>()
+            var position = from
+            for (state in chain) {
+                val loc = if (state == goal) to else nodes[state / CLIMBS].loc
+                val link = cameBy[state]
+                if (link != null) {
+                    legs += link.leg
+                } else {
+                    walk(position, loc.x)?.let { legs += it }
+                }
+                position = loc
+            }
+            return legs
         }
-        return legs
     }
 
     private fun walk(from: Loc, toX: Float): Leg? =
@@ -326,6 +368,9 @@ class NavGraph(private val tower: Tower, private val providers: List<LinkProvide
     private companion object {
         const val CLIMBS = NavCosts.MAX_STAIRS_FLOORS + 1
         const val START = -1
+
+        /** A search takes tens of microseconds, so even a single one is worth handing to a helper. */
+        const val PATHS_PER_CHUNK = 1
     }
 }
 

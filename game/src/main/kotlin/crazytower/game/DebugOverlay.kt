@@ -2,6 +2,7 @@ package crazytower.game
 
 import crazytower.core.Profiler
 import crazytower.core.Simulation
+import crazytower.core.Workers
 import crazytower.core.ecs.Away
 import crazytower.core.ecs.Person
 import crazytower.core.ecs.Riding
@@ -111,12 +112,12 @@ class DebugOverlay(private val sim: Simulation, private val tower: TowerView, pr
             appendLine("F3  %.0f fps   Frame %.1f ms (max %.1f)   davon gemessen %.1f ms".format(n / frameSeconds, frameMs, maxFrame * 1000, busy))
             appendLine("Leute $people, im Turm $inside, unterwegs $walking, im Aufzug $riding, gezeichnet ${tower.peopleShown}")
             appendLine()
-            appendLine("Simulation   ${ms(simNanosSum)} ms/Frame   ${d.ticks / n} Ticks/Frame")
+            appendLine("Simulation   ${ms(simNanosSum)} ms/Frame   ${d.ticks / n} Ticks/Frame   ${Workers.threads} Threads")
             val total = d.total.coerceAtLeast(1)
             sim.profiler.names.indices.sortedByDescending { d.nanos[it] }.take(8).forEach { i ->
                 appendLine("  %-13s ${ms(d.nanos[i])} ms  %3.0f %%".format(sim.profiler.names[i], 100.0 * d.nanos[i] / total))
             }
-            appendLine("  Wegsuche: ${d.pathSearches} Suchen, %.0f µs je Suche".format(d.pathNanos / 1e3 / d.pathSearches.coerceAtLeast(1)))
+            appendLine("  Wegsuche: ${d.pathSearches} Suchen, %.0f µs Rechenzeit je Suche".format(d.pathNanos / 1e3 / d.pathSearches.coerceAtLeast(1)))
             appendLine("Turmansicht  ${ms(towerNanosSum)} ms/Frame  (${tower.roomCount} Räume)")
             TowerView.PARTS.forEachIndexed { i, name -> appendLine("  %-13s ${ms(towerParts[i])} ms".format(name)) }
             appendLine("HUD          ${ms(hudNanosSum)} ms/Frame")

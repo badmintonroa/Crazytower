@@ -68,6 +68,10 @@ Bleibt die Maus kurz auf einem Knopf der Kopfleiste oder des Baumenüs, erklärt
 
 Jede Figur ist eine Entität mit `Position` und `Goal`. Das `PathfindingSystem` sucht per A* eine Route aus Lauf-, Treppen- und Fahrabschnitten, das `MovementSystem` läuft sie ab.
 
+### Mehrere CPU-Kerne
+
+Die Simulation verteilt die Wegsuche und die Aufzugsschächte auf Hilfsthreads (`core/.../Workers.kt`), standardmäßig so viele, wie der Rechner Kerne hat, minus einen (höchstens 8). Die Hilfsthreads rechnen nur, was niemand sonst anfasst (eine Wegsuche, einen Schacht mit seinen Fahrgästen). Was die Welt ändert (Komponenten, Geld, Zufallszahlen, Nachrichten), passiert danach auf dem Spielthread in fester Reihenfolge, deshalb läuft das Spiel mit jeder Threadzahl bitgenau gleich (`WorkersTest`). Wer an einem System etwas parallelisiert, hält sich an diese Regel. `-Dcrazytower.threads=1` oder `CRAZYTOWER_THREADS=1` schaltet die Hilfsthreads ab, zum Vergleichen: `./gradlew :core:bench -Dcrazytower.threads=1`. Das F3-Fenster zeigt die Threadzahl.
+
 ## Turm bauen (ab M4)
 
 - Etagen über dem Erdgeschoss brauchen darunter etwas, auf dem sie stehen. Das erste Untergeschoss geht überall, tiefere brauchen eine Decke.

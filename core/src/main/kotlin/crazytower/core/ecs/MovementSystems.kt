@@ -13,13 +13,46 @@ import crazytower.core.nav.NavCosts
 import kotlin.math.abs
 import kotlin.math.sign
 
-/** Turns a [Goal] into a [Route]. Every person finds its own way through the tower. */
+/**
+ * Turns a [Goal] into a [Route]. Every person finds its own way through the tower. The
+ * searches of a tick run side by side on the [crazytower.core.Workers]; the routes are handed
+ * out afterwards in the usual order.
+ */
 class PathfindingSystem(
     private val sim: Simulation = inject(),
 ) : IteratingSystem(family { all(Position, Goal).none(Route, Stuck) }) {
+    private var batch = arrayOfNulls<Entity>(64)
+    private var froms = arrayOfNulls<Loc>(64)
+    private var tos = arrayOfNulls<Loc>(64)
+    private var results = arrayOfNulls<List<Leg>>(64)
+    private var count = 0
+    private var next = 0
+
+    override fun onTick() {
+        val n = family.numEntities
+        if (n == 0) return
+        if (batch.size < n) {
+            val size = maxOf(n, batch.size * 2)
+            batch = arrayOfNulls(size); froms = arrayOfNulls(size); tos = arrayOfNulls(size); results = arrayOfNulls(size)
+        }
+        count = 0
+        family.forEach { entity ->
+            val pos = entity[Position]
+            batch[count] = entity
+            froms[count] = Loc(pos.floor, pos.x)
+            tos[count] = entity[Goal].target
+            count++
+        }
+        sim.nav.findPaths(count, { froms[it]!! }, { tos[it]!! }, results)
+        next = 0
+        super.onTick() // hands out the routes in the family's order, which is the order searched in
+        results.fill(null, 0, count)
+    }
+
     override fun onTickEntity(entity: Entity) {
-        val pos = entity[Position]
-        val legs = sim.nav.findPath(Loc(pos.floor, pos.x), entity[Goal].target)
+        // the family is the same as above: nothing changes the world between the search and here
+        check(batch[next] == entity) { "the family changed between searching and handing out routes" }
+        val legs = results[next++]
         entity.configure {
             if (legs == null) {
                 it += Stuck(sim.clock.totalMinutes)
