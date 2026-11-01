@@ -445,7 +445,7 @@ class TowerView(
         val key = RoomLooks.art(sim, room)
         val mood = sim.moodOf(room)
         return when {
-            mood != null && mood < Simulation.UNHAPPY && assets.hasRoom(key + "_rundown") -> key + "_rundown"
+            mood != null && mood < Simulation.UNHAPPY && !Film.tidy && assets.hasRoom(key + "_rundown") -> key + "_rundown"
             DayLight.isDark(sim.clock.minuteOfDay) && assets.hasRoom(key + "_night") -> key + "_night"
             else -> key
         }
@@ -1052,6 +1052,18 @@ class TowerView(
         val phase = (1 - cos(2 * PI * seconds / period)) / 2
         world.y = if (atRoof <= atGround) atGround else atGround + (atRoof - atGround) * phase
     }
+
+    /** The trailer camera ([Film]): field [x] and [floor] in the middle of the screen at [zoomLevel], without the usual limits. */
+    fun filmCamera(x: Double, floor: Double, zoomLevel: Double) {
+        zoom = zoomLevel
+        world.scale = zoom
+        world.x = screenWidth / 2 - Metrics.x(x) * zoom
+        world.y = screenHeight / 2 + (floor + 0.5) * Metrics.FLOOR * zoom
+    }
+
+    /** The field and floor in the middle of the screen. */
+    fun filmCenter(): Pair<Double, Double> =
+        (screenWidth / 2 - world.x) / zoom / Metrics.SEG to ((world.y - screenHeight / 2) / zoom / Metrics.FLOOR - 0.5)
 
     /** Moves the camera so that [loc] is in the middle of the screen. */
     fun lookAt(loc: Loc) {

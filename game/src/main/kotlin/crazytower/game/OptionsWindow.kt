@@ -19,6 +19,7 @@ import korlibs.korge.view.*
 class OptionsWindow(
     private val onTestTower: (Int) -> Unit,
     private val onMainMenu: (() -> Unit)? = null,
+    private val onHelp: (() -> Unit)? = null,
     private val onClose: () -> Unit,
 ) : Container() {
     val panelWidth = 520.0
@@ -56,7 +57,7 @@ class OptionsWindow(
     )
 
     init {
-        panelHeight = 72.0 + rows.size * 40.0 + (if (Edition.demo) 0.0 else 40.0) + (if (onMainMenu != null) 40.0 else 0.0) + 70.0
+        panelHeight = 72.0 + rows.size * 40.0 + (if (Edition.demo) 0.0 else 40.0) + (if (onMainMenu != null) 40.0 else 0.0) + (if (onHelp != null) 40.0 else 0.0) + 70.0
         Panel(panelWidth, panelHeight).addTo(this)
         label(tr("OPTIONEN", "OPTIONS"), 20.0, Theme.TEXT, Theme.bodyBold).xy(18.0, 14.0)
         val hint = label(tr("O oder Esc schließt", "O or Esc closes"), 12.0, Theme.TEXT_DIM)
@@ -85,6 +86,11 @@ class OptionsWindow(
         if (onMainMenu != null) {
             label(tr("Spiel", "Game"), 15.0, Theme.TEXT, Theme.bodyBold).xy(22.0, y + 9).fitWidth(TITLE_WIDTH)
             TextButton(220.0, 34.0, tr("Zum Hauptmenü", "Main menu"), 14.0) { onMainMenu.invoke() }.addTo(this).xy(panelWidth - 240.0, y)
+            y += 40.0
+        }
+        if (onHelp != null) {
+            label(tr("Tasten", "Keys"), 15.0, Theme.TEXT, Theme.bodyBold).xy(22.0, y + 9).fitWidth(TITLE_WIDTH)
+            TextButton(220.0, 34.0, tr("Alle Tasten · F1", "All keys · F1"), 14.0) { onHelp.invoke() }.addTo(this).xy(panelWidth - 240.0, y)
         }
         label(tr("Gespeichert in ", "Saved in ") + Options.file.path.replace(System.getProperty("user.home"), "~"), 11.0, Theme.TEXT_DIM)
             .xy(22.0, panelHeight - 40.0).fitWidth(panelWidth - 128.0 - 34.0)

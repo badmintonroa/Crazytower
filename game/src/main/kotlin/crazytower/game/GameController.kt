@@ -31,6 +31,7 @@ class GameController(val sim: Simulation) {
     var optionsOpen = false
     var extrasOpen = false
     var missionOpen = false
+    var helpOpen = false
 
     /** Starts a ready-made tower of the given stage; set by the game screen. */
     var onTestTower: (Int) -> Unit = {}
@@ -67,6 +68,17 @@ class GameController(val sim: Simulation) {
     }
 
     private var lastSpeed = 1
+
+    /** One step faster ([faster]) or slower, between 1x and the fastest speed; from the pause, 1x. */
+    fun faster() = changeSpeed(+1)
+
+    fun slower() = changeSpeed(-1)
+
+    private fun changeSpeed(step: Int) {
+        val running = SPEEDS.filter { it > 0 }
+        val index = running.indexOf(speed)
+        speed = if (index < 0) running.first() else running[(index + step).coerceIn(0, running.lastIndex)]
+    }
 
     fun openCategory(c: Category) {
         if (c == Category.DEMOLISH) {

@@ -31,6 +31,19 @@ Das Spiel startet im Hauptmenü: Spiel laden, Neues Spiel, Optionen, Testtürme 
 
 Das Spiel gibt es auf Deutsch und Englisch, umschaltbar unter Optionen → „Sprache · Language“ (ohne Einstellung gilt die Systemsprache). Texte stehen im Code als Paar: `tr("Deutsch", "English")` für Text, der gleich angezeigt wird, `Tr(...)` für Daten wie Mieter- und Raumnamen (`core/.../I18n.kt`). Zahlen und Geld folgen der Sprache (`48.250 $` / `$48,250`). Zu lange Texte werden umbrochen (`wrapText`) oder verkleinert und notfalls gekürzt (`fitWidth`), Buttons machen das von selbst. Für Screenshots wählt `CRAZYTOWER_LANG=en` Englisch.
 
+## Steam-Shopseite und Trailer
+
+Trailer, Screenshots und Shop-Grafiken kommen direkt aus dem Spiel, ohne Bildschirm:
+
+```bash
+tools/steam/film.sh out/clips de              # alle Trailer-Szenen als mp4 (1920×1080, 30 fps, ohne Ton)
+tools/steam/screenshots.sh out/shots de       # 10 Store-Screenshots
+python3 -I tools/steam/trailer.py out/clips out/videos de   # Trailer und Gameplay-Video mit Musik und Texttafeln
+python3 -I tools/steam/capsules.py <keyart> out/grafiken    # Capsules, Bibliotheksbilder, Logo, Icons
+```
+
+Der Aufnahmemodus (`game/.../Film.kt`, `CRAZYTOWER_FILM=<datei.mp4|.png>`) läuft mit festem Zeitschritt und schickt jedes Bild an ffmpeg, deshalb ruckelt nichts, egal wie langsam der Rechner rendert. Kamerafahrten (`CRAZYTOWER_CAM`), Verwandlungen, Ereignisse und Fenster (`CRAZYTOWER_ACTIONS`) werden per Umgebungsvariable gesteuert; die Beschreibung steht oben in `Film.kt`. Die Musik erzeugt `tools/steam/music.py` selbst, ohne Samples.
+
 ## Steuerung
 
 | Eingabe | Aktion |
@@ -42,10 +55,17 @@ Das Spiel gibt es auf Deutsch und Englisch, umschaltbar unter Optionen → „Sp
 | Pfeiltasten, WASD | Kamera bewegen |
 | `1` bis `6` | Baukategorien |
 | Leertaste | Pause |
+| `,` / `.` | Langsamer / schneller |
+| `N` | Nachts vorspulen an/aus |
+| `F` oder Klick aufs Geld | Finanzen |
+| `O` | Optionen |
+| `F1` oder `H` | Tastenübersicht |
 | `F5` / `F9` | Speichern / Laden |
 | `X` oder `$`-Knopf | Extras für reiche Türme (ab Stufe 4) |
 | `M` oder Klick auf die Stufe | Mondmission (ab Stufe 5) |
 | Klick auf den Ticker | Zum Ort der Nachricht springen |
+
+Bleibt die Maus kurz auf einem Knopf der Kopfleiste oder des Baumenüs, erklärt ein Hinweis, was er tut, welche Taste dasselbe macht und warum er gerade gesperrt ist (Schloss). Gekürzte Texte zeigen dort ihren ganzen Text. Kein Text im Spiel ist kleiner als 13 px (`MIN_TEXT` in `ui/Widgets.kt`), zu lange Texte werden lieber gekürzt als winzig. Die Tastenübersicht (`Shortcuts` in `HelpWindow.kt`) ist die eine Liste aller Tasten; wer eine Taste hinzufügt, trägt sie dort und hier ein. Für Screenshots zeigt `CRAZYTOWER_HOVER=x,y` den Hinweis an dieser Stelle, `CRAZYTOWER_HELP=1` die Tastenübersicht.
 
 ## Aufbau
 

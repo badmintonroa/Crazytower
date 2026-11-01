@@ -19,12 +19,16 @@ import crazytower.core.liftedOff
 import crazytower.core.missionProgress
 import crazytower.core.missionStarted
 import crazytower.core.spectatorsPerDay
+import crazytower.core.openDayBlocked
 import crazytower.core.startOpenDay
 import crazytower.core.tr
 import crazytower.game.ui.Button
 import crazytower.game.ui.Icons
 import crazytower.game.ui.Panel
 import crazytower.game.ui.TextButton
+import crazytower.game.ui.Tip
+import crazytower.game.ui.TipLayer
+import crazytower.game.ui.tip
 import crazytower.game.ui.formatMoney
 import crazytower.game.ui.fitWidth
 import crazytower.game.ui.formatNumber
@@ -61,7 +65,7 @@ class Hud(
     private val finance = FinanceWindow(sim) { game.financeOpen = false }.addTo(this).also {
         it.xy((screenWidth - it.panelWidth) / 2, 96.0)
     }
-    private val options = OptionsWindow(onTestTower = { game.onTestTower(it) }, onMainMenu = game.onMainMenu) { game.optionsOpen = false }.addTo(this).also {
+    private val options = OptionsWindow(onTestTower = { game.onTestTower(it) }, onMainMenu = game.onMainMenu, onHelp = { game.optionsOpen = false; game.helpOpen = true }) { game.optionsOpen = false }.addTo(this).also {
         it.xy((screenWidth - it.panelWidth) / 2, ((screenHeight - it.panelHeight) / 2).coerceAtLeast(84.0))
     }
     // right of the build list where the screen is wide enough
@@ -71,14 +75,21 @@ class Hud(
     private val mission = MissionWindow(sim, game) { game.missionOpen = false }.addTo(this).also {
         it.xy(((screenWidth - it.panelWidth) / 2).coerceAtLeast(110.0 + FLYOUT_WIDTH + 10).coerceAtMost(screenWidth - it.panelWidth - 12), 96.0)
     }
+    private val help = HelpWindow { game.helpOpen = false }.addTo(this).also {
+        it.xy((screenWidth - it.panelWidth) / 2, ((screenHeight - it.panelHeight) / 2).coerceAtLeast(84.0))
+    }
     private val celebration = Celebration(screenWidth, screenHeight).addTo(this)
     private val demoEnd = DemoEndWindow(screenWidth, screenHeight, game.onMainMenu) { game.onQuit() }.addTo(this)
     private val tooltip = container { visible = false }
     private val toast = container { visible = false }
 
+    /** Hover tips, in front of everything else. */
+    private val tips = TipLayer(screenWidth, screenHeight).addTo(this)
+
     private lateinit var moneyText: Text
     private lateinit var nextText: Text
     private lateinit var popText: Text
+    private lateinit var popLabel: Text
     private lateinit var stageText: Text
     private lateinit var stageHint: Text
     private lateinit var stageBar: Graphics
@@ -91,6 +102,7 @@ class Hud(
     private val speedButtons = ArrayList<Pair<Int, TextButton>>()
     private lateinit var openDayButton: TextButton
     private lateinit var extrasButton: TextButton
+    private lateinit var extrasLock: View
     private var shownParts = -1
     private val categoryButtons = HashMap<Category, Button>()
 
@@ -123,6 +135,7 @@ class Hud(
             if (extras.visible) add(Rectangle(extras.x, extras.y, extras.panelWidth, extras.panelHeight))
             if (mission.visible) add(Rectangle(mission.x, mission.y, mission.panelWidth, mission.panelHeight))
             if (options.visible) add(Rectangle(options.x, options.y, options.panelWidth, options.panelHeight))
+            if (help.visible) add(Rectangle(help.x, help.y, help.panelWidth, help.panelHeight))
             if (celebration.isShowing || demoEnd.visible) add(Rectangle(0.0, 0.0, screenWidth, screenHeight))
             add(Rectangle(0.0, screenHeight - 50.0, screenWidth, 50.0))
         }
@@ -151,34 +164,56 @@ class Hud(
             nextText = label("", 11.0, Theme.TEXT_DIM).also { it.xy(46.0, 36.0) }
             // the money opens the finance window
             onClick { game.financeOpen = !game.financeOpen }
+            tip(tr("Geld", "Money"), tr("Darunter die nächste Einnahme. Klick öffnet die Finanzen.", "Below it the next income. Click to open the finances."), "F")
         }
-        box(160.0) {
+        box(180.0) {
             solidRect(8.0, 8.0, Theme.alpha(Theme.SELECT, 0.9)).xy(20.0, 18.0)
             solidRect(14.0, 12.0, Theme.alpha(Theme.SELECT, 0.6)).xy(17.0, 28.0)
-            popText = label("", 20.0, Theme.TEXT, Theme.bodyBold).also { it.xy(42.0, 17.0) }
-            label(tr("Bewohner", "Residents"), 12.0, Theme.TEXT_DIM).xy(95.0, 14.0).fitWidth(POP_LABEL)
-            moodText = label("", 12.0, Theme.TEXT_DIM).also { it.xy(95.0, 30.0) }
+            // the number on top, the mood under it, like the money; the tip says what they are
+            popText = label("", 20.0, Theme.TEXT, Theme.bodyBold).also { it.xy(42.0, 9.0) }
+            popLabel = label(tr("Bewohner", "Residents"), 12.0, Theme.TEXT_DIM)
+            moodText = label("", 12.0, Theme.TEXT_DIM).also { it.xy(42.0, 36.0) }
+            tip {
+                Tip(
+                    tr("Bewohner und Laune", "Residents and mood"),
+                    tr("Alle Leute, die im Turm wohnen oder arbeiten, und wie zufrieden sie im Schnitt sind. Die Sterne 3 bis 5 brauchen gute Laune, sonst ziehen jede Nacht die Unzufriedensten aus.",
+                        "Everyone who lives or works in the tower, and how happy they are on average. Stars 3 to 5 need a good mood, or the unhappiest move out every night."),
+                )
+            }
         }
-        val stageWidth = screenWidth - 24 - x - 150 - 10 - 254 - 10 - 60 - 10 - 60 - 10 - 60
+        val stageWidth = screenWidth - 24 - x - 150 - 10 - SPEED_BOX - 10 - 60 - 10 - 60 - 10 - 60
         box(stageWidth) {
             stars = container { xy(16.0, 12.0) }
             starHint = label("", 11.0, Theme.GOLD).also { it.xy(16.0, 36.0) }
+            // the stars and the hint under them: everything the next star still needs
+            solidRect(STAR_HINT, 44.0, Theme.alpha(Theme.INK, 0.0)).xy(16.0, 8.0).tip { starTip() }
             stageText = label("", 16.0, Theme.TEXT, Theme.bodyBold).also { it.xy(152.0, 12.0) }
             stageHint = label("", 12.0, Theme.TEXT_DIM).also { it.xy(152.0, 34.0) }
             stageBarWidth = stageWidth - 168.0
             stageBar = graphics { }.also { it.xy(152.0, 50.0) }
             // from stage 5 on the stage box is the moon mission's countdown
             onClick { if (sim.missionStarted) game.missionOpen = !game.missionOpen }
+            solidRect(stageWidth - 152.0, 52.0, Theme.alpha(Theme.INK, 0.0)).xy(148.0, 4.0).tip { stageTip() }
         }
         box(150.0) {
             sun(this, 16.0, 19.0)
             clockText = label("", 18.0, Theme.TEXT, Theme.bodyBold).also { it.xy(46.0, 18.0) }
+            tip {
+                Tip(
+                    tr("Tag ${sim.clock.day + 1}, ${sim.clock.format()}", "Day ${sim.clock.day + 1}, ${sim.clock.format()}"),
+                    (if (game.fastNights) tr("Nachts vorspulen ist an: Von 23 bis 6 Uhr läuft die Zeit viermal so schnell (»).", "Fast-forward nights is on: from 11 pm to 6 am time runs four times as fast (»).")
+                    else tr("Nachts vorspulen ist aus.", "Fast-forward nights is off.")) + tr(" Rot heißt: Pause.", " Red means paused."),
+                    "N",
+                )
+            }
         }
-        box(254.0) {
+        box(SPEED_BOX) {
             val speeds = GameController.SPEEDS.map { it to if (it == 0) "II" else "$it×" }
             speeds.forEachIndexed { i, (speed, title) ->
-                val b = TextButton(44.0, 40.0, title) { game.speed = speed }
-                b.xy(10.0 + i * 48.0, 10.0)
+                val b = TextButton(40.0, 40.0, title) { game.speed = speed }
+                b.xy(10.0 + i * 44.0, 10.0)
+                if (speed == 0) b.tip(tr("Pause", "Pause"), key = tr("Leertaste", "Space"))
+                else b.tip(tr("Tempo $speed×", "Speed $speed×"), tr("Ein Tag dauert ${dayLength(speed)}.", "A day takes ${dayLength(speed)}."), Shortcuts.SPEED)
                 addChild(b)
                 speedButtons += speed to b
             }
@@ -192,20 +227,45 @@ class Hud(
             })
             balloon(openDayButton.content)
             openDayButton.xy(10.0, 10.0)
+            openDayButton.tip {
+                val running = sim.activeEvents.any { it.id == "openday" }
+                Tip(
+                    tr("Tag der offenen Tür", "Open day"),
+                    if (running) tr("Läuft gerade: Bis 22 Uhr kommen doppelt so viele Besucher.", "Running now: twice the visitors until 10 pm.")
+                    else tr("Bis 22 Uhr kommen doppelt so viele Besucher. Einmal pro Woche.", "Twice the visitors until 10 pm. Once a week."),
+                    locked = if (running) null else sim.openDayBlocked(),
+                )
+            }
             addChild(openDayButton)
         }
         box(60.0) {
             // extras for rich towers: where the money goes from stage 4 on
             extrasButton = TextButton(40.0, 40.0, "$", 20.0, onPress = { game.extrasOpen = !game.extrasOpen })
             extrasButton.xy(10.0, 10.0)
+            extrasLock = Icons.lock(extrasButton, Theme.TEXT_LOCKED).xy(25.0, 3.0)
+            extrasButton.tip {
+                Tip(
+                    tr("Extras für reiche Türme", "Extras for rich towers"),
+                    tr("Versicherungen, Werbung, Turmfest, Deko, Seiteneingänge und das Labor für fragwürdige Wissenschaft.", "Insurance, ads, the tower party, decorations, side entrances and the laboratory of questionable science."),
+                    "X",
+                    locked = if (sim.stage < SINK_STAGE) tr("Ab Stufe $SINK_STAGE", "From stage $SINK_STAGE") else null,
+                )
+            }
             addChild(extrasButton)
         }
         box(60.0) {
             val b = TextButton(40.0, 40.0, "", onPress = { game.optionsOpen = !game.optionsOpen })
             Icons.gear(b.content, Theme.TEXT)
             b.xy(10.0, 10.0)
+            b.tip(tr("Optionen", "Options"), tr("Sprache, Anzeige, Lautstärke, Autospeichern, Hauptmenü. F1 zeigt alle Tasten.", "Language, display, volume, autosave, main menu. F1 shows all keys."), "O")
             addChild(b)
         }
+    }
+
+    /** How long a game day takes in real time at [speed]: "6 Min." or "45 Sek.". */
+    private fun dayLength(speed: Int): String {
+        val seconds = (GameClock.MINUTES_PER_DAY / (GameController.GAME_MINUTES_PER_SECOND * speed)).toInt()
+        return if (seconds >= 120 && seconds % 60 == 0) tr("${seconds / 60} Minuten", "${seconds / 60} minutes") else tr("$seconds Sekunden", "$seconds seconds")
     }
 
     private fun coin(c: Container, x: Double, y: Double) {
@@ -255,6 +315,21 @@ class Hud(
             buildBar.addChild(b)
             categoryButtons[category] = b
             categoryNews[category] = Icons.star(b, filled = true, size = 18.0).also { it.xy(2.0, 2.0); it.visible = false }
+            b.tip {
+                val types = Catalog.roomTypes.filter { it.category == category }
+                val open = types.count { sim.unlocked(it) }
+                Tip(
+                    category.label,
+                    when {
+                        category == Category.DEMOLISH -> tr("Klick auf einen Raum reißt ihn ab, ein Viertel der Baukosten kommt zurück.", "Click a room to tear it down, a quarter of the cost comes back.")
+                        open == 0 -> null
+                        open < types.size -> tr("$open von ${types.size} Räumen freigeschaltet, der Rest kommt mit Sternen und Stufen.", "$open of ${types.size} rooms unlocked, the rest come with stars and stages.")
+                        else -> tr("Alle ${types.size} Räume freigeschaltet.", "All ${types.size} rooms unlocked.")
+                    },
+                    "${i + 1}",
+                    locked = if (category != Category.DEMOLISH && open == 0) tr("Kommt mit mehr Sternen", "Comes with more stars") else null,
+                )
+            }
         }
     }
 
@@ -450,6 +525,7 @@ class Hud(
         val badge = Panel(150.0, 28.0, Theme.ALARM, 6.0).addTo(ticker).also { it.xy(12.0, 11.0) }
         val badgeText = badge.label(tr("TOWER-TICKER", "TOWER TICKER"), 15.0, Theme.ON_SELECT, Theme.bodyBold).fitWidth(126.0)
         badgeText.xy((150.0 - badgeText.width * badgeText.scaleX) / 2, 4.0)
+        badge.tip(tr("Tower-Ticker", "Tower ticker"), tr("Die neuesten Meldungen aus dem Turm. Klick auf die Laufschrift springt zum Ort der neuesten Meldung.", "The latest news from the tower. Click the scrolling text to go to the newest news."))
         tickerClip = ticker.clipContainer(Size(screenWidth - 180.0, 50.0)) { xy(172.0, 0.0) }
         tickerText = tickerClip.label("", 15.0, Theme.TEXT).also { it.y = 15.0 }
         tickerClip.onClick { e ->
@@ -466,6 +542,10 @@ class Hud(
                 down(Key.valueOf("N${i + 1}")) { game.openCategory(c); refreshFlyout(force = true) }
             }
             down(Key.SPACE) { game.togglePause() }
+            down(Key.PERIOD) { game.faster(); game.say(tr("Tempo ${game.speed}×", "Speed ${game.speed}×"), 1.5) }
+            down(Key.COMMA) { game.slower(); game.say(tr("Tempo ${game.speed}×", "Speed ${game.speed}×"), 1.5) }
+            down(Key.F1) { game.helpOpen = !game.helpOpen }
+            down(Key.H) { game.helpOpen = !game.helpOpen }
             down(Key.N) {
                 game.fastNights = !game.fastNights
                 game.say(if (game.fastNights) tr("Nachts vorspulen: an", "Fast-forward nights: on") else tr("Nachts vorspulen: aus", "Fast-forward nights: off"))
@@ -476,6 +556,7 @@ class Hud(
             down(Key.M) { if (sim.missionStarted) game.missionOpen = !game.missionOpen }
             down(Key.ESCAPE) {
                 when {
+                    game.helpOpen -> game.helpOpen = false
                     game.optionsOpen -> game.optionsOpen = false
                     game.financeOpen -> game.financeOpen = false
                     game.extrasOpen -> game.extrasOpen = false
@@ -497,8 +578,9 @@ class Hud(
         val nextMinute = coming.firstOrNull()?.minute
         nextText.text = nextMinute?.let { m ->
             val amount = formatMoney(coming.filter { it.minute == m }.sumOf { it.amount })
-            tr("nächste: +$amount um ${clockOf(m)}", "next: +$amount at ${clockOf(m)}")
-        } ?: tr("keine Einnahmen in Sicht", "no income in sight")
+            // short, so it fits at the minimum text size; the tip says what it is
+            tr("+$amount um ${clockOf(m)}", "+$amount at ${clockOf(m)}")
+        } ?: tr("nichts in Sicht", "nothing in sight")
         nextText.fitWidth(TOP_MONEY_TEXT)
         finance.visible = game.financeOpen
         if (finance.visible) finance.sync()
@@ -507,11 +589,17 @@ class Hud(
         mission.visible = game.missionOpen
         if (mission.visible) mission.sync()
         extrasButton.selected = game.extrasOpen
-        extrasButton.alpha = if (sim.stage >= SINK_STAGE) 1.0 else 0.5
+        // locked until stage 4; the X key still opens the window that says so
+        extrasButton.enabled = sim.stage >= SINK_STAGE
+        extrasLock.visible = sim.stage < SINK_STAGE
         options.visible = game.optionsOpen
         if (options.visible) options.sync()
+        help.visible = game.helpOpen
         popText.text = formatNumber(sim.population.toLong())
         popText.fitWidth(POP_WIDTH)
+        // "Bewohner" right after the number, where it fits
+        popLabel.xy(42.0 + popText.width * popText.scaleX + 6.0, 14.0)
+        popLabel.visible = popLabel.x + popLabel.width <= 170.0
         val mood = sim.satisfaction.toInt()
         moodText.text = tr("Laune $mood %", "Mood $mood %")
         moodText.fitWidth(POP_LABEL)
@@ -524,6 +612,7 @@ class Hud(
         clockText.color = if (game.speed == 0) Theme.ALARM else Theme.TEXT
         speedButtons.forEach { (speed, b) -> b.selected = game.speed == speed }
         openDayButton.selected = sim.activeEvents.any { it.id == "openday" }
+        openDayButton.enabled = openDayButton.selected || sim.openDayBlocked() == null
         categoryButtons.forEach { (c, b) -> b.selected = game.category == c }
         categoryNews.forEach { (c, star) -> star.visible = game.category != c && Catalog.roomTypes.any { it.category == c && sim.isNew(it) } }
         refreshFlyout()
@@ -531,7 +620,30 @@ class Hud(
         syncTicker(dtSeconds)
         syncTooltip()
         syncToast()
+        tips.update(dtSeconds)
     }
+
+    /** Everything the next star still needs, not only the first thing as under the stars. */
+    private fun starTip(): Tip {
+        if (sim.stars >= Rating.steps.size) return Tip(tr("5 Sterne", "5 stars"), tr("Mehr Sterne gibt es nicht.", "There are no more stars."))
+        val missing = sim.nextStarMissing
+        return Tip(
+            tr("Für Stern ${sim.stars + 1}", "For star ${sim.stars + 1}"),
+            if (missing.isEmpty()) tr("Alles erfüllt, der Stern kommt bei der nächsten Prüfung um Mitternacht.", "All done, the star comes with the next check at midnight.")
+            else missing.joinToString("\n") { "· $it" },
+        )
+    }
+
+    /** The whole stage line and what the next stage needs, which the box often has to cut. */
+    private fun stageTip(): Tip = Tip(
+        stageText.fullText(),
+        stageHint.fullText() + if (sim.missionStarted) tr("\nKlick öffnet die Mondmission.", "\nClick to open the moon mission.") else "",
+        if (sim.missionStarted) "M" else null,
+    )
+
+    private val stageFull = HashMap<Text, String>()
+
+    private fun Text.fullText(): String = stageFull[this] ?: text
 
     private fun clockOf(minute: Int): String {
         val m = minute % GameClock.MINUTES_PER_DAY
@@ -551,6 +663,7 @@ class Hud(
         if (stage != shownStage) {
             shownStage = stage
             stageText.text = tr("STUFE", "STAGE") + " $stage · ${Stages.info(stage).name.toString().uppercase()}"
+            stageFull[stageText] = stageText.text
             stageText.fitWidth(stageBarWidth)
         }
         val missing = sim.nextStarMissing
@@ -571,6 +684,7 @@ class Hud(
             part != null -> tr("${part.step}: ${part.type.name} · M öffnet die Mission", "${part.step}: ${part.type.name} · M opens the mission")
             else -> tr("Der Turm ist komplett verrückt.", "The tower is completely crazy.")
         }
+        stageFull[stageHint] = stageHint.text
         stageHint.fitWidth(stageBarWidth)
         val progress = (if (next == null && sim.missionStarted) sim.missionProgress else sim.stageProgress).coerceIn(0.0, 1.0)
         val w = stageBarWidth
@@ -677,11 +791,12 @@ class Hud(
         /** Text width inside a build list entry. */
         const val CARD_TEXT = 222.0
 
-        /** Room for the population left of its label. */
-        const val POP_WIDTH = 50.0
+        /** Room for the population and the mood under it. */
+        const val POP_WIDTH = 126.0
+        const val POP_LABEL = 126.0
 
-        /** Room for "Bewohner" and the mood right of the population. */
-        const val POP_LABEL = 58.0
+        /** The box with the five speed buttons. */
+        const val SPEED_BOX = 234.0
 
         /** Room for the next payment under the money. */
         const val TOP_MONEY_TEXT = 146.0

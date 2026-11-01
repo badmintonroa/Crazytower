@@ -35,6 +35,8 @@ import crazytower.core.toggleInsurance
 import crazytower.core.tr
 import crazytower.game.ui.Panel
 import crazytower.game.ui.TextButton
+import crazytower.game.ui.Tip
+import crazytower.game.ui.tip
 import crazytower.game.ui.fitWidth
 import crazytower.game.ui.formatMoney
 import crazytower.game.ui.formatNumber
@@ -105,9 +107,9 @@ class ExtrasWindow(private val sim: Simulation, private val game: GameController
         button(colWidth, tr("Turmfest, 2 Tage", "Tower party, 2 days") + " · ${formatMoney(sim.partyCost())}", 18.0, y,
             blocked = sim.partyBlocked()) { result(sim.throwParty()) }
         y += 34
-        body.label(tr("Werbung: ${((Promotion.CAMPAIGN_VISITORS - 1) * 100).toInt()} % mehr Besucher, doppelt so viele VIPs. Fest: +${Promotion.PARTY_MOOD.toInt()} Laune.",
-            "Ads: ${((Promotion.CAMPAIGN_VISITORS - 1) * 100).toInt()} % more visitors, twice the VIPs. Party: +${Promotion.PARTY_MOOD.toInt()} mood."), 11.0, Theme.TEXT_DIM)
-            .xy(18.0, y).fitWidth(colWidth)
+        body.wrappedLabel(tr("Werbung: ${((Promotion.CAMPAIGN_VISITORS - 1) * 100).toInt()} % mehr Besucher, doppelt so viele VIPs. Fest: +${Promotion.PARTY_MOOD.toInt()} Laune.",
+            "Ads: ${((Promotion.CAMPAIGN_VISITORS - 1) * 100).toInt()} % more visitors, twice the VIPs. Party: +${Promotion.PARTY_MOOD.toInt()} mood."), colWidth, 11.0, Theme.TEXT_DIM)
+            .xy(18.0, y)
 
         val x2 = 36.0 + colWidth
         y = 52.0
@@ -150,8 +152,7 @@ class ExtrasWindow(private val sim: Simulation, private val game: GameController
         }.addTo(body).xy(x, y)
         b.selected = selected
         b.enabled = blocked == null || selected
-        if (blocked != null && !selected) b.onOver { game.say(blocked, 2.0) }
-        if (tip != null) b.onOver { game.say(tip, 2.0) }
+        if ((blocked != null && !selected) || tip != null) b.tip { Tip(title, tip, locked = blocked.takeUnless { selected }) }
     }
 
     private fun result(check: crazytower.core.PlaceCheck) {
