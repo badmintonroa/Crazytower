@@ -1,0 +1,31 @@
+"AppBuild"
+{
+	"AppID" "FULL_APP_ID"
+	"Desc" "CrazyTower"
+	// the unpacked builds lie in content/CrazyTower-windows/ and content/CrazyTower-linux/, next to this file
+	"ContentRoot" "content/"
+	"BuildOutput" "output/"
+	"Depots"
+	{
+		// Windows depot (CrazyTower settings: operating system Windows)
+		"FULL_WINDOWS_DEPOT_ID"
+		{
+			"FileMapping"
+			{
+				"LocalPath" "CrazyTower-windows/*"
+				"DepotPath" "."
+				"recursive" "1"
+			}
+		}
+		// Linux / Steam Deck depot (operating system Linux)
+		"FULL_LINUX_DEPOT_ID"
+		{
+			"FileMapping"
+			{
+				"LocalPath" "CrazyTower-linux/*"
+				"DepotPath" "."
+				"recursive" "1"
+			}
+		}
+	}
+}

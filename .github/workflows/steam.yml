@@ -1,0 +1,86 @@
+name: Steam build
+
+# Builds the folders for Steam: the full game and the demo (ends at two stars), for Windows
+# and for Linux / Steam Deck.
+# Start it by hand under Actions → "Steam build" → "Run workflow", or push a tag like v1.0.0.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version (z. B. 1.0.0)"
+        default: "1.0.0"
+      store_url:
+        description: "Steam-Shopseite für den Knopf am Ende der Demo (z. B. steam://store/1234560), leer = kein Knopf"
+        default: ""
+  push:
+    tags: ["v*"]
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    env:
+      VERSION: ${{ inputs.version || '1.0.0' }}
+      STORE_URL: ${{ inputs.store_url || vars.STEAM_STORE_URL || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Version from the tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+      - name: Tests
+        shell: bash
+        run: ./gradlew :core:test --console=plain
+      - name: Full game
+        shell: bash
+        run: ./gradlew :game:packageApp -PappVersion="$VERSION" --console=plain
+      - name: Demo
+        shell: bash
+        run: ./gradlew :game:packageApp -Pdemo=true -PappVersion="$VERSION" -PstoreUrl="$STORE_URL" --console=plain
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CrazyTower-windows-${{ env.VERSION }}
+          path: game/build/jpackage/CrazyTower/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CrazyTowerDemo-windows-${{ env.VERSION }}
+          path: game/build/jpackage/CrazyTowerDemo/
+
+  linux:
+    # an older Ubuntu, so the launcher also runs on older Linux systems and in the Steam Linux Runtime
+    runs-on: ubuntu-22.04
+    env:
+      VERSION: ${{ inputs.version || '1.0.0' }}
+      STORE_URL: ${{ inputs.store_url || vars.STEAM_STORE_URL || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Version from the tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+      - name: Full game
+        run: ./gradlew :game:packageApp -PappVersion="$VERSION" --console=plain
+      - name: Demo
+        run: ./gradlew :game:packageApp -Pdemo=true -PappVersion="$VERSION" -PstoreUrl="$STORE_URL" --console=plain
+      # packed as tar, because a plain upload loses the executable bit of the launcher
+      - name: Pack
+        run: |
+          cd game/build/jpackage
+          tar czf "CrazyTower-linux-$VERSION.tar.gz" CrazyTower
+          tar czf "CrazyTowerDemo-linux-$VERSION.tar.gz" CrazyTowerDemo
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CrazyTower-linux-${{ env.VERSION }}
+          path: game/build/jpackage/CrazyTower-linux-${{ env.VERSION }}.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CrazyTowerDemo-linux-${{ env.VERSION }}
+          path: game/build/jpackage/CrazyTowerDemo-linux-${{ env.VERSION }}.tar.gz

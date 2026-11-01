@@ -12,6 +12,15 @@ Voraussetzung: JDK 21.
 ./gradlew :core:playthrough --args="110 42" -Dbot=all   # die drei Bots spielen 110 Tage mit Seed 42, eine Zeile pro Tag und ein Vergleich
 ```
 
+## Steam: Demo und Windows-Build
+
+```bash
+./gradlew :game:run -Pdemo=true          # die Demo spielen: endet mit dem 2. Stern
+./gradlew :game:packageApp -Pdemo=true   # Ordner mit Exe und eigenem Java für Steam (game/build/jpackage/)
+```
+
+Die Versionen für Windows und Linux / Steam Deck baut GitHub unter Actions → „Steam build“. Wie sie zu Steam kommt, steht in [docs/steam.md](docs/steam.md). Das App-Symbol zeichnet `tools/art/make_icon.py`.
+
 ## Startbildschirm
 
 Das Spiel startet im Hauptmenü: Spiel laden, Neues Spiel, Optionen, Testtürme und Beenden. Im Hintergrund läuft der zuletzt gespeicherte Turm weiter, und die Kamera fährt langsam vom Erdgeschoss bis zum Dach und zurück. Ohne Spielstand steht dort ein Testturm. Im Spiel führt Optionen → „Zum Hauptmenü“ zurück (das Spiel wird vorher gespeichert).
