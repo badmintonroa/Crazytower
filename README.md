@@ -10,6 +10,7 @@ Voraussetzung: JDK 21.
 ./gradlew :game:run          # Spiel starten
 ./gradlew :core:test         # Simulations-Tests
 ./gradlew :core:playthrough --args="110 42" -Dbot=all   # die drei Bots spielen 110 Tage mit Seed 42, eine Zeile pro Tag und ein Vergleich
+./gradlew :core:bots --args="200 1-8" -Dbot=all -Djobs=6   # alle Bots mit Seeds 1 bis 8, sechs Läufe gleichzeitig, Zusammenfassung je Bot
 ```
 
 Nur beim Start über `./gradlew :game:run` (Entwicklermodus, `DevMode.kt`) zeigt `F7` oben links die FPS und wie viele Millisekunden jedes System pro Frame braucht, das langsamste zuerst. Im Installer, auf Steam und in der Demo gibt es die Anzeige nicht; KorGEs eigene Debugansicht auf `F7`/`F12` ist überall aus. Ein fertiges Paket lässt sich mit `CRAZYTOWER_DEV=1` trotzdem prüfen. `CRAZYTOWER_PROFILE=<sekunden>` schreibt dieselben Zahlen jede Sekunde in die Konsole.
@@ -179,5 +180,15 @@ Mit jedem Teil kommen mehr Schaulustige (50 am Anfang, 1.500 nach dem Abheben). 
 | `miser` Geizhals | wie Express-Treppen | wie Express-Treppen, kauft aber keine Extras, nur was die Mondmission braucht |
 
 Ab Stufe 4 kaufen alle Bots außer dem Geizhals Extras: Tuning für Schächte mit langen Wartezeiten, Ausbau für die Räume, die am meisten Miete bringen, Versicherungen, Turmfest, Werbung, Seiteneingänge, Forschung und während der Mission Deko. Für die Mission bauen sie Aussichtsplattform und Souvenirläden, die Räume für die offenen Aufträge, schicken den Sicherheitsdienst zu Dr. Hämisch, zünden probe, wenn die Laune reicht, und bauen die Stationsteile auf Etage 99 (wenn dort alles voll ist, reißen sie Platz frei). Die Log-Zeile zeigt ab Stufe 4 das Geld in Tagen Einnahmen und die Ausgaben je Senke, ab Stufe 5 den Countdown, die Aufträge und die Schaulustigen; die Zusammenfassung zeigt, wie viele Tage jeder Countdown-Schritt gedauert hat.
+
+### Viele Bot-Läufe parallel
+
+`./gradlew :core:bots --args="<tage> <seeds> <minuten>" -Dbot=twin,hub|all -Djobs=<n>` startet jeden Lauf (Bot × Seed) als eigenen Prozess mit einem Thread, so viele gleichzeitig wie `-Djobs` sagt (ohne Angabe: Kerne − 1). Seeds gehen als `1-8`, `1,5,9` oder Mischung. Jeder Lauf schreibt sein ganzes Log nach `core/build/bots/<bot>-<seed>.log` (dazu die CSV pro Tag), auf der Konsole steht nur eine Zeile, wenn ein Lauf fertig ist. Am Ende kommen eine Tabelle aller Läufe und eine Zusammenfassung je Bot (Median und Spanne für Abheben, Stufe 5, 5 Sterne, Leute, Laune, Geld), gespeichert als `zusammenfassung.txt` und `ergebnisse.csv`. Weitere Schalter: `-Dout=<ordner>`, `-Dxmx=<heap je Lauf>` (Standard 2g). Die Ergebnisse sind dieselben wie bei `:core:playthrough`.
+
+Unter Windows in PowerShell im Projektordner (die `-D`-Schalter in Anführungszeichen):
+
+```powershell
+.\gradlew.bat :core:bots --args="200 1-8" "-Dbot=all" "-Djobs=6"
+```
 
 Die Aufzugssäulen der Zonen stehen in allen Zonen an derselben Stelle (je 24 Etagen, die Etage unter der nächsten Sky-Lobby über eine Treppe), damit der Umstieg in der Sky-Lobby kurz bleibt.

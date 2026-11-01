@@ -33,3 +33,11 @@ tasks.register("playthroughClasspath") {
     dependsOn("testClasses")
     doLast { println((sourceSets["test"].output + sourceSets["main"].output + configurations["testCompileClasspath"]).asPath) }
 }
+
+// several bot playthroughs at once, one process per run on its own core:
+// ./gradlew :core:bots --args="200 1-8" -Dbot=all -Djobs=6   (logs and summary in core/build/bots)
+tasks.register<JavaExec>("bots") {
+    classpath = sourceSets["test"].output + sourceSets["main"].output + configurations["testCompileClasspath"]
+    mainClass.set("crazytower.core.BotFarmKt")
+    for (key in listOf("bot", "jobs", "out", "xmx")) System.getProperty(key)?.let { systemProperty(key, it) }
+}
