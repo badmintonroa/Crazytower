@@ -19,7 +19,10 @@ class Profiler(val names: List<String>, private val nav: NavGraph) {
 
     fun snapshot(): Snapshot = Snapshot(nanos.copyOf(), ticks, nav.searchNanos, nav.searches)
 
-    /** [pathNanos] and [pathSearches] count every path search, also those outside the systems (building, tests). */
+    /**
+     * [pathNanos] and [pathSearches] count every path search, also those outside the systems (building, tests).
+     * [pathNanos] is the time of all threads together, so with helpers it can be more than the systems took.
+     */
     data class Snapshot(val nanos: LongArray, val ticks: Long, val pathNanos: Long, val pathSearches: Long) {
         /** What happened between [earlier] and this snapshot. */
         operator fun minus(earlier: Snapshot) = Snapshot(

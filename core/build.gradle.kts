@@ -17,6 +17,8 @@ tasks.test { useJUnitPlatform() }
 tasks.register<JavaExec>("bench") {
     classpath = sourceSets["test"].runtimeClasspath
     mainClass.set("crazytower.core.BenchmarkKt")
+    // -Dcrazytower.threads=n sets the simulation threads, 1 switches the helpers off
+    System.getProperty("crazytower.threads")?.let { systemProperty("crazytower.threads", it) }
 }
 
 tasks.register<JavaExec>("playthrough") {

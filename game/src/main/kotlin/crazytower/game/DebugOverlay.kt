@@ -2,6 +2,7 @@ package crazytower.game
 
 import crazytower.core.Profiler
 import crazytower.core.Simulation
+import crazytower.core.Workers
 import crazytower.game.ui.label
 import crazytower.game.ui.panel
 import korlibs.image.color.RGBA
@@ -96,7 +97,7 @@ class DebugOverlay(private val sim: Simulation, private val views: Views) : Cont
         val rows = (systems + listOf("Spiel sonst" to rest, "Turmansicht" to towerNanosSum, "HUD" to hudNanosSum, "Zeichnen" to renderNanos))
             .sortedByDescending { it.second }
             .map { (name, nanos) -> name to "%.2f ms".format(nanos / 1e6 / n) }
-        val title = "%.0f FPS   %.1f ms/Frame (max %.1f)".format(n / frameSeconds, frameSeconds * 1000 / n, maxFrame * 1000)
+        val title = "%.0f FPS   %.1f ms/Frame (max %.1f)   %d Sim-Threads".format(n / frameSeconds, frameSeconds * 1000 / n, maxFrame * 1000, Workers.threads)
         return title to rows
     }
 

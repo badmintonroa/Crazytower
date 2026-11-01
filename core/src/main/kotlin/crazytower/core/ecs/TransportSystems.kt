@@ -6,6 +6,7 @@ import com.github.quillraven.fleks.IteratingSystem
 import com.github.quillraven.fleks.World.Companion.family
 import com.github.quillraven.fleks.World.Companion.inject
 import crazytower.core.Simulation
+import crazytower.core.Workers
 import crazytower.core.nav.Leg
 import crazytower.core.nav.NavCosts
 import crazytower.core.transport.Cabin
@@ -66,43 +67,96 @@ class RouteRefreshSystem(
 /**
  * Runs the elevator cars. People with a [Leg.Ride] at the front of their route queue in front
  * of the shaft; the car collects them in its travel direction and drops them at their floor.
+ *
+ * Every shaft only touches its own lines and riders, so the shafts run side by side on the
+ * [crazytower.core.Workers]. Getting in and out changes [Riding], which the world may only
+ * do on one thread: each shaft notes it in its [Changes], and they are made afterwards, shaft
+ * by shaft. Within a tick nothing in here looks at [Riding] after the lines are sorted.
  */
 class ElevatorSystem(
     private val sim: Simulation = inject(),
 ) : IntervalSystem() {
     private val elevators get() = sim.elevators
 
-    override fun onTick() {
-        elevators.sync()
-        for (car in elevators.removed) dropEveryone(car)
-        elevators.removed.clear()
-        for (car in elevators.cars.values) {
-            // the lines are emptied, not thrown away, and filled with who reached the doors in the last movement
-            for (line in car.waiting.values) line.clear()
-            for (entity in car.arrived) {
-                if (entity !in world || entity has Riding) continue
-                val ride = rideOf(entity) ?: continue
-                car.waiting.getOrPut(ride.fromFloor) { ArrayList() } += entity
-                car.waitingSince.getOrPut(entity) { sim.clock.totalMinutes }
-            }
-            car.arrived.clear()
-        }
-        for (car in elevators.cars.values) {
-            runCar(car)
-            car.refreshEstimate()
+    /** What one shaft does to the world in a tick, in order. */
+    private class Changes {
+        val entities = ArrayList<Entity>()
+        val boarded = ArrayList<Int>() // car id when getting in, OUT, or OUT_AND_REPLAN
+
+        fun add(entity: Entity, what: Int) {
+            entities += entity
+            boarded += what
         }
     }
 
-    /** Everybody in one car's lines, reused for every car and tick. */
-    private val present = HashSet<Entity>()
+    private var cars = emptyArray<Car>()
+    private var changes = emptyArray<Changes>()
+
+    /** Everybody in one car's lines, per worker, reused for every car and tick. */
+    private val present = arrayOfNulls<HashSet<Entity>>(Workers.MAX_THREADS)
+
+    override fun onTick() {
+        elevators.sync()
+        val noChanges = Changes()
+        for (car in elevators.removed) dropEveryone(car, noChanges)
+        apply(noChanges)
+        elevators.removed.clear()
+        val all = elevators.cars.values
+        if (cars.size != all.size) {
+            cars = all.toTypedArray()
+            changes = Array(cars.size) { Changes() }
+        } else {
+            all.forEachIndexed { i, car -> cars[i] = car }
+        }
+        cars.firstNotNullOfOrNull { it.arrived.firstOrNull() ?: it.cabins.firstNotNullOfOrNull { c -> c.riders.firstOrNull() } }
+            ?.takeIf { it in world }?.let { prepareForWorkers(it) }
+        Workers.chunks(cars.size, 1) { worker, from, until ->
+            val seen = present[worker] ?: HashSet<Entity>().also { present[worker] = it }
+            for (i in from until until) {
+                val car = cars[i]
+                collectLine(car)
+                runCar(car, seen, changes[i])
+                car.refreshEstimate()
+            }
+        }
+        for (c in changes) apply(c)
+    }
+
+    private fun apply(changes: Changes) {
+        for (i in changes.entities.indices) {
+            val entity = changes.entities[i]
+            when (val what = changes.boarded[i]) {
+                OUT -> entity.configure { drop(it, Riding) }
+                OUT_AND_REPLAN -> entity.configure {
+                    drop(it, Riding)
+                    drop(it, Route)
+                }
+                else -> entity.configure { it += Riding(what) }
+            }
+        }
+        changes.entities.clear()
+        changes.boarded.clear()
+    }
+
+    /** Sorts who reached the doors in the last movement into the car's lines; the lines are emptied, not thrown away. */
+    private fun collectLine(car: Car) {
+        for (line in car.waiting.values) line.clear()
+        for (entity in car.arrived) {
+            if (entity !in world || entity has Riding) continue
+            val ride = rideOf(entity) ?: continue
+            car.waiting.getOrPut(ride.fromFloor) { ArrayList() } += entity
+            car.waitingSince.getOrPut(entity) { sim.clock.totalMinutes }
+        }
+        car.arrived.clear()
+    }
 
     private fun rideOf(entity: Entity): Leg.Ride? = entity.getOrNull(Route)?.legs?.firstOrNull() as? Leg.Ride
 
-    private fun runCar(car: Car) {
+    private fun runCar(car: Car, present: HashSet<Entity>, changes: Changes) {
         for (cabin in car.cabins) {
             cabin.riders.removeAll { it !in world } // people whose tenant moved out mid-ride
             // a rider without a ride (route lost while the tower changed) gets out and plans again
-            cabin.riders.filter { rideOf(it) == null }.forEach { dropRider(car, cabin, it) }
+            cabin.riders.filter { rideOf(it) == null }.forEach { dropRider(car, cabin, it, changes) }
         }
         for (line in car.waiting.values) line.removeAll { it !in world || rideOf(it) == null }
         present.clear()
@@ -110,7 +164,7 @@ class ElevatorSystem(
         car.waitingSince.keys.retainAll(present)
         if (sim.clock.totalMinutes < car.blockedUntil) return
         val assigned = assignCalls(car)
-        for (cabin in car.cabins) runCabin(car, cabin, assigned[cabin].orEmpty())
+        for (cabin in car.cabins) runCabin(car, cabin, assigned[cabin].orEmpty(), changes)
     }
 
     /**
@@ -132,13 +186,13 @@ class ElevatorSystem(
         return result
     }
 
-    private fun runCabin(car: Car, cabin: Cabin, waitingCalls: Set<Int>) {
+    private fun runCabin(car: Car, cabin: Cabin, waitingCalls: Set<Int>, changes: Changes) {
         if (cabin.doorTimer > 0f) {
             cabin.doorTimer -= deltaTime
             return
         }
         val here = cabin.position.roundToInt()
-        if (abs(cabin.position - here) < 0.001f && stopAt(car, cabin, here, waitingCalls)) {
+        if (abs(cabin.position - here) < 0.001f && stopAt(car, cabin, here, waitingCalls, changes)) {
             cabin.doorTimer = car.doorMinutes
             return
         }
@@ -165,7 +219,7 @@ class ElevatorSystem(
     }
 
     /** Unloads and loads at [floor]. Returns true when the doors opened for somebody. */
-    private fun stopAt(car: Car, cabin: Cabin, floor: Int, waitingCalls: Set<Int>): Boolean {
+    private fun stopAt(car: Car, cabin: Cabin, floor: Int, waitingCalls: Set<Int>, changes: Changes): Boolean {
         var opened = false
         val leaving = cabin.riders.filter { rideOf(it)?.toFloor == floor }
         for (rider in leaving) {
@@ -175,7 +229,7 @@ class ElevatorSystem(
             pos.x = car.centerX
             rider[Route].legs.removeFirst()
             rider[Route].legProgress = 0f
-            rider.configure { drop(it, Riding) }
+            changes.add(rider, OUT)
             opened = true
         }
         val queue = car.waiting[floor] ?: return opened
@@ -191,7 +245,7 @@ class ElevatorSystem(
             if (wants != cabin.direction) continue
             cabin.riders += person
             boarded += person
-            person.configure { it += Riding(car.id) }
+            changes.add(person, car.id)
             car.waitingSince.remove(person)?.let { sim.onBoarded(person, sim.clock.totalMinutes - it, car) }
             opened = true
         }
@@ -207,25 +261,27 @@ class ElevatorSystem(
         return result
     }
 
-    private fun dropEveryone(car: Car) {
-        for (cabin in car.cabins) dropCabin(car, cabin)
+    private fun dropEveryone(car: Car, changes: Changes) {
+        for (cabin in car.cabins) dropCabin(car, cabin, changes)
     }
 
-    private fun dropCabin(car: Car, cabin: Cabin) {
-        for (rider in cabin.riders.toList()) dropRider(car, cabin, rider)
+    private fun dropCabin(car: Car, cabin: Cabin, changes: Changes) {
+        for (rider in cabin.riders.toList()) dropRider(car, cabin, rider, changes)
         cabin.riders.clear()
     }
 
     /** Lets [rider] out at the floor the cabin is at; without a route they plan their way again. */
-    private fun dropRider(car: Car, cabin: Cabin, rider: Entity) {
+    private fun dropRider(car: Car, cabin: Cabin, rider: Entity, changes: Changes) {
         cabin.riders -= rider
         if (rider !in world) return
         val pos = rider[Position]
         pos.floor = cabin.position.roundToInt()
         pos.x = car.centerX
-        rider.configure {
-            drop(it, Riding)
-            drop(it, Route)
-        }
+        changes.add(rider, OUT_AND_REPLAN)
+    }
+
+    private companion object {
+        const val OUT = -1
+        const val OUT_AND_REPLAN = -2
     }
 }
