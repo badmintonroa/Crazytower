@@ -15,7 +15,7 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 /**
- * The big moment when the tower gains a star or reaches a new stage: the screen dims,
+ * The big moment when the tower gains a star, which is also a new stage: the screen dims,
  * a card pops up with the stars and what changed, and confetti falls. Goes away by
  * itself after a few seconds or with a click.
  */
@@ -37,31 +37,21 @@ class Celebration(private val screenWidth: Double, private val screenHeight: Dou
 
     val isShowing: Boolean get() = visible
 
-    /** A new star: [stars] is the new rating. */
-    fun showStar(stars: Int) {
-        val bonus = ((stars - 1) * 20)
+    /** A new star, which is also the next stage: [stars] is the new rating. */
+    fun showStage(stars: Int) {
+        val info = Stages.info(stars)
+        val bonus = Math.round((stars - 1) * crazytower.core.Simulation.STAR_BONUS * 100)
         show(
-            title = if (stars == 1) tr("1 STERN", "1 STAR") else tr("$stars STERNE", "$stars STARS"),
+            title = (if (stars == 1) tr("1 STERN", "1 STAR") else tr("$stars STERNE", "$stars STARS")) + " · ${info.name.toString().uppercase()}",
             lines = listOf(
-                tr("Der Turm spricht sich herum.", "Word about the tower is getting around."),
-                if (bonus > 0) tr("Alle Mieten und Nebenkosten jetzt +$bonus %.", "All rents and service charges now +$bonus %.") else "",
+                tr("Jetzt bis Etage ${info.maxFloor}.", "Now up to floor ${info.maxFloor}.") +
+                    if (bonus > 0) tr(" Alle Mieten und Nebenkosten +$bonus %.", " All rents and service charges +$bonus %.") else "",
+                info.unlocks.toString(),
             ),
-            stars = stars,
-            seconds = 4.5,
-        )
-        Sfx.play(Sfx.STAR)
-    }
-
-    /** A new stage: [stage] is the stage just reached. */
-    fun showStage(stage: Int, stars: Int) {
-        val info = Stages.info(stage)
-        show(
-            title = tr("STUFE", "STAGE") + " $stage · ${info.name.toString().uppercase()}",
-            lines = listOf(tr("Jetzt bis Etage ${info.maxFloor}.", "Now up to floor ${info.maxFloor}."), info.unlocks.toString()),
             stars = stars,
             seconds = 6.5,
         )
-        Sfx.play(Sfx.STAGE)
+        Sfx.play(if (stars == 1) Sfx.STAR else Sfx.STAGE)
     }
 
     /** A station part of the moon mission was built; [liftOff] for the last one, the moon lift. */

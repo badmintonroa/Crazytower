@@ -204,7 +204,7 @@ class StarPathsTest {
             assertTrue(Tenants.candidates(type, 5, 5).isNotEmpty(), type.id)
         }
         val new = listOf(Catalog.DORM, Catalog.SHOP, Catalog.KITA, Catalog.PENTHOUSE, Catalog.SUBWAY, Catalog.CONFERENCE)
-        assertTrue(new.all { it.minStars in 3..4 })
+        assertTrue(new.all { it.minStars in 2..3 })
         assertNotNull(Catalog.type("subway"))
     }
 }

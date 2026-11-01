@@ -431,7 +431,7 @@ internal fun Simulation.evacuate() = with(world) {
 
 /** Why the player can't hold an open day right now, or null. */
 fun Simulation.openDayBlocked(): String? = when {
-    stage < Lasting.OPEN_DAY_STAGE -> tr("Tag der offenen Tür erst ab Stufe ${Lasting.OPEN_DAY_STAGE}", "Open day only from stage ${Lasting.OPEN_DAY_STAGE}")
+    stage < Lasting.OPEN_DAY_STAGE -> tr("Tag der offenen Tür erst ab ${Lasting.OPEN_DAY_STAGE} Sternen", "Open day only from ${Lasting.OPEN_DAY_STAGE} stars")
     activeEvents.any { it.id == "openday" } -> tr("Heute ist schon Tag der offenen Tür", "It is open day already")
     clock.totalMinutes - lastOpenDay < Lasting.OPEN_DAY_COOLDOWN -> {
         val days = ((Lasting.OPEN_DAY_COOLDOWN - (clock.totalMinutes - lastOpenDay)) / GameClock.MINUTES_PER_DAY).toInt() + 1

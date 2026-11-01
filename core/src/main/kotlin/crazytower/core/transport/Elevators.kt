@@ -198,8 +198,8 @@ class Elevators(private val tower: Tower) : LinkProvider {
         /** Karaoke makes the cabins this many times slower. */
         const val KARAOKE_SLOWDOWN = 3f
 
-        /** How many cabins a shaft may have at a star rating: two more per star, twelve at five stars. */
-        fun maxCabins(stars: Int): Int = if (stars >= 5) MAX_CABINS else (stars * 2).coerceIn(2, 8)
+        /** How many cabins a shaft may have at a star rating: two at the start, two more per star, twelve at five stars. */
+        fun maxCabins(stars: Int): Int = (2 + stars * 2).coerceIn(2, MAX_CABINS)
     }
 }
 

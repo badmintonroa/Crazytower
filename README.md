@@ -63,8 +63,8 @@ Der Aufnahmemodus (`game/.../Film.kt`, `CRAZYTOWER_FILM=<datei.mp4|.png>`) läuf
 | `O` | Optionen |
 | `F1` oder `H` | Tastenübersicht |
 | `F5` / `F9` | Speichern / Laden |
-| `X` oder `$`-Knopf | Extras für reiche Türme (ab Stufe 4) |
-| `M` oder Klick auf die Stufe | Mondmission (ab Stufe 5) |
+| `X` oder `$`-Knopf | Extras für reiche Türme (ab 4 Sternen) |
+| `M` oder Klick auf die Sterne-Anzeige | Mondmission (ab 5 Sternen) |
 | Klick auf den Ticker | Zum Ort der Nachricht springen |
 
 Bleibt die Maus kurz auf einem Knopf der Kopfleiste oder des Baumenüs, erklärt ein Hinweis, was er tut, welche Taste dasselbe macht und warum er gerade gesperrt ist (Schloss). Gekürzte Texte zeigen dort ihren ganzen Text. Kein Text im Spiel ist kleiner als 13 px (`MIN_TEXT` in `ui/Widgets.kt`), zu lange Texte werden lieber gekürzt als winzig. Die Tastenübersicht (`Shortcuts` in `HelpWindow.kt`) ist die eine Liste aller Tasten; wer eine Taste hinzufügt, trägt sie dort und hier ein. Für Screenshots zeigt `CRAZYTOWER_HOVER=x,y` den Hinweis an dieser Stelle, `CRAZYTOWER_HELP=1` die Tastenübersicht.
@@ -83,49 +83,52 @@ Jede Figur ist eine Entität mit `Position` und `Goal`. Das `PathfindingSystem` 
 
 - Etagen über dem Erdgeschoss brauchen darunter etwas, auf dem sie stehen. Das erste Untergeschoss geht überall, tiefere brauchen eine Decke.
 - Wege: Lobby (nur Erdgeschoss), Flur, Treppe (eine Etage hoch), Aufzug (Schachtstücke übereinander bauen, höchstens 30 Etagen). Wer einen Aufzug oder eine Treppe weiter zieht, als das Geld reicht, bekommt beim Loslassen so viele Etagen wie bezahlbar; der Rest ist in der Vorschau rot. Dasselbe gilt für Parkplatz-Reihen.
-- Das Baumenü zeigt nur, was Stufe und Sterne schon erlauben. Was seit dem letzten Blick dazugekommen ist, trägt beim ersten Anzeigen einen Stern und „NEU“, die Kategorie-Taste auch.
+- Das Baumenü zeigt nur, was die Sterne schon erlauben. Was seit dem letzten Blick dazugekommen ist, trägt beim ersten Anzeigen einen Stern und „NEU“, die Kategorie-Taste auch.
 - Ist ein Raum gewählt, klappt das Baumenü zu einer kleinen Karte zusammen (Raum, Preis, „Wechseln“, „Abbrechen“), damit man beim Platzieren den Turm sieht. Die Details stehen im Hinweis der Karte. „Wechseln“, ein Klick auf die Karte oder die Kategorie-Taste zeigen wieder die ganze Liste. Für Screenshots wählt `CRAZYTOWER_BUILD=<raum-id>` (mit `CRAZYTOWER_CATEGORY`) einen Raum vor.
 - Büros, Wohnungen und Imbisse werden vermietet, sobald man sie von der Straße aus erreicht. Wer einzieht, entscheidet der Turm: vom Steuerbüro bis zur Vampir-Versicherung (siehe `core/.../Tenants.kt`).
 - `tools/art/make_rooms_extra.py` zeichnet die Räume, für die es noch keine generierte Grafik gibt (Wege, Wohnungen, Imbisse, Hotel, Reinigungsdienst, Luxusbüros), jeweils bei Tag, bei Nacht und verwahrlost (`extra*.png`). Luxusbüros sind 12 Felder breit, ihre Bilder auch.
 
 ## Sterne und Wege zum Ziel
 
-Bei 0 Sternen gibt es nur Wohnungen (und Wege). Büros und Imbiss kommen mit dem 1. Stern.
+Die Sterne sind die eine Fortschrittsleiter des Turms: Jeder Stern ist zugleich die nächste Ausbaustufe (Bruchbude, Hochhaus, Wolkenkratzer, Mega-Tower, CrazyTower) mit höherem Etagenlimit, neuer Lobby und neuen Räumen. Oben in der Kopfleiste stehen links die Sterne mit dem Namen des Turms, rechts der nächste Stern und was ihm noch fehlt. Geprüft wird zu jeder vollen Stunde, Sterne werden nie wieder abgezogen (`core/.../Rating.kt`, `Stages.kt`).
+
+| Stern | Turm | Etagen | Voraussetzung | Neu |
+| --- | --- | --- | --- | --- |
+| 0 | Baustelle | 5 | Start | Wege, Wohnungen |
+| 1 | Bruchbude | 10 | 10 Bewohner | Büros, Imbiss |
+| 2 | Hochhaus | 25 | 300 Bewohner, Laune 50 % | Kopierraum, Express-Aufzug, Wohnheim, Späti, Kita, Grundstück 128 breit (Ende der Demo) |
+| 3 | Wolkenkratzer | 50 | 1.000 Bewohner, Laune 60 %, Imbiss | Sicherheitsdienst, Hotel, Penthouse, U-Bahn, Konferenzzentrum, Keller, Grundstück 160 breit, Fachkräfte |
+| 4 | Mega-Tower | 75 | 3.000 Bewohner, Laune 64 %, Sicherheitsdienst | Teleporter, Luxusbüros, Extras |
+| 5 | CrazyTower | 100 | 6.000 Bewohner, Laune 68 %, VIP-Besuch überlebt | Ufo-Landeplatz, Mondmission |
+
+Der erste Stern kommt schnell, und die ersten 12 Haushalte eines neuen Turms ziehen sofort ein, ohne auf die Wohnungskäufer des nächsten Tages zu warten. Danach finden neue Wohnungen nur ein paar Käufer am Tag.
 
 Ab 3 Sternen suchen Firmen **Fachkräfte**: Neue Büromieter ziehen nur ein, solange ihre Leute Arbeit finden. Arbeitskräfte sind Pendler aus der Stadt (600 bei 3 Sternen, 1.000 bei 4, 1.600 bei 5), 1.500 mehr mit der U-Bahn-Station, und jeder, der im Turm wohnt. Sonst steht über dem Büro „Keine Fachkräfte“. Umgekehrt bringen je 150 Büro-Angestellte einen Wohnungskäufer pro Tag mehr. Ein reiner Büroturm bleibt deshalb irgendwann leer, ein reiner Wohnturm kommt nur langsam voran (wenige Käufer, 3 Bewohner pro Wohnung) und hat für 3.000 bzw. 6.000 Bewohner nicht genug Platz.
 
 | Ab | Gebäude | Wofür |
 | --- | --- | --- |
-| 3 ★ | Wohnheim | 6 Bewohner auf 6 Feldern, Miete jeden Tag, kein Käufer nötig. Studis brauchen Nebenjobs (höchstens halb so viele wie Büro-Angestellte) und sind laut: Wohnungen auf derselben Etage −8 Laune |
-| 3 ★ | Späti | versorgt 30 Wohnungen und Wohnheime, Bewohner bis +6 Laune |
-| 3 ★ | Kita | +3 Wohnungskäufer pro Tag, höchstens 3 |
-| 4 ★ | Penthouse | 12 Felder, ab der 20. Etage, 4 Bewohner, viermal Hausgeld, braucht nur einen Käufer |
-| 4 ★ | U-Bahn-Station | im Keller, +1.500 Pendler für die Büros |
-| 4 ★ | Konferenzzentrum | Hotelgäste zahlen 50 % mehr |
+| 2 ★ | Wohnheim | 6 Bewohner auf 6 Feldern, Miete jeden Tag, kein Käufer nötig. Studis brauchen Nebenjobs (höchstens halb so viele wie Büro-Angestellte) und sind laut: Wohnungen auf derselben Etage −8 Laune |
+| 2 ★ | Späti | versorgt 30 Wohnungen und Wohnheime, Bewohner bis +6 Laune |
+| 2 ★ | Kita | +3 Wohnungskäufer pro Tag, höchstens 3 |
+| 3 ★ | Penthouse | 12 Felder, ab der 20. Etage, 4 Bewohner, viermal Hausgeld, braucht nur einen Käufer |
+| 3 ★ | U-Bahn-Station | im Keller, +1.500 Pendler für die Büros |
+| 3 ★ | Konferenzzentrum | Hotelgäste zahlen 50 % mehr |
 
-So führen mehrere Wege zu Stufe 4 und 5: Büros und Wohnungen gemischt, Büros mit Wohnheimen (die sich gegenseitig hochziehen), Büros mit U-Bahn und Hotels, oder viele Wohnungen mit Kitas und Penthouses, die irgendwann doch Büros brauchen. Drei Bots spielen das durch, siehe „Bots“ unten.
+So führen mehrere Wege zu 4 und 5 Sternen: Büros und Wohnungen gemischt, Büros mit Wohnheimen (die sich gegenseitig hochziehen), Büros mit U-Bahn und Hotels, oder viele Wohnungen mit Kitas und Penthouses, die irgendwann doch Büros brauchen. Drei Bots spielen das durch, siehe „Bots“ unten.
 
 ## Tagesablauf und Wirtschaft (ab M5)
 
 - Jeder Mieter bringt Leute mit (Büro 6, Wohnung 3, Imbiss 3). Sie haben eine Schicht: Tag (9–17), Spät (14–22) oder Nacht (22–6). Angestellte kommen zur Schicht, Bewohner sind während ihrer Schicht unterwegs und sonst zu Hause. Büros haben am Wochenende zu.
 - Laune: Ohne Extras pendelt sie sich bei 55 % ein. Wer heute oder gestern im Imbiss gegessen hat, landet 15 Punkte höher, der Kopierraum gibt Büroleuten 5 Punkte, der Ufo-Landeplatz allen 3. Lange Wartezeiten am Aufzug und unerreichbare Ziele drücken sie für eine Weile. Die Sterne 3, 4 und 5 brauchen 60, 64 und 68 % Laune, und solange die Laune darunter liegt, ziehen jede Nacht die unzufriedensten Mieter aus.
-- Um Mitternacht: Miete rein (halbe Miete bei schlechter Laune), Unterhalt raus, sehr unzufriedene Mieter ziehen aus und nennen dabei den echten Grund (Aufzug, kein Weg, kein Essen), die Sterne werden neu vergeben.
+- Um Mitternacht: Miete rein (halbe Miete bei schlechter Laune), Unterhalt raus, sehr unzufriedene Mieter ziehen aus und nennen dabei den echten Grund (Aufzug, kein Weg, kein Essen).
 - Geld: Miete und Gebühren steigen um 15 % pro Stern. Ab 3 Sternen kosten vermietete Büros und Imbisse jeden Tag Betriebskosten, auch am Wochenende: 5 % ihrer Grundmiete bei 3 Sternen, 10 % bei 4 und 15 % bei 5. Ein normales Büro kostet ab 3 Sternen mehr (18.000, 24.000, 30.000 $), der Abriss erstattet ein Viertel dessen, was es beim Bau gekostet hat.
 - Tag und Nacht: Himmel und Räume wechseln mit der Uhrzeit (Nacht-Atlas), unzufriedene Räume verwahrlosen sichtbar (Rundown-Atlas).
 
-## Stufen, Ereignisse, Spielstand (ab M6)
+## Ereignisse, Spielstand (ab M6)
 
-| Stufe | Name | Etagen | Voraussetzung | Neu |
-| --- | --- | --- | --- | --- |
-| 1 | Bruchbude | 10 | Start | Wege, Wohnungen; Büros und Imbiss ab 1 Stern |
-| 2 | Hochhaus | 25 | 300 Bewohner | Kopierraum der Ewigkeit |
-| 3 | Wolkenkratzer | 50 | 1.000 Bewohner, Laune 65 % | Sicherheitsdienst |
-| 4 | Mega-Tower | 75 | 3.000 Bewohner, Sicherheitsdienst | Teleporter |
-| 5 | CrazyTower | 100 | 6.000 Bewohner, VIP-Besuch überlebt | Ufo-Landeplatz |
+Jeder Stern bringt eine eigene Lobby-Grafik. Zur vollen Stunde kann etwas Absurdes passieren (`core/.../Events.kt`): Büros werden zur Clownsagentur, in Wohnungen spukt es, im Aufzug wird geheiratet, Tauben besetzen die oberste Etage, ein Influencer schickt Busladungen voller Fans, und ab 4 Sternen kommt Frau Dr. Wichtig zum VIP-Besuch. Der Sicherheitsdienst macht schlimme Ereignisse seltener. Alles landet im Tower-Ticker.
 
-Jede Stufe hat eine eigene Lobby-Grafik. Zur vollen Stunde kann etwas Absurdes passieren (`core/.../Events.kt`): Büros werden zur Clownsagentur, in Wohnungen spukt es, im Aufzug wird geheiratet, Tauben besetzen die oberste Etage, ein Influencer schickt Busladungen voller Fans, und ab Stufe 4 kommt Frau Dr. Wichtig zum VIP-Besuch. Der Sicherheitsdienst macht schlimme Ereignisse seltener. Alles landet im Tower-Ticker.
-
-Manche Ereignisse dauern eine Weile (`core/.../LastingEvents.kt`) und zeigen ein lila Blitz-Symbol über dem Raum: Hochzeit oder Karaoke im Aufzug, Vampir-Blutspende, Clown-Aufstand, Socken-Lawine, Superschurken-Erpressung, Feueralarm durch Toaster, Termiten, Alien-Austausch, Riesenkatze auf dem Dach, der Turm auf dem Mond. Ein Klick auf den Raum zeigt im Inspektor, was los ist, und meist einen Knopf mit der Gegenmaßnahme. Ab Stufe 3 kann man einmal pro Woche über den Luftballon-Knopf oben einen Tag der offenen Tür ausrufen. Laufende Ereignisse werden mitgespeichert.
+Manche Ereignisse dauern eine Weile (`core/.../LastingEvents.kt`) und zeigen ein lila Blitz-Symbol über dem Raum: Hochzeit oder Karaoke im Aufzug, Vampir-Blutspende, Clown-Aufstand, Socken-Lawine, Superschurken-Erpressung, Feueralarm durch Toaster, Termiten, Alien-Austausch, Riesenkatze auf dem Dach, der Turm auf dem Mond. Ein Klick auf den Raum zeigt im Inspektor, was los ist, und meist einen Knopf mit der Gegenmaßnahme. Ab 3 Sternen kann man einmal pro Woche über den Luftballon-Knopf oben einen Tag der offenen Tür ausrufen. Laufende Ereignisse werden mitgespeichert.
 
 ### VIP-Besuche
 
@@ -133,18 +136,18 @@ Ab 3 Sternen schauen ab und zu VIPs vorbei (zwischen 9 und 19 Uhr, höchstens al
 
 `F5` speichert, `F9` lädt (`~/.crazytower/spielstand.json`).
 
-## Geld ausgeben ab Stufe 4 (`core/.../Endgame.kt`)
+## Geld ausgeben ab 4 Sternen (`core/.../Endgame.kt`)
 
-Ab Stufe 4 gibt es mehr zu kaufen als Räume. Die laufenden Kosten richten sich nach den gestrigen Einnahmen, damit sie für kleine und große Türme gleich spürbar sind.
+Ab 4 Sternen gibt es mehr zu kaufen als Räume. Die laufenden Kosten richten sich nach den gestrigen Einnahmen, damit sie für kleine und große Türme gleich spürbar sind.
 
 - **Ausbau** (Inspektor): Büros, Wohnungen, Hotels, Imbisse, Läden und Wohnheime bekommen bis zu drei Stufen, jede +15 % Miete und +3 Laune. Die Namen hängen vom Mieter ab (Clowns bekommen einen Hüpfburg-Boden, Vampire einen Sarg-Ruheraum). Ausgebaute Räume tragen kleine Sterne.
 - **Aufzug-Tuning** (Inspektor am Schacht): Turbo-Motor (30 % schneller), Streichquartett (Wartende werden später grantig), Liftboy mit Monokel (mehr Plätze, schnellere Türen).
 - **Wunschmieter anwerben** (Inspektor an leeren Räumen): eine Zeitungsanzeige, und der gewählte Mieter zieht sofort ein.
 - **Extras-Fenster** (`X`): Versicherungen gegen Tauben, Clowns, Spuk, Stromausfall und Aufzugspannen (verhindern die meisten dieser Ereignisse), eine Werbekampagne (3 Tage mehr Besucher und VIPs), das wöchentliche Turmfest (+10 Laune für 2 Tage), Deko für das Dach (Gummiente, Leuchtschrift, Discokugel, goldene Fassade, Lasershow; jede bringt mehr Schaulustige), drei Seiteneingänge aus Oma Hildegards Garten (kürzere Wege von der Straße) und das Labor für fragwürdige Wissenschaft (Teleporter ohne Verwechslung, Kaffee aus dem Kopierraum, selbstputzende Handtücher, Schallschluck-Tapete, Geduldspille).
 
-## Mondmission ab Stufe 5 (`core/.../Mission.kt`)
+## Mondmission ab 5 Sternen (`core/.../Mission.kt`)
 
-Stufe 5 ist die letzte Stufe, das Spiel geht aber weiter: Auf der obersten Etage (99) entsteht Teil für Teil eine Mondstation. Jedes Teil braucht zwei Aufträge im Turm, danach wird es im Baumenü unter Spezial gebaut. Der Fortschritt steht in der Stufenanzeige und im Missionsfenster (`M`).
+5 Sterne sind das Ende der Leiter, das Spiel geht aber weiter: Auf der obersten Etage (99) entsteht Teil für Teil eine Mondstation. Jedes Teil braucht zwei Aufträge im Turm, danach wird es im Baumenü unter Spezial gebaut. Der Fortschritt steht in der Sterne-Anzeige und im Missionsfenster (`M`).
 
 | Countdown | Teil | Kosten | Aufträge |
 | --- | --- | --- | --- |
@@ -161,11 +164,11 @@ Mit jedem Teil kommen mehr Schaulustige (50 am Anfang, 1.500 nach dem Abheben). 
 
 | Bot | Platzierung | Was er baut |
 | --- | --- | --- |
-| `twin` Zwillingstürme | zwei schmale Türme an den Straßenenden, Express ganz außen, je zwei Aufzugssäulen; die Mitte erst, wenn beide Türme oben anstoßen; klettert, sobald die Stufe es erlaubt | Büros, Wohnheime, Hotels, Luxusbüros |
+| `twin` Zwillingstürme | zwei schmale Türme an den Straßenenden, Express ganz außen, je zwei Aufzugssäulen; die Mitte erst, wenn beide Türme oben anstoßen; klettert, sobald die Sterne es erlauben | Büros, Wohnheime, Hotels, Luxusbüros |
 | `wide` Breitbau | ganze Grundstücksbreite, alle 24 Felder ein Aufzug, eine neue Säule erst, wenn bei den alten nichts mehr frei ist, eine neue Zone erst, wenn die untere voll ist | Wohnungen zuerst, mit Läden, Kitas, Penthouses; Büros und Wohnheime, wenn Käufer fehlen |
 | `hub` Express-Treppen | keine lokalen Aufzüge über der 9. Etage: Expressaufzüge mit Treppenhaus daneben, höchstens zwei Etagen zu Fuß | Hotels, Büros, Luxusbüros, Konferenzzentrum |
 | `miser` Geizhals | wie Express-Treppen | wie Express-Treppen, kauft aber keine Extras, nur was die Mondmission braucht |
 
-Ab Stufe 4 kaufen alle Bots außer dem Geizhals Extras: Tuning für Schächte mit langen Wartezeiten, Ausbau für die Räume, die am meisten Miete bringen, Versicherungen, Turmfest, Werbung, Seiteneingänge, Forschung und während der Mission Deko. Für die Mission bauen sie Aussichtsplattform und Souvenirläden, die Räume für die offenen Aufträge, schicken den Sicherheitsdienst zu Dr. Hämisch, zünden probe, wenn die Laune reicht, und bauen die Stationsteile auf Etage 99 (wenn dort alles voll ist, reißen sie Platz frei). Die Log-Zeile zeigt ab Stufe 4 das Geld in Tagen Einnahmen und die Ausgaben je Senke, ab Stufe 5 den Countdown, die Aufträge und die Schaulustigen; die Zusammenfassung zeigt, wie viele Tage jeder Countdown-Schritt gedauert hat.
+Ab 4 Sternen kaufen alle Bots außer dem Geizhals Extras: Tuning für Schächte mit langen Wartezeiten, Ausbau für die Räume, die am meisten Miete bringen, Versicherungen, Turmfest, Werbung, Seiteneingänge, Forschung und während der Mission Deko. Für die Mission bauen sie Aussichtsplattform und Souvenirläden, die Räume für die offenen Aufträge, schicken den Sicherheitsdienst zu Dr. Hämisch, zünden probe, wenn die Laune reicht, und bauen die Stationsteile auf Etage 99 (wenn dort alles voll ist, reißen sie Platz frei). Die Log-Zeile zeigt ab 4 Sternen das Geld in Tagen Einnahmen und die Ausgaben je Senke, ab 5 Sternen den Countdown, die Aufträge und die Schaulustigen; die Zusammenfassung zeigt, wie viele Tage jeder Countdown-Schritt gedauert hat.
 
 Die Aufzugssäulen der Zonen stehen in allen Zonen an derselben Stelle (je 24 Etagen, die Etage unter der nächsten Sky-Lobby über eine Treppe), damit der Umstieg in der Sky-Lobby kurz bleibt.

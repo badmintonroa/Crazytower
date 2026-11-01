@@ -113,7 +113,6 @@ class Hud(
     private lateinit var tickerClip: Container
     private var tickerOffset = 0.0
     private var tickerItems: List<NewsItem> = emptyList()
-    private var shownStage = -1
 
     init {
         buildTopBar()
@@ -142,9 +141,10 @@ class Hud(
         return rects.any { it.contains(point) }
     }
 
-    /** Shows the star (or stage) celebration right away; for screenshots. */
+    /** Shows the celebration of the current star right away; for screenshots. Stars and stages share one since they are one ladder. */
+    @Suppress("UNUSED_PARAMETER")
     fun celebrate(stage: Boolean) {
-        if (stage) celebration.showStage(sim.stage, sim.stars) else celebration.showStar(sim.stars)
+        celebration.showStage(sim.stars)
     }
 
     // ---------------------------------------------------------------- top bar
@@ -248,7 +248,7 @@ class Hud(
                     tr("Extras für reiche Türme", "Extras for rich towers"),
                     tr("Versicherungen, Werbung, Turmfest, Deko, Seiteneingänge und das Labor für fragwürdige Wissenschaft.", "Insurance, ads, the tower party, decorations, side entrances and the laboratory of questionable science."),
                     "X",
-                    locked = if (sim.stage < SINK_STAGE) tr("Ab Stufe $SINK_STAGE", "From stage $SINK_STAGE") else null,
+                    locked = if (sim.stage < SINK_STAGE) tr("Ab $SINK_STAGE Sternen", "From $SINK_STAGE stars") else null,
                 )
             }
             addChild(extrasButton)
@@ -323,7 +323,7 @@ class Hud(
                     when {
                         category == Category.DEMOLISH -> tr("Klick auf einen Raum reißt ihn ab, ein Viertel der Baukosten kommt zurück.", "Click a room to tear it down, a quarter of the cost comes back.")
                         open == 0 -> null
-                        open < types.size -> tr("$open von ${types.size} Räumen freigeschaltet, der Rest kommt mit Sternen und Stufen.", "$open of ${types.size} rooms unlocked, the rest come with stars and stages.")
+                        open < types.size -> tr("$open von ${types.size} Räumen freigeschaltet, der Rest kommt mit den Sternen.", "$open of ${types.size} rooms unlocked, the rest come with the stars.")
                         else -> tr("Alle ${types.size} Räume freigeschaltet.", "All ${types.size} rooms unlocked.")
                     },
                     "${i + 1}",
@@ -666,16 +666,21 @@ class Hud(
     /** Everything the next star still needs, not only the first thing as under the stars. */
     private fun starTip(): Tip {
         if (sim.stars >= Rating.steps.size) return Tip(tr("5 Sterne", "5 stars"), tr("Mehr Sterne gibt es nicht.", "There are no more stars."))
+        val next = Stages.info(sim.stars + 1)
         val missing = sim.nextStarMissing
+        val title = tr("Für Stern ${next.number} · ${next.name}", "For star ${next.number} · ${next.name}")
+        if (sim.stars >= Edition.maxStars) return Tip(title, tr("Weitere Sterne gibt es in der Vollversion.", "More stars come with the full version."))
         return Tip(
-            tr("Für Stern ${sim.stars + 1}", "For star ${sim.stars + 1}"),
-            if (missing.isEmpty()) tr("Alles erfüllt, der Stern kommt bei der nächsten Prüfung um Mitternacht.", "All done, the star comes with the next check at midnight.")
-            else missing.joinToString("\n") { "· $it" },
+            title,
+            (if (missing.isEmpty()) tr("Alles erfüllt, der Stern kommt zur nächsten vollen Stunde.", "All done, the star comes on the hour.")
+            else missing.joinToString("\n") { "· $it" }) +
+                tr("\n\nJeder Stern ist auch die nächste Ausbaustufe: Der Turm darf höher werden und es gibt neue Räume.",
+                    "\n\nEvery star is also the next stage: the tower may grow taller and new rooms open up."),
         )
     }
 
-    /** The whole stage line and what the next stage needs, which the box often has to cut. */
-    private fun stageTip(): Tip = Tip(
+    /** The next star with all it needs, or from five stars on the moon mission's line, which the box often has to cut. */
+    private fun stageTip(): Tip = if (sim.stars < Stages.last) starTip() else Tip(
         stageText.fullText(),
         stageHint.fullText() + if (sim.missionStarted) tr("\nKlick öffnet die Mondmission.", "\nClick to open the moon mission.") else "",
         if (sim.missionStarted) "M" else null,
@@ -690,36 +695,40 @@ class Hud(
         return "%02d:%02d".format(m / 60, m % 60)
     }
 
+    /**
+     * The stars box: the stars with the tower's name under them on the left, the next star and
+     * what it still needs on the right. Stars and stages are one ladder, so there is one box.
+     */
     private fun syncStage() {
-        val stage = sim.stage
+        val now = sim.stars
         // a celebration only for real gains, not when the HUD is first drawn
-        if (shownStage >= 0 && stage > shownStage) celebration.showStage(stage, sim.stars)
-        else if (shownStars >= 0 && sim.stars > shownStars) celebration.showStar(sim.stars)
-        if (sim.stars != shownStars) {
-            shownStars = sim.stars
+        if (shownStars >= 0 && now > shownStars) celebration.showStage(now)
+        if (now != shownStars) {
+            shownStars = now
             stars.removeChildren()
-            for (i in 0 until 5) Icons.star(stars, i < sim.stars).xy(i * 22.0, 0.0)
+            for (i in 0 until 5) Icons.star(stars, i < now).xy(i * 22.0, 0.0)
+            starHint.text = Stages.info(now).name.toString()
+            starHint.fitWidth(STAR_HINT)
         }
-        if (stage != shownStage) {
-            shownStage = stage
-            stageText.text = tr("STUFE", "STAGE") + " $stage · ${Stages.info(stage).name.toString().uppercase()}"
-            stageFull[stageText] = stageText.text
+        syncMission()
+        val next = if (now < Stages.last) Stages.info(now + 1) else null
+        val title = when {
+            next != null -> tr("STERN ${next.number}", "STAR ${next.number}") + " · ${next.name.toString().uppercase()}"
+            sim.missionStarted -> tr("MONDMISSION", "MOON MISSION")
+            else -> Stages.info(now).name.toString().uppercase()
+        }
+        if (stageFull[stageText] != title) {
+            stageText.text = title
+            stageFull[stageText] = title
             stageText.fitWidth(stageBarWidth)
         }
         val missing = sim.nextStarMissing
-        starHint.text = when {
-            sim.stars >= Rating.steps.size -> ""
-            sim.stars >= Edition.maxStars -> tr("Stern ${sim.stars + 1}: in der Vollversion", "Star ${sim.stars + 1}: in the full version")
-            // everything is there, the rating catches up at the next check
-            missing.isEmpty() -> tr("Stern ${sim.stars + 1}: kommt bald", "Star ${sim.stars + 1}: coming soon")
-            else -> tr("Stern ${sim.stars + 1}: ${missing.first()}", "Star ${sim.stars + 1}: ${missing.first()}")
-        }
-        starHint.fitWidth(STAR_HINT)
-        syncMission()
-        val next = if (stage < Stages.last) Stages.info(stage + 1) else null
         val part = sim.currentPart
         stageHint.text = when {
-            next != null -> tr("Für Stufe ${next.number}: ${next.requirement}", "For stage ${next.number}: ${next.requirement}")
+            next != null && now >= Edition.maxStars -> tr("Gibt es in der Vollversion", "Available in the full version")
+            // everything is there, the rating catches up within the hour
+            next != null && missing.isEmpty() -> tr("Alles erfüllt, der Stern kommt gleich", "All done, the star is on its way")
+            next != null -> tr("Noch nötig: ", "Still needed: ") + missing.joinToString(" · ")
             sim.liftedOff -> tr("ABGEHOBEN · ${sim.spectatorsPerDay} Schaulustige pro Tag", "LIFT-OFF · ${sim.spectatorsPerDay} spectators a day")
             part != null -> tr("${part.step}: ${part.type.name} · M öffnet die Mission", "${part.step}: ${part.type.name} · M opens the mission")
             else -> tr("Der Turm ist komplett verrückt.", "The tower is completely crazy.")

@@ -129,7 +129,7 @@ object Upgrades {
 /** Why [room] can't be done up right now, or null. */
 fun Simulation.upgradeBlocked(room: Room): String? = when {
     !Upgrades.applies(room) -> tr("Hier gibt es nichts auszubauen", "Nothing to upgrade here")
-    stage < SINK_STAGE -> tr("Ausbau erst ab Stufe $SINK_STAGE", "Upgrades only from stage $SINK_STAGE")
+    stage < SINK_STAGE -> tr("Ausbau erst ab $SINK_STAGE Sternen", "Upgrades only from $SINK_STAGE stars")
     room.upgrade >= Upgrades.MAX_LEVEL -> tr("Schon ganz ausgebaut", "Fully upgraded already")
     money < Upgrades.cost(room) -> tr("Zu wenig Geld", "Not enough money")
     else -> null
@@ -182,7 +182,7 @@ object Tuning {
 }
 
 fun Simulation.tuningBlocked(car: crazytower.core.transport.Car): String? = when {
-    stage < SINK_STAGE -> tr("Tuning erst ab Stufe $SINK_STAGE", "Tuning only from stage $SINK_STAGE")
+    stage < SINK_STAGE -> tr("Tuning erst ab $SINK_STAGE Sternen", "Tuning only from $SINK_STAGE stars")
     car.tuning >= Tuning.MAX_LEVEL -> tr("Schneller geht's nicht", "It doesn't get any faster")
     money < Tuning.cost(car) -> tr("Zu wenig Geld", "Not enough money")
     else -> null
@@ -249,7 +249,7 @@ fun Simulation.toggleInsurance(id: String): String? {
         news.post(tr("${insurance.name} gekündigt. Der Vertreter weint ein bisschen.", "${insurance.name} cancelled. The salesman cries a little."))
         return null
     }
-    if (stage < SINK_STAGE) return tr("Versicherungen erst ab Stufe $SINK_STAGE", "Insurance only from stage $SINK_STAGE")
+    if (stage < SINK_STAGE) return tr("Versicherungen erst ab $SINK_STAGE Sternen", "Insurance only from $SINK_STAGE stars")
     endgame.insurances += id
     news.post(tr("${insurance.name} abgeschlossen. Kostet jeden Tag ${insurance.percent.toInt()} % der Einnahmen.", "${insurance.name} taken out. Costs ${insurance.percent.toInt()} % of the income every day."))
     return null
@@ -291,7 +291,7 @@ val Simulation.campaignRunning: Boolean get() = clock.totalMinutes < endgame.cam
 fun Simulation.campaignCost(): Long = shareOfIncome(Promotion.CAMPAIGN_PERCENT, Promotion.CAMPAIGN_MIN)
 
 fun Simulation.campaignBlocked(): String? = when {
-    stage < SINK_STAGE -> tr("Werbung erst ab Stufe $SINK_STAGE", "Ads only from stage $SINK_STAGE")
+    stage < SINK_STAGE -> tr("Werbung erst ab $SINK_STAGE Sternen", "Ads only from $SINK_STAGE stars")
     campaignRunning -> tr("Die Kampagne läuft noch", "The campaign is still running")
     money < campaignCost() -> tr("Zu wenig Geld", "Not enough money")
     else -> null
@@ -308,7 +308,7 @@ fun Simulation.startCampaign(): PlaceCheck {
 fun Simulation.partyCost(): Long = shareOfIncome(Promotion.PARTY_PERCENT, Promotion.PARTY_MIN)
 
 fun Simulation.partyBlocked(): String? = when {
-    stage < SINK_STAGE -> tr("Turmfest erst ab Stufe $SINK_STAGE", "Tower party only from stage $SINK_STAGE")
+    stage < SINK_STAGE -> tr("Turmfest erst ab $SINK_STAGE Sternen", "Tower party only from $SINK_STAGE stars")
     activeEvents.any { it.id == "towerparty" } -> tr("Das Fest läuft schon", "The party is on already")
     clock.totalMinutes - endgame.lastParty < Promotion.PARTY_COOLDOWN -> {
         val days = ((Promotion.PARTY_COOLDOWN - (clock.totalMinutes - endgame.lastParty)) / GameClock.MINUTES_PER_DAY).toInt() + 1
@@ -362,7 +362,7 @@ object Decor {
 }
 
 fun Simulation.decorBlocked(item: Decoration): String? = when {
-    stage < SINK_STAGE -> tr("Deko erst ab Stufe $SINK_STAGE", "Decorations only from stage $SINK_STAGE")
+    stage < SINK_STAGE -> tr("Deko erst ab $SINK_STAGE Sternen", "Decorations only from $SINK_STAGE stars")
     item.id in endgame.decor -> tr("Hängt schon", "Up already")
     money < item.cost -> tr("Zu wenig Geld", "Not enough money")
     else -> null
@@ -404,7 +404,7 @@ val Simulation.entrances: List<Float> get() =
 fun Simulation.gateBlocked(): String? {
     val next = Gates.all.getOrNull(endgame.gates) ?: return tr("Oma Hildegard hat nichts mehr", "Granny Hildegard has nothing left")
     return when {
-        stage < SINK_STAGE -> tr("Oma Hildegard verkauft erst ab Stufe $SINK_STAGE", "Granny Hildegard only sells from stage $SINK_STAGE")
+        stage < SINK_STAGE -> tr("Oma Hildegard verkauft erst ab $SINK_STAGE Sternen", "Granny Hildegard only sells from $SINK_STAGE stars")
         next.x >= lotWidth -> tr("Das Grundstück ist dafür noch zu schmal", "The lot is too narrow for it yet")
         money < next.cost -> tr("Zu wenig Geld", "Not enough money")
         else -> null
@@ -448,7 +448,7 @@ fun Simulation.researched(id: String): Boolean = id in endgame.research
 fun Simulation.researchCost(): Long = Research.FIRST_COST shl endgame.research.size
 
 fun Simulation.researchBlocked(study: Study): String? = when {
-    stage < SINK_STAGE -> tr("Labor erst ab Stufe $SINK_STAGE", "Laboratory only from stage $SINK_STAGE")
+    stage < SINK_STAGE -> tr("Labor erst ab $SINK_STAGE Sternen", "Laboratory only from $SINK_STAGE stars")
     study.id in endgame.research -> tr("Schon erforscht", "Researched already")
     money < researchCost() -> tr("Zu wenig Geld", "Not enough money")
     else -> null
@@ -501,7 +501,7 @@ fun Simulation.recruitable(room: Room): List<TenantKind> {
 
 fun Simulation.recruitBlocked(room: Room): String? = when {
     !Recruiting.applies(room) -> tr("Hier sucht man niemanden aus", "No picking tenants here")
-    stage < SINK_STAGE -> tr("Anwerben erst ab Stufe $SINK_STAGE", "Recruiting only from stage $SINK_STAGE")
+    stage < SINK_STAGE -> tr("Anwerben erst ab $SINK_STAGE Sternen", "Recruiting only from $SINK_STAGE stars")
     room.tenant != null -> tr("Schon vermietet", "Rented already")
     roomProblems[room.id] != null -> tr("Erst muss man hinkommen", "People have to get there first")
     room.type.role == RoomRole.OFFICE && !hasWorkersFor(room.type.capacity) -> tr("Keine Fachkräfte frei", "No staff available")

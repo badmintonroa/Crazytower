@@ -31,7 +31,7 @@ class EditionTest {
             assertTrue(sim.demoOver)
             assertEquals(Edition.DEMO_STARS, Edition.maxStars)
             // a tower good enough for five stars still gets two
-            assertEquals(Edition.DEMO_STARS, Rating.earned(10_000, 90f, hasFood = true))
+            assertEquals(Edition.DEMO_STARS, Rating.earned(10_000, 90f, hasFood = true, hasSecurity = true, vipSurvived = true))
         } finally {
             Edition.demo = before
         }
@@ -43,7 +43,7 @@ class EditionTest {
         Edition.demo = false
         try {
             assertEquals(Rating.steps.size, Edition.maxStars)
-            assertEquals(5, Rating.earned(10_000, 90f, hasFood = true))
+            assertEquals(5, Rating.earned(10_000, 90f, hasFood = true, hasSecurity = true, vipSurvived = true))
             val sim = TestTower.create(4, seed = 3)
             assertTrue(sim.stars > Edition.DEMO_STARS)
             assertFalse(sim.demoOver)
