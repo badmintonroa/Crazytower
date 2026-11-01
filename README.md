@@ -62,6 +62,8 @@ Der Aufnahmemodus (`game/.../Film.kt`, `CRAZYTOWER_FILM=<datei.mp4|.png>`) läuf
 | `F` oder Klick aufs Geld | Finanzen |
 | `O` | Optionen |
 | `F1` oder `H` | Tastenübersicht |
+| `Strg+Z` | Letzten Bau oder Abriss zurücknehmen |
+| Esc (ohne offenes Fenster) | Pausenmenü: Weiterspielen, Speichern, Optionen, Tasten, Hauptmenü |
 | `F5` / `F9` | Speichern / Laden |
 | `X` oder `$`-Knopf | Extras für reiche Türme (ab Stufe 4) |
 | `M` oder Klick auf die Stufe | Mondmission (ab Stufe 5) |
@@ -131,7 +133,13 @@ Manche Ereignisse dauern eine Weile (`core/.../LastingEvents.kt`) und zeigen ein
 
 Ab 3 Sternen schauen ab und zu VIPs vorbei (zwischen 9 und 19 Uhr, höchstens alle 12 Stunden, mit jedem Stern öfter): Baron von Goldzahn, Zirkusdirektor Tröt-Maximus, Graf Zahlula, ab 4 Sternen Dr. Dividende, Dr. Hämisch und Prof. Morgen, ab 5 Sternen Botschafter Zorg. Dazu kommen erfundene deutsche Streamer, die unterwegs live gehen und ein paar Fans mitbringen: xXBerndZocktXx, ASMR-Annika und Vlog-Vanessa, ab 4 Sternen Speedrun-Sören und Mukbang-Mehmet, ab 5 Sternen Oma Gisela Gaming. Sie besuchen einen vermieteten Raum, am liebsten ihre Lieblingsmieter (Zahlula die Vampir-Versicherung, Tröt-Maximus die Clowns). Am Ziel urteilen sie über die Laune im Turm, die Laune im besuchten Raum, wie lange der Weg gedauert hat und wie sauber die Hotelzimmer sind. Der Weg zählt dabei am meisten: ab 90 Minuten gibt es dafür keine Punkte mehr. Gefällt es ihnen, lassen sie ein dickes Trinkgeld da (6.000 $ pro Stern oder 15 % der gestrigen Tageseinnahmen, was mehr ist), sonst nur Kleingeld und eine Beschwerde im Ticker, die verrät, was gestört hat. Das Trinkgeld steht im Finanzfenster unter „VIP-Trinkgeld“ (`core/.../Vips.kt`).
 
-`F5` speichert, `F9` lädt (`~/.crazytower/spielstand.json`).
+`F5` speichert, `F9` lädt (`~/.crazytower/spielstand.json`). Jedes Speichern schreibt erst in eine neue Datei und behält den Stand davor als `spielstand.bak.json`; lädt der Spielstand nicht, kommt die Sicherung.
+
+### Sicherheitsnetz (`core/.../Undo.kt`)
+
+- **Rückgängig** (`Strg+Z`): Der letzte Bau oder Abriss lässt sich eine Spielstunde lang zurücknehmen. Ein Bau bringt den ganzen Preis zurück, solange niemand eingezogen ist und nichts darauf steht; ein ganzer Schacht gilt als ein Schritt. Ein Abriss kommt nur zurück, wenn die Räume leer waren, und kostet die Erstattung wieder. Lobbys und Teile der Mondstation sind ausgenommen.
+- **Rückfrage**: Vor dem Abriss eines vermieteten Raums fragt das Spiel nach und sagt, was es kostet (Mieter ziehen aus, Kaufpreis an die Besitzer). Abschaltbar unter Optionen → „Abriss nachfragen“.
+- **Pausenmenü**: Esc ohne offenes Fenster hält das Spiel an; zu ist es wieder im alten Tempo.
 
 ## Geld ausgeben ab Stufe 4 (`core/.../Endgame.kt`)
 
