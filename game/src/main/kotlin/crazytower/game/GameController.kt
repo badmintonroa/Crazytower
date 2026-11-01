@@ -12,6 +12,9 @@ sealed interface Tool {
     data object Demolish : Tool
 }
 
+/** A question that needs a yes before something that can't be undone, see [GameController.confirm]. */
+data class Confirm(val title: String, val body: String, val yes: String, val onYes: () -> Unit)
+
 /** What the inspector shows. */
 sealed interface Selection {
     data class RoomSel(val roomId: Int) : Selection
@@ -33,11 +36,40 @@ class GameController(val sim: Simulation) {
     var missionOpen = false
     var helpOpen = false
 
+    /** The question on screen, if any; Enter says yes, Esc no. */
+    var confirm: Confirm? = null
+
+    /**
+     * The pause menu (Esc). While it is open the game stands still; closing it brings back
+     * the speed from before, unless the player paused on purpose meanwhile.
+     */
+    var pauseMenuOpen = false
+        set(value) {
+            if (field == value) return
+            field = value
+            if (value) {
+                speedBeforeMenu = speed
+                speed = 0
+            } else if (speed == 0) {
+                speed = speedBeforeMenu
+            }
+        }
+    private var speedBeforeMenu = 1
+
+    /** Saves the game and returns a message for the player; set by the game screen. */
+    var onSave: (() -> String)? = null
+
     /** Starts a ready-made tower of the given stage; set by the game screen. */
     var onTestTower: (Int) -> Unit = {}
 
     /** Saves (unless it is a test tower) and goes back to the title screen; set by the game screen. */
     var onMainMenu: (() -> Unit)? = null
+
+    /** Saves (unless it is a test tower) and closes the game; set by the game screen. */
+    var onQuit: () -> Unit = {}
+
+    /** The game stands still at the end of the demo; the title screen's tower keeps living. */
+    var stopsAtDemoEnd = true
     var toast: String? = null
         private set
     private var toastLeft = 0.0
@@ -48,7 +80,7 @@ class GameController(val sim: Simulation) {
             toastLeft -= seconds
             if (toastLeft <= 0) toast = null
         }
-        if (speed > 0) sim.step(seconds.coerceAtMost(0.25) * GAME_MINUTES_PER_SECOND * speed * nightBoost)
+        if (speed > 0 && !(stopsAtDemoEnd && sim.demoOver)) sim.step(seconds.coerceAtMost(0.25) * GAME_MINUTES_PER_SECOND * speed * nightBoost)
     }
 
     /** Between 23 and 6 o'clock the clock runs four times faster, if the player wants. */
@@ -80,7 +112,8 @@ class GameController(val sim: Simulation) {
             tool = Tool.Demolish
             return
         }
-        category = if (category == c) null else c
+        // with a room chosen, the category button brings the full list back instead of closing it
+        category = if (category == c && tool == null) null else c
         tool = null
     }
 

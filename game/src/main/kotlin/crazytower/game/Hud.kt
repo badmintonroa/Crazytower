@@ -1,6 +1,7 @@
 package crazytower.game
 
 import crazytower.core.Catalog
+import crazytower.core.Edition
 import crazytower.core.Category
 import crazytower.core.GameClock
 import crazytower.core.NewsItem
@@ -20,6 +21,7 @@ import crazytower.core.missionStarted
 import crazytower.core.spectatorsPerDay
 import crazytower.core.openDayBlocked
 import crazytower.core.startOpenDay
+import crazytower.core.undo
 import crazytower.core.tr
 import crazytower.game.ui.Button
 import crazytower.game.ui.Icons
@@ -64,7 +66,7 @@ class Hud(
     private val finance = FinanceWindow(sim) { game.financeOpen = false }.addTo(this).also {
         it.xy((screenWidth - it.panelWidth) / 2, 96.0)
     }
-    private val options = OptionsWindow(onTestTower = { game.onTestTower(it) }, onMainMenu = game.onMainMenu, onHelp = { game.optionsOpen = false; game.helpOpen = true }) { game.optionsOpen = false }.addTo(this).also {
+    private val options = OptionsWindow(onTestTower = { game.onTestTower(it) }, onMainMenu = game.onMainMenu) { game.optionsOpen = false }.addTo(this).also {
         it.xy((screenWidth - it.panelWidth) / 2, ((screenHeight - it.panelHeight) / 2).coerceAtLeast(84.0))
     }
     // right of the build list where the screen is wide enough
@@ -78,8 +80,19 @@ class Hud(
         it.xy((screenWidth - it.panelWidth) / 2, ((screenHeight - it.panelHeight) / 2).coerceAtLeast(84.0))
     }
     private val celebration = Celebration(screenWidth, screenHeight).addTo(this)
+    private val demoEnd = DemoEndWindow(screenWidth, screenHeight, game.onMainMenu) { game.onQuit() }.addTo(this)
+    /** Darkens the game behind the pause menu and questions; they need an answer first. */
+    private val dim = solidRect(screenWidth, screenHeight, Theme.alpha(Theme.INK, 0.55)).also { it.visible = false }
+    private val pauseMenu = PauseMenu(game).addTo(this).also {
+        it.xy((screenWidth - it.panelWidth) / 2, ((screenHeight - it.panelHeight) / 2).coerceAtLeast(84.0))
+        it.visible = false
+    }
+    // in front of the dimming, so a message from the pause menu stays readable
     private val tooltip = container { visible = false }
     private val toast = container { visible = false }
+
+    private var confirmWindow: ConfirmWindow? = null
+    private var shownConfirm: Confirm? = null
 
     /** Hover tips, in front of everything else. */
     private val tips = TipLayer(screenWidth, screenHeight).addTo(this)
@@ -106,7 +119,7 @@ class Hud(
 
     /** The little star on a category button that holds room types the player has not seen yet. */
     private val categoryNews = HashMap<Category, View>()
-    private var flyoutKey: Triple<Category?, Int, Int>? = null
+    private var flyoutKey: List<Any?>? = null
     private lateinit var tickerText: Text
     private lateinit var tickerClip: Container
     private var tickerOffset = 0.0
@@ -118,10 +131,14 @@ class Hud(
         buildBuildBar()
         buildTicker()
         setupKeys()
+        // the end of the demo covers everything, toasts and windows too
+        addChild(demoEnd)
     }
 
     /** True when [point] (screen coordinates) lies on a HUD element, so the tower ignores the click. */
     fun isOverUi(point: Point): Boolean {
+        // the pause menu and questions take the whole screen
+        if (game.pauseMenuOpen || game.confirm != null) return true
         val rects = buildList {
             add(Rectangle(0.0, 0.0, screenWidth, 78.0))
             add(Rectangle(buildBar.x, buildBar.y, buildBar.panelWidth, buildBar.panelHeight))
@@ -132,7 +149,7 @@ class Hud(
             if (mission.visible) add(Rectangle(mission.x, mission.y, mission.panelWidth, mission.panelHeight))
             if (options.visible) add(Rectangle(options.x, options.y, options.panelWidth, options.panelHeight))
             if (help.visible) add(Rectangle(help.x, help.y, help.panelWidth, help.panelHeight))
-            if (celebration.isShowing) add(Rectangle(0.0, 0.0, screenWidth, screenHeight))
+            if (celebration.isShowing || demoEnd.visible) add(Rectangle(0.0, 0.0, screenWidth, screenHeight))
             add(Rectangle(0.0, screenHeight - 50.0, screenWidth, 50.0))
         }
         return rects.any { it.contains(point) }
@@ -330,7 +347,9 @@ class Hud(
     }
 
     private fun refreshFlyout(force: Boolean = false) {
-        val key = Triple(game.category, sim.stage, sim.stars)
+        // while a room is chosen the list folds into a small card, so the tower stays visible
+        val chosen = (game.tool as? Tool.Build)?.type?.takeIf { game.category != null }
+        val key = listOf(game.category, sim.stage, sim.stars, chosen)
         if (!force && key == flyoutKey) {
             updateFlyoutSelection()
             return
@@ -343,6 +362,10 @@ class Hud(
             return
         }
         flyout.visible = true
+        if (chosen != null) {
+            buildCompactFlyout(category, chosen)
+            return
+        }
         val bg = Panel(FLYOUT_WIDTH, 100.0).addTo(flyout)
         val heading = flyout.label(category.label.uppercase(), 20.0, Theme.TEXT, Theme.bodyBold).xy(14.0, 12.0)
         val close = flyout.label(tr("Esc schließt", "Esc closes"), 12.0, Theme.TEXT_DIM)
@@ -399,6 +422,39 @@ class Hud(
         updateFlyoutSelection()
     }
 
+    /**
+     * The folded build list while placing: the chosen room with its price, a button back to the
+     * full list and one to stop building. The details are in the card's hover tip.
+     */
+    private fun buildCompactFlyout(category: Category, type: RoomType) {
+        val bg = Panel(FLYOUT_WIDTH, 100.0).addTo(flyout)
+        val heading = flyout.label(category.label.uppercase(), 13.0, Theme.TEXT_DIM, Theme.bodyBold).xy(14.0, 10.0)
+        val close = flyout.label(tr("Esc bricht ab", "Esc cancels"), 11.0, Theme.TEXT_DIM)
+        close.xy(FLYOUT_WIDTH - 14.0 - close.width, 11.0)
+        heading.fitWidth(close.x - 24.0)
+        var y = 32.0
+        val card = ItemCard(type, unlocked = true, info = emptyList(), onPress = { game.tool = null })
+        card.selected = true
+        card.xy(14.0, y)
+        card.tip {
+            Tip(
+                type.name.toString(),
+                roomInfo(type).joinToString("\n") + tr("\n\nKlick zeigt wieder alle Räume.", "\n\nClick to show all rooms again."),
+            )
+        }
+        flyout.addChild(card)
+        y += card.cardHeight + 8
+        val half = (FLYOUT_TEXT - 8.0) / 2
+        TextButton(half, 34.0, tr("Wechseln", "Change"), 13.0) { game.tool = null }.addTo(flyout).xy(14.0, y)
+            .tip(tr("Wechseln", "Change"), tr("Zeigt wieder die ganze Liste.", "Shows the whole list again."), "${Category.entries.indexOf(category) + 1}")
+        TextButton(half, 34.0, tr("Abbrechen", "Cancel"), 13.0) { game.tool = null; game.category = null }.addTo(flyout).xy(14.0 + half + 8.0, y)
+            .tip(tr("Abbrechen", "Cancel"), tr("Hört auf zu bauen und schließt die Liste.", "Stops building and closes the list."), tr("Rechtsklick", "Right-click"))
+        y += 34.0 + 12.0
+        bg.resize(FLYOUT_WIDTH, y)
+        flyout.panelWidth = FLYOUT_WIDTH
+        flyout.panelHeight = y
+    }
+
     private fun updateFlyoutSelection() {
         val tool = game.tool
         for (child in flyout.children) {
@@ -415,7 +471,8 @@ class Hud(
         // long lines wrap, the card grows with them
         val info: List<String> = roomInfo(type).flatMap { wrapText(it, CARD_TEXT, 12.0).split('\n') },
         val cardHeight: Double = if (info.isEmpty()) 62.0 else 66.0 + info.size * 17.0,
-    ) : Button(242.0, cardHeight, { game.tool = Tool.Build(type) }) {
+        onPress: () -> Unit = { game.tool = Tool.Build(type) },
+    ) : Button(242.0, cardHeight, onPress) {
         init {
             enabled = unlocked
             content.image(assets.room(type.art)) {
@@ -497,9 +554,13 @@ class Hud(
                 tr("plus ${formatMoneyRange(Simulation.MEAL_PRICE, Simulation.VISITOR_MEAL_PRICE)} pro Essen", "plus ${formatMoneyRange(Simulation.MEAL_PRICE, Simulation.VISITOR_MEAL_PRICE)} per meal"),
             )
             RoomRole.HOTEL -> listOf(
-                tr("${type.capacity} Gäste, ab ${Simulation.CHECK_IN_FROM} Uhr, eine Nacht", "${type.capacity} guests, from ${Simulation.CHECK_IN_FROM}:00, one night"),
-                tr("pro Nacht: ", "per night: ") + range(tenants.map { it.rentPerDay }),
-                tr("danach schmutzig, braucht Reinigungsdienst", "then dirty, needs housekeeping"),
+                if (type.capacity == 1) tr("1 Gast, ab ${Simulation.CHECK_IN_FROM} Uhr, eine Nacht", "1 guest, from ${Simulation.CHECK_IN_FROM}:00, one night")
+                else tr("${type.capacity} Gäste, ab ${Simulation.CHECK_IN_FROM} Uhr, eine Nacht", "${type.capacity} guests, from ${Simulation.CHECK_IN_FROM}:00, one night"),
+                tr("pro Nacht: ", "per night: ") + range(tenants.map { it.rentPerDay }) +
+                    tr(", ${formatMoney(type.upkeep ?: Simulation.HOTEL_UPKEEP)} Unterhalt", ", ${formatMoney(type.upkeep ?: Simulation.HOTEL_UPKEEP)} upkeep"),
+                tr("danach schmutzig, putzen dauert ${type.hotelClass.cleanMinutes} Min.",
+                    "then dirty, cleaning takes ${type.hotelClass.cleanMinutes} min"),
+                tr("Luxus für VIPs: ", "luxury for VIPs: ") + "★".repeat(type.hotelClass.vipStars),
             )
             RoomRole.PARKING -> type.effects.map { it.toString() } +
                 tr("${sim.parkingSpaces} Plätze für ${sim.carsWanted} Autos, ${sim.carsWithoutSpace.coerceAtLeast(0)} suchen noch",
@@ -541,6 +602,8 @@ class Hud(
             down(Key.PERIOD) { game.faster(); game.say(tr("Tempo ${game.speed}×", "Speed ${game.speed}×"), 1.5) }
             down(Key.COMMA) { game.slower(); game.say(tr("Tempo ${game.speed}×", "Speed ${game.speed}×"), 1.5) }
             down(Key.F1) { game.helpOpen = !game.helpOpen }
+            down(Key.Z) { if (it.ctrl || it.meta) undo() }
+            down(Key.ENTER) { game.confirm?.let { answer(it, yes = true) } }
             down(Key.H) { game.helpOpen = !game.helpOpen }
             down(Key.N) {
                 game.fastNights = !game.fastNights
@@ -552,6 +615,7 @@ class Hud(
             down(Key.M) { if (sim.missionStarted) game.missionOpen = !game.missionOpen }
             down(Key.ESCAPE) {
                 when {
+                    game.confirm != null -> answer(game.confirm!!, yes = false)
                     game.helpOpen -> game.helpOpen = false
                     game.optionsOpen -> game.optionsOpen = false
                     game.financeOpen -> game.financeOpen = false
@@ -559,7 +623,7 @@ class Hud(
                     game.missionOpen -> game.missionOpen = false
                     game.tool != null || game.category != null -> game.cancel()
                     game.selection != null -> game.selection = null
-                    else -> game.optionsOpen = true
+                    else -> game.pauseMenuOpen = !game.pauseMenuOpen
                 }
             }
         }
@@ -591,6 +655,10 @@ class Hud(
         options.visible = game.optionsOpen
         if (options.visible) options.sync()
         help.visible = game.helpOpen
+        // options and keys opened from the pause menu cover it until they close
+        pauseMenu.visible = game.pauseMenuOpen && !game.optionsOpen && !game.helpOpen
+        syncConfirm()
+        dim.visible = game.pauseMenuOpen || game.confirm != null
         popText.text = formatNumber(sim.population.toLong())
         popText.fitWidth(POP_WIDTH)
         // "Bewohner" right after the number, where it fits
@@ -602,6 +670,8 @@ class Hud(
         moodText.color = if (mood < 40) Theme.ALARM else Theme.TEXT_DIM
         syncStage()
         celebration.update(dtSeconds)
+        // the demo ends once the star celebration is over
+        demoEnd.visible = sim.demoOver && !celebration.isShowing
         clockText.text = sim.clock.format() + if (game.speed > 0 && game.nightBoost > 1) " »" else ""
         clockText.color = if (game.speed == 0) Theme.ALARM else Theme.TEXT
         speedButtons.forEach { (speed, b) -> b.selected = game.speed == speed }
@@ -615,6 +685,32 @@ class Hud(
         syncTooltip()
         syncToast()
         tips.update(dtSeconds)
+    }
+
+    /** Takes the last build or demolition back (Ctrl+Z). */
+    private fun undo() {
+        val result = sim.undo()
+        game.say(result.reason)
+        Sfx.play(if (result.ok) Sfx.BUILD else Sfx.ERROR)
+    }
+
+    private fun answer(question: Confirm, yes: Boolean) {
+        game.confirm = null
+        if (yes) question.onYes()
+    }
+
+    /** Shows the question the game asks right now, in front of everything but the tips. */
+    private fun syncConfirm() {
+        val question = game.confirm
+        if (question == shownConfirm) return
+        shownConfirm = question
+        confirmWindow?.removeFromParent()
+        confirmWindow = question?.let { q ->
+            ConfirmWindow(q, onNo = { answer(q, yes = false) }, onYes = { answer(q, yes = true) }).also {
+                addChildAt(it, getChildIndex(tips))
+                it.xy((screenWidth - it.panelWidth) / 2, ((screenHeight - it.panelHeight) / 2).coerceAtLeast(84.0))
+            }
+        }
     }
 
     /** Everything the next star still needs, not only the first thing as under the stars. */
@@ -663,6 +759,7 @@ class Hud(
         val missing = sim.nextStarMissing
         starHint.text = when {
             sim.stars >= Rating.steps.size -> ""
+            sim.stars >= Edition.maxStars -> tr("Stern ${sim.stars + 1}: in der Vollversion", "Star ${sim.stars + 1}: in the full version")
             // everything is there, the rating catches up at the next check
             missing.isEmpty() -> tr("Stern ${sim.stars + 1}: kommt bald", "Star ${sim.stars + 1}: coming soon")
             else -> tr("Stern ${sim.stars + 1}: ${missing.first()}", "Star ${sim.stars + 1}: ${missing.first()}")

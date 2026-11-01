@@ -90,6 +90,9 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
 
     /** Money sinks and the moon mission, see [Endgame]. */
     var endgame: Endgame = Endgame()
+
+    /** What Ctrl+Z can take back: the last build or demolition, for a while (see Undo.kt). Not saved. */
+    var undoStep: UndoStep? = null
         internal set
 
     /** Spectators per observation deck, so it gets dirty now and then. */
@@ -104,6 +107,9 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
 
     /** What the next star still needs, e.g. "ein Imbiss"; empty at five stars. */
     val nextStarMissing: List<String> get() = Rating.missing(stars, population, satisfaction, hasFood)
+
+    /** The demo has reached its last star: the game stops and points to the full version. */
+    val demoOver: Boolean get() = Edition.demo && stars >= Edition.DEMO_STARS
 
     private val hasFood: Boolean get() = tower.allRooms.any { it.type.role == RoomRole.FOOD && it.tenant != null }
 
@@ -211,7 +217,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     fun isNew(type: RoomType): Boolean = unlocked(type) && type.id !in seenTypes
 
     /** What stage, stars and lot allow, before money and the tower itself are asked. */
-    private fun checkRules(type: RoomType, floor: Int, x: Int, width: Int): PlaceCheck {
+    internal fun checkRules(type: RoomType, floor: Int, x: Int, width: Int): PlaceCheck {
         if (type.minStage > stage) return PlaceCheck.no(tr("Erst ab Stufe ${type.minStage}", "Only from stage ${type.minStage}"))
         if (type.minStars > bestStars) return PlaceCheck.no(tr("Erst ab ${type.minStars} Sternen", "Only from ${type.minStars} stars"))
         val maxFloor = Stages.info(stage).maxFloor
@@ -743,6 +749,10 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         looksVersion++
     }
 
+    /** How long the staff need for [room]: suites take longer, the self-cleaning towels halve it. */
+    fun cleanMinutes(room: Room): Int =
+        room.type.hotelClass.cleanMinutes / (if (researched("towels")) 2 else 1)
+
     /** Hotel rooms that wait for the cleaning staff. */
     val dirtyRooms: List<Room> get() = tower.allRooms.filter { it.dirty }
 
@@ -843,7 +853,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             moveOut(room)
             news.post(tr("$name zieht aus. Grund: $reason", "$name moves out. Reason: $reason"), room.center, important = true)
         }
-        val newStars = Rating.stars(population, satisfaction, hasFood)
+        val newStars = Rating.earned(population, satisfaction, hasFood)
         if (newStars > stars) {
             news.post(tr("Der Turm hat jetzt $newStars Sterne! Neue Mieter werden neugierig.", "The tower now has $newStars stars! New tenants are getting curious."), important = true)
             val oldLot = lotWidth
@@ -1152,7 +1162,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
                     entity.configure { drop(it, Cleaning) }
                     if (target != null && target.dirty) {
                         schedule.activity = Activity.CLEANING
-                        entity.configure { it += Idle(clock.totalMinutes + CLEAN_MINUTES / (if (researched("towels")) 2 else 1)) }
+                        entity.configure { it += Idle(clock.totalMinutes + cleanMinutes(target)) }
                         cleaned(target)
                     }
                 }
@@ -1251,7 +1261,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         /** The visitor whose visit unlocks the last stage. */
         val VIP_NAME = Tr("Frau Dr. Wichtig", "Dr. Bigwig")
 
-        private val NO_MONEY: String get() = tr("Zu wenig Geld", "Not enough money")
+        internal val NO_MONEY: String get() = tr("Zu wenig Geld", "Not enough money")
         private val NO_CAR: PlaceCheck get() = PlaceCheck.no(tr("Jedes Auto hat schon einen Parkplatz. Mehr Büros, Wohnungen oder Luxusbüros!", "Every car has a space already. More offices, flats or luxury offices!"))
 
         const val START_MONEY = 120_000L

@@ -12,6 +12,17 @@ Voraussetzung: JDK 21.
 ./gradlew :core:playthrough --args="110 42" -Dbot=all   # die drei Bots spielen 110 Tage mit Seed 42, eine Zeile pro Tag und ein Vergleich
 ```
 
+Nur beim Start über `./gradlew :game:run` (Entwicklermodus, `DevMode.kt`) zeigt `F7` oben links die FPS und wie viele Millisekunden jedes System pro Frame braucht, das langsamste zuerst. Im Installer, auf Steam und in der Demo gibt es die Anzeige nicht; KorGEs eigene Debugansicht auf `F7`/`F12` ist überall aus. Ein fertiges Paket lässt sich mit `CRAZYTOWER_DEV=1` trotzdem prüfen. `CRAZYTOWER_PROFILE=<sekunden>` schreibt dieselben Zahlen jede Sekunde in die Konsole.
+
+## Steam: Demo und Windows-Build
+
+```bash
+./gradlew :game:run -Pdemo=true          # die Demo spielen: endet mit dem 2. Stern
+./gradlew :game:packageApp -Pdemo=true   # Ordner mit Exe und eigenem Java für Steam (game/build/jpackage/)
+```
+
+Die Versionen für Windows und Linux / Steam Deck baut GitHub unter Actions → „Steam build“. Wie sie zu Steam kommt, steht in [docs/steam.md](docs/steam.md). Das App-Symbol zeichnet `tools/art/make_icon.py`.
+
 ## Startbildschirm
 
 Das Spiel startet im Hauptmenü: Spiel laden, Neues Spiel, Optionen, Testtürme und Beenden. Im Hintergrund läuft der zuletzt gespeicherte Turm weiter, und die Kamera fährt langsam vom Erdgeschoss bis zum Dach und zurück. Ohne Spielstand steht dort ein Testturm. Im Spiel führt Optionen → „Zum Hauptmenü“ zurück (das Spiel wird vorher gespeichert).
@@ -51,6 +62,8 @@ Der Aufnahmemodus (`game/.../Film.kt`, `CRAZYTOWER_FILM=<datei.mp4|.png>`) läuf
 | `F` oder Klick aufs Geld | Finanzen |
 | `O` | Optionen |
 | `F1` oder `H` | Tastenübersicht |
+| `Strg+Z` | Letzten Bau oder Abriss zurücknehmen |
+| Esc (ohne offenes Fenster) | Pausenmenü: Weiterspielen, Speichern, Optionen, Tasten, Hauptmenü |
 | `F5` / `F9` | Speichern / Laden |
 | `X` oder `$`-Knopf | Extras für reiche Türme (ab Stufe 4) |
 | `M` oder Klick auf die Stufe | Mondmission (ab Stufe 5) |
@@ -70,13 +83,14 @@ Jede Figur ist eine Entität mit `Position` und `Goal`. Das `PathfindingSystem` 
 
 ### Mehrere CPU-Kerne
 
-Die Simulation verteilt die Wegsuche und die Aufzugsschächte auf Hilfsthreads (`core/.../Workers.kt`), standardmäßig so viele, wie der Rechner Kerne hat, minus einen (höchstens 8). Die Hilfsthreads rechnen nur, was niemand sonst anfasst (eine Wegsuche, einen Schacht mit seinen Fahrgästen). Was die Welt ändert (Komponenten, Geld, Zufallszahlen, Nachrichten), passiert danach auf dem Spielthread in fester Reihenfolge, deshalb läuft das Spiel mit jeder Threadzahl bitgenau gleich (`WorkersTest`). Wer an einem System etwas parallelisiert, hält sich an diese Regel. `-Dcrazytower.threads=1` oder `CRAZYTOWER_THREADS=1` schaltet die Hilfsthreads ab, zum Vergleichen: `./gradlew :core:bench -Dcrazytower.threads=1`. Das F3-Fenster zeigt die Threadzahl.
+Die Simulation verteilt die Wegsuche und die Aufzugsschächte auf Hilfsthreads (`core/.../Workers.kt`), standardmäßig so viele, wie der Rechner Kerne hat, minus einen (höchstens 8). Die Hilfsthreads rechnen nur, was niemand sonst anfasst (eine Wegsuche, einen Schacht mit seinen Fahrgästen). Was die Welt ändert (Komponenten, Geld, Zufallszahlen, Nachrichten), passiert danach auf dem Spielthread in fester Reihenfolge, deshalb läuft das Spiel mit jeder Threadzahl bitgenau gleich (`WorkersTest`). Wer an einem System etwas parallelisiert, hält sich an diese Regel. `-Dcrazytower.threads=1` oder `CRAZYTOWER_THREADS=1` schaltet die Hilfsthreads ab, zum Vergleichen: `./gradlew :core:bench -Dcrazytower.threads=1`. Die F7-Entwickleranzeige zeigt die Threadzahl.
 
 ## Turm bauen (ab M4)
 
 - Etagen über dem Erdgeschoss brauchen darunter etwas, auf dem sie stehen. Das erste Untergeschoss geht überall, tiefere brauchen eine Decke.
 - Wege: Lobby (nur Erdgeschoss), Flur, Treppe (eine Etage hoch), Aufzug (Schachtstücke übereinander bauen, höchstens 30 Etagen). Wer einen Aufzug oder eine Treppe weiter zieht, als das Geld reicht, bekommt beim Loslassen so viele Etagen wie bezahlbar; der Rest ist in der Vorschau rot. Dasselbe gilt für Parkplatz-Reihen.
 - Das Baumenü zeigt nur, was Stufe und Sterne schon erlauben. Was seit dem letzten Blick dazugekommen ist, trägt beim ersten Anzeigen einen Stern und „NEU“, die Kategorie-Taste auch.
+- Ist ein Raum gewählt, klappt das Baumenü zu einer kleinen Karte zusammen (Raum, Preis, „Wechseln“, „Abbrechen“), damit man beim Platzieren den Turm sieht. Die Details stehen im Hinweis der Karte. „Wechseln“, ein Klick auf die Karte oder die Kategorie-Taste zeigen wieder die ganze Liste. Für Screenshots wählt `CRAZYTOWER_BUILD=<raum-id>` (mit `CRAZYTOWER_CATEGORY`) einen Raum vor.
 - Büros, Wohnungen und Imbisse werden vermietet, sobald man sie von der Straße aus erreicht. Wer einzieht, entscheidet der Turm: vom Steuerbüro bis zur Vampir-Versicherung (siehe `core/.../Tenants.kt`).
 - `tools/art/make_rooms_extra.py` zeichnet die Räume, für die es noch keine generierte Grafik gibt (Wege, Wohnungen, Imbisse, Hotel, Reinigungsdienst, Luxusbüros), jeweils bei Tag, bei Nacht und verwahrlost (`extra*.png`). Luxusbüros sind 12 Felder breit, ihre Bilder auch.
 
@@ -123,7 +137,13 @@ Manche Ereignisse dauern eine Weile (`core/.../LastingEvents.kt`) und zeigen ein
 
 Ab 3 Sternen schauen ab und zu VIPs vorbei (zwischen 9 und 19 Uhr, höchstens alle 12 Stunden, mit jedem Stern öfter): Baron von Goldzahn, Zirkusdirektor Tröt-Maximus, Graf Zahlula, ab 4 Sternen Dr. Dividende, Dr. Hämisch und Prof. Morgen, ab 5 Sternen Botschafter Zorg. Dazu kommen erfundene deutsche Streamer, die unterwegs live gehen und ein paar Fans mitbringen: xXBerndZocktXx, ASMR-Annika und Vlog-Vanessa, ab 4 Sternen Speedrun-Sören und Mukbang-Mehmet, ab 5 Sternen Oma Gisela Gaming. Sie besuchen einen vermieteten Raum, am liebsten ihre Lieblingsmieter (Zahlula die Vampir-Versicherung, Tröt-Maximus die Clowns). Am Ziel urteilen sie über die Laune im Turm, die Laune im besuchten Raum, wie lange der Weg gedauert hat und wie sauber die Hotelzimmer sind. Der Weg zählt dabei am meisten: ab 90 Minuten gibt es dafür keine Punkte mehr. Gefällt es ihnen, lassen sie ein dickes Trinkgeld da (6.000 $ pro Stern oder 15 % der gestrigen Tageseinnahmen, was mehr ist), sonst nur Kleingeld und eine Beschwerde im Ticker, die verrät, was gestört hat. Das Trinkgeld steht im Finanzfenster unter „VIP-Trinkgeld“ (`core/.../Vips.kt`).
 
-`F5` speichert, `F9` lädt (`~/.crazytower/spielstand.json`).
+`F5` speichert, `F9` lädt (`~/.crazytower/spielstand.json`). Jedes Speichern schreibt erst in eine neue Datei und behält den Stand davor als `spielstand.bak.json`; lädt der Spielstand nicht, kommt die Sicherung.
+
+### Sicherheitsnetz (`core/.../Undo.kt`)
+
+- **Rückgängig** (`Strg+Z`): Der letzte Bau oder Abriss lässt sich eine Spielstunde lang zurücknehmen. Ein Bau bringt den ganzen Preis zurück, solange niemand eingezogen ist und nichts darauf steht; ein ganzer Schacht gilt als ein Schritt. Ein Abriss kommt nur zurück, wenn die Räume leer waren, und kostet die Erstattung wieder. Lobbys und Teile der Mondstation sind ausgenommen.
+- **Rückfrage**: Vor dem Abriss eines vermieteten Raums fragt das Spiel nach und sagt, was es kostet (Mieter ziehen aus, Kaufpreis an die Besitzer). Abschaltbar unter Optionen → „Abriss nachfragen“.
+- **Pausenmenü**: Esc ohne offenes Fenster hält das Spiel an; zu ist es wieder im alten Tempo.
 
 ## Geld ausgeben ab Stufe 4 (`core/.../Endgame.kt`)
 

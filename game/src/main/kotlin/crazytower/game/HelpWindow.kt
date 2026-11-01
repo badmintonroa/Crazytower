@@ -28,9 +28,10 @@ object Shortcuts {
             "M" to tr("Mondmission (ab Stufe 5)", "Moon mission (from stage 5)"),
             "O" to tr("Optionen", "Options"),
             "F1, H" to tr("Diese Übersicht", "This overview"),
+            tr("Strg+Z", "Ctrl+Z") to tr("Letzten Bau oder Abriss zurücknehmen", "Take back the last build or demolition"),
             "F5 / F9" to tr("Speichern / Laden", "Save / load"),
             "F11" to tr("Vollbild", "Fullscreen"),
-            "Esc" to tr("Fenster schließen, abbrechen", "Close a window, cancel"),
+            "Esc" to tr("Schließen, abbrechen, Pause", "Close, cancel, pause"),
             tr("Klick auf Ticker", "Click the ticker") to tr("Zum Ort der Meldung", "Go to the news"),
         )
 }
