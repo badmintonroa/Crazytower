@@ -16,7 +16,7 @@ suspend fun main() {
         // one virtual pixel per window pixel; GameScene scales the layout to fit
         virtualSize = Size(width, height),
         windowCreationConfig = GameWindowCreationConfig(decorated = !borderless),
-        title = "CrazyTower",
+        title = if (crazytower.core.Edition.demo) "CrazyTower – Demo" else "CrazyTower",
         backgroundColor = Theme.SKY,
     ).start {
         // KorGE opens its own view inspector on F7 and F12; players should never see it

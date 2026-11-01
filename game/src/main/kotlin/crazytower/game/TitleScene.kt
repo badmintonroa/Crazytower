@@ -1,5 +1,6 @@
 package crazytower.game
 
+import crazytower.core.Edition
 import crazytower.core.Simulation
 import crazytower.core.Stages
 import crazytower.core.TestTower
@@ -38,7 +39,8 @@ class TitleScene(private val assets: Assets) : Scene() {
         val demoStage = System.getenv("CRAZYTOWER_TITLE")?.toIntOrNull()
         saved = if (demoStage != null) null else SaveSlot.load().first
         val sim = saved ?: TestTower.create(demoStage ?: 3, seed = System.currentTimeMillis())
-        val game = GameController(sim)
+        // the tower behind the menu keeps living, even when the demo is over
+        val game = GameController(sim).also { it.stopsAtDemoEnd = false }
         screenRoot = container()
         val (w, h) = fit(views)
         tower = TowerView(sim, game, assets, w, h, interactive = false).addTo(screenRoot)
@@ -115,6 +117,10 @@ class TitleScene(private val assets: Assets) : Scene() {
         val crazy = root.label("CRAZY", 64.0, Theme.TEXT, Theme.bodyBold).xy(left, y)
         root.label("TOWER", 64.0, Theme.SELECT, Theme.bodyBold).xy(left + crazy.width + 4, y)
         y += 80.0
+        if (Edition.demo) {
+            root.label(tr("TESTVERSION · bis 2 Sterne", "DEMO · up to 2 stars"), 15.0, Theme.GOLD, Theme.bodyBold).xy(left + 2, y - 8).fitWidth(TEXT_WIDTH)
+            y += 22.0
+        }
         root.label(tr("Der Turm, in dem nichts normal ist", "The tower where nothing is normal"), 17.0, Theme.TEXT_DIM).xy(left + 2, y).fitWidth(TEXT_WIDTH)
         y += 56.0
 
@@ -141,14 +147,16 @@ class TitleScene(private val assets: Assets) : Scene() {
         button(root, left, y, tr("Optionen", "Options")) { toggleOptions() }
         y += BUTTON_STEP
 
-        // the test towers from the options, right here as well
-        root.label(tr("Testturm", "Test tower"), 15.0, Theme.TEXT, Theme.bodyBold).xy(left + 2, y + 10).fitWidth(88.0)
-        for (stage in 1..TestTower.MAXIMUM) {
-            val max = stage == TestTower.MAXIMUM
-            TextButton(if (max) 50.0 else 30.0, 36.0, if (max) "Max" else "$stage", 14.0) { testTower(stage) }
-                .addTo(root).xy(left + 96 + (stage - 1) * 34.0, y)
+        // the test towers from the options, right here as well; the demo has none
+        if (!Edition.demo) {
+            root.label(tr("Testturm", "Test tower"), 15.0, Theme.TEXT, Theme.bodyBold).xy(left + 2, y + 10).fitWidth(88.0)
+            for (stage in 1..TestTower.MAXIMUM) {
+                val max = stage == TestTower.MAXIMUM
+                TextButton(if (max) 50.0 else 30.0, 36.0, if (max) "Max" else "$stage", 14.0) { testTower(stage) }
+                    .addTo(root).xy(left + 96 + (stage - 1) * 34.0, y)
+            }
+            y += BUTTON_STEP
         }
-        y += BUTTON_STEP
         button(root, left, y, tr("Beenden", "Quit")) { views.gameWindow.close() }
 
         root.label(tr("Enter spielt · O Optionen · F11 Vollbild", "Enter plays · O options · F11 fullscreen"), 12.0, Theme.TEXT_DIM).xy(left + 2, h - 36.0)

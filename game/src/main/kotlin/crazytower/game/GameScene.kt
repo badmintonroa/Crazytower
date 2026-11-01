@@ -43,6 +43,10 @@ class GameScene(private val assets: Assets, private val loaded: Simulation? = nu
             if (!test) SaveSlot.save(sim)
             launchImmediately { sceneContainer.changeTo { TitleScene(assets) } }
         }
+        game.onQuit = {
+            if (!test) SaveSlot.save(sim)
+            views.gameWindow.close()
+        }
         screenRoot = container()
         val (w, h) = fitScreen(views)
         tower = TowerView(sim, game, assets, w, h).addTo(screenRoot)

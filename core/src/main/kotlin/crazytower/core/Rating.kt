@@ -24,6 +24,10 @@ object Rating {
         return stars
     }
 
+    /** The stars this edition hands out: the demo stops at [Edition.DEMO_STARS]. */
+    fun earned(population: Int, satisfaction: Float, hasFood: Boolean): Int =
+        stars(population, satisfaction, hasFood).coerceAtMost(Edition.maxStars)
+
     /** What is still missing for the star after [stars], shortest first; empty at five stars. */
     fun missing(stars: Int, population: Int, satisfaction: Float, hasFood: Boolean): List<String> {
         val step = nextStep(stars) ?: return emptyList()
