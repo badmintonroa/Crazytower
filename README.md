@@ -19,7 +19,7 @@ Voraussetzung: JDK 21.
 ./gradlew :game:packageApp -Pdemo=true   # Ordner mit Exe und eigenem Java für Steam (game/build/jpackage/)
 ```
 
-Die Windows-Version baut GitHub unter Actions → „Steam build“. Wie sie zu Steam kommt, steht in [docs/steam.md](docs/steam.md). Das App-Symbol zeichnet `tools/art/make_icon.py`.
+Die Versionen für Windows und Linux / Steam Deck baut GitHub unter Actions → „Steam build“. Wie sie zu Steam kommt, steht in [docs/steam.md](docs/steam.md). Das App-Symbol zeichnet `tools/art/make_icon.py`.
 
 ## Startbildschirm
 

@@ -2,16 +2,27 @@
 {
 	"AppID" "FULL_APP_ID"
 	"Desc" "CrazyTower"
-	// the unzipped Windows folder (with CrazyTower.exe), relative to this file
-	"ContentRoot" "content\CrazyTower\"
-	"BuildOutput" "output\"
+	// the unpacked builds lie in content/CrazyTower-windows/ and content/CrazyTower-linux/, next to this file
+	"ContentRoot" "content/"
+	"BuildOutput" "output/"
 	"Depots"
 	{
-		"FULL_DEPOT_ID"
+		// Windows depot (CrazyTower settings: operating system Windows)
+		"FULL_WINDOWS_DEPOT_ID"
 		{
 			"FileMapping"
 			{
-				"LocalPath" "*"
+				"LocalPath" "CrazyTower-windows/*"
+				"DepotPath" "."
+				"recursive" "1"
+			}
+		}
+		// Linux / Steam Deck depot (operating system Linux)
+		"FULL_LINUX_DEPOT_ID"
+		{
+			"FileMapping"
+			{
+				"LocalPath" "CrazyTower-linux/*"
 				"DepotPath" "."
 				"recursive" "1"
 			}

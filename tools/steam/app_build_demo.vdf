@@ -2,16 +2,27 @@
 {
 	"AppID" "DEMO_APP_ID"
 	"Desc" "CrazyTower Demo"
-	// the unzipped Windows demo folder (with CrazyTowerDemo.exe), relative to this file
-	"ContentRoot" "content\CrazyTowerDemo\"
-	"BuildOutput" "output\"
+	// the unpacked builds lie in content/CrazyTowerDemo-windows/ and content/CrazyTowerDemo-linux/, next to this file
+	"ContentRoot" "content/"
+	"BuildOutput" "output/"
 	"Depots"
 	{
-		"DEMO_DEPOT_ID"
+		// Windows depot (CrazyTower settings: operating system Windows)
+		"DEMO_WINDOWS_DEPOT_ID"
 		{
 			"FileMapping"
 			{
-				"LocalPath" "*"
+				"LocalPath" "CrazyTowerDemo-windows/*"
+				"DepotPath" "."
+				"recursive" "1"
+			}
+		}
+		// Linux / Steam Deck depot (operating system Linux)
+		"DEMO_LINUX_DEPOT_ID"
+		{
+			"FileMapping"
+			{
+				"LocalPath" "CrazyTowerDemo-linux/*"
 				"DepotPath" "."
 				"recursive" "1"
 			}
