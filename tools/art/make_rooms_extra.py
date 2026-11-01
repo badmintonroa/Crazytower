@@ -1,4 +1,4 @@
-"""Draws the rooms that have no generated art yet (paths, homes, food, hotel, luxury offices)
+"""Draws the rooms that have no generated art yet (paths, homes, food, hotel rooms and suites, luxury offices)
 in a flat cartoon style, each by day, at night and run down.
 
 Writes game/src/main/resources/rooms/extra.png, extra_night.png and extra_rundown.png, each with
@@ -708,6 +708,156 @@ def hotel_spacetourists():
     return r.save()
 
 
+# ---------------------------------------------------------------- single rooms (4 segments) and suites (12)
+
+def single_shell(wall=(120, 140, 150)):
+    r = Room(4, wall, floor=(80, 70, 66), ceiling=(44, 44, 54))
+    for x in range(0, r.w, 32):
+        r.d.rectangle([x, 26, x + 4, H - 28], fill=shade(wall, 1.08))   # cheap wallpaper
+    return r
+
+
+def single_bed(r, x, blanket=(170, 160, 140)):
+    bed(r, x, w=110, blanket=blanket, frame=(110, 110, 120))
+
+
+def hotel_single_empty():
+    r = single_shell()
+    r.window(170, 40, 70, 64)
+    single_bed(r, 30)
+    r.box(200, 132, 26, 36, (150, 104, 70))   # one chair
+    r.d.ellipse([300, 60, 310, 70], fill=GOLD, outline=INK, width=2)   # the hook, brand new
+    r.sign(296, 74, "NEU!", bg=(255, 255, 255), size=9, pad=2)
+    door(r, 320)
+    r.sign(250, 120, "FREI", bg=(90, 190, 120), fg=(255, 255, 255), size=14)
+    return r.save()
+
+
+def hotel_single_salesman():
+    r = single_shell(wall=(150, 160, 120))
+    r.window(170, 40, 70, 64)
+    single_bed(r, 30, blanket=(110, 120, 90))
+    for k in range(3):   # vacuum cleaners for the demo
+        x = 200 + k * 40
+        r.box(x, 136, 30, 32, [(220, 70, 60), (70, 140, 220), (240, 200, 60)][k], 2)
+        r.d.line([x + 15, 136, x + 26, 80], fill=INK, width=4)
+    r.d.line([0, H - 26, r.w, H - 26], fill=(255, 255, 255), width=2)   # a freshly vacuumed stripe
+    r.sign(250, 40, "SAUGT AUCH\nSORGEN!", bg=(255, 255, 255), size=11)
+    return r.save()
+
+
+def hotel_single_penguin():
+    r = single_shell(wall=(190, 220, 240))
+    r.window(170, 40, 70, 64, sky=(220, 236, 250))
+    single_bed(r, 30, blanket=(240, 250, 255))
+    for x, y in [(60, 40), (120, 70), (260, 50), (330, 90), (200, 110)]:   # snowflakes inside
+        r.d.line([x - 6, y, x + 6, y], fill=(255, 255, 255), width=2)
+        r.d.line([x, y - 6, x, y + 6], fill=(255, 255, 255), width=2)
+    r.box(270, 120, 60, 48, (230, 240, 250))   # air con, fully on
+    r.d.text((276, 132), "-12°", fill=(40, 90, 160), font=font(14))
+    r.d.polygon([(200, 168), (214, 150), (240, 156), (252, 150), (240, 168)], fill=(120, 150, 180), outline=INK)   # a fish
+    return r.save()
+
+
+def hotel_single_mime():
+    r = single_shell(wall=(235, 235, 235))
+    r.window(170, 40, 70, 64)
+    single_bed(r, 30, blanket=(30, 30, 30))
+    for k in range(6):   # stripes like his shirt
+        r.d.rectangle([250, 120 + k * 8, 330, 123 + k * 8], fill=(30, 30, 30))
+    r.d.rectangle([250, 118, 330, 168], outline=INK, width=3)
+    r.d.line([360, 30, 360, 168], fill=(200, 200, 210), width=1)   # the invisible wall, nearly
+    r.sign(250, 44, "...", bg=(255, 255, 255), size=16)
+    return r.save()
+
+
+def hotel_single_detective():
+    r = single_shell(wall=(110, 90, 70))
+    r.window(170, 40, 70, 64)
+    single_bed(r, 30, blanket=(130, 100, 60))
+    r.box(250, 40, 120, 70, (200, 170, 120))   # pinboard
+    for x, y in [(262, 50), (300, 70), (340, 52), (280, 90)]:
+        r.box(x, y, 18, 14, (255, 255, 255), 1)
+    r.d.line([(271, 57), (309, 77), (349, 59), (289, 97)], fill=(220, 50, 50), width=2)
+    r.box(270, 140, 50, 28, (60, 60, 70))   # empty minibar
+    r.d.text((276, 146), "LEER", fill=(255, 255, 255), font=font(10))
+    r.d.ellipse([330, 130, 356, 156], outline=INK, width=4)   # magnifying glass
+    r.d.line([352, 152, 368, 168], fill=INK, width=5)
+    return r.save()
+
+
+def suite_shell(wall=(244, 232, 220), floor=(120, 70, 70), ceiling=(60, 40, 50)):
+    r = luxury_shell(wall=wall, floor=floor, ceiling=ceiling)
+    for x in (60, 460):
+        r.window(x, 34, 220, 96, sky=(160, 204, 240))
+    chandelier(r, 360); chandelier(r, 760)
+    return r
+
+
+def suite_bed(r, x, blanket=(170, 40, 60)):
+    bed(r, x, w=220, blanket=blanket, frame=GOLD)
+    r.d.polygon([(x - 8, 60), (x + 110, 30), (x + 228, 60)], fill=shade(blanket, 1.15), outline=INK)   # canopy
+
+
+def jacuzzi(r, x):
+    r.box(x, 140, 200, 28, (230, 230, 236))
+    r.d.rectangle([x + 6, 142, x + 194, 156], fill=(130, 210, 245))
+    for k in range(6):
+        r.d.ellipse([x + 20 + k * 30, 128, x + 32 + k * 30, 140], fill=(255, 255, 255), outline=INK, width=1)
+
+
+def hotel_suite_empty():
+    r = suite_shell()
+    suite_bed(r, 300)
+    jacuzzi(r, 760)
+    for k in range(7):   # a pillow for every day of the week
+        r.box(60 + k * 30, 150, 26, 18, [(240, 90, 90), (250, 170, 60), (250, 220, 70), (120, 200, 110), (90, 160, 240), (150, 110, 220), (240, 140, 200)][k], 2)
+    palm(r, 1080)
+    r.sign(960, 40, "SUITE FREI\nBUTLER WARTET", bg=(255, 255, 255), size=12)
+    return r.save()
+
+
+def hotel_suite_queen():
+    r = suite_shell(wall=(220, 200, 240), floor=(110, 60, 120), ceiling=(60, 40, 80))
+    suite_bed(r, 300, blanket=(120, 60, 160))
+    r.box(100, 110, 80, 58, (190, 40, 50))   # throne
+    r.box(92, 60, 96, 56, GOLD)
+    r.d.polygon([(116, 50), (130, 30), (140, 50), (150, 26), (160, 50), (170, 30), (184, 50)], fill=GOLD, outline=INK)   # crown on top
+    r.box(700, 60, 60, 108, (250, 250, 250))   # tiny flag of her kingdom
+    r.d.rectangle([706, 66, 754, 96], fill=(120, 60, 160))
+    jacuzzi(r, 820)
+    r.sign(960, 40, "KÖNIGREICH:\n12 m²", bg=(255, 255, 255), size=12)
+    return r.save()
+
+
+def hotel_suite_diva():
+    r = suite_shell(wall=(250, 214, 230), floor=(150, 60, 100), ceiling=(80, 40, 60))
+    suite_bed(r, 300, blanket=(240, 120, 170))
+    r.box(80, 70, 120, 90, (255, 255, 255))   # make-up mirror with bulbs
+    for k in range(5):
+        r.d.ellipse([84 + k * 26, 62, 96 + k * 26, 74], fill=(255, 240, 160), outline=INK, width=1)
+    r.glow(80, 62, 120, 20)
+    for k in range(12):   # green gummy bears, polished
+        r.d.ellipse([740 + k * 16, 150, 752 + k * 16, 166], fill=(90, 210, 90), outline=INK, width=1)
+    r.box(720, 110, 220, 10, (255, 255, 255))
+    r.sign(960, 40, "NUR GRÜNE!\nPOLIERT!", bg=(255, 255, 255), fg=(40, 140, 60), size=12)
+    return r.save()
+
+
+def hotel_suite_billionaire():
+    r = suite_shell(wall=(236, 226, 196), floor=(90, 70, 50), ceiling=(50, 40, 30))
+    suite_bed(r, 300, blanket=(240, 240, 236))
+    r.box(90, 110, 120, 58, (60, 50, 60))   # the minibar he bought
+    r.box(84, 104, 132, 8, GOLD)
+    r.sign(96, 124, "GEKAUFT", bg=(60, 50, 60), fg=GOLD, size=12, pad=2)
+    for k in range(5):   # stacks of money
+        r.box(720 + k * 40, 150 - k * 6, 32, 18 + k * 6, (120, 190, 110), 2)
+    r.box(900, 70, 30, 98, (255, 255, 255))   # bathrobe on a hook
+    r.d.polygon([(890, 70), (940, 70), (930, 110), (900, 110)], fill=(250, 250, 250), outline=INK)
+    r.sign(960, 40, "ANGEBOT FÜR\nDEN TURM: ABGELEHNT", bg=(255, 255, 255), size=10)
+    return r.save()
+
+
 # ---------------------------------------------------------------- housekeeping
 
 def housekeeping_shell(wall=(200, 214, 220)):
@@ -1314,6 +1464,11 @@ ROOMS = {
     "hotel_empty": hotel_empty, "hotel_business": hotel_business, "hotel_selfie": hotel_selfie,
     "hotel_wedding": hotel_wedding, "hotel_count": hotel_count, "hotel_band": hotel_band,
     "hotel_spacetourists": hotel_spacetourists,
+    "hotel_single_empty": hotel_single_empty, "hotel_single_salesman": hotel_single_salesman,
+    "hotel_single_penguin": hotel_single_penguin, "hotel_single_mime": hotel_single_mime,
+    "hotel_single_detective": hotel_single_detective,
+    "hotel_suite_empty": hotel_suite_empty, "hotel_suite_queen": hotel_suite_queen,
+    "hotel_suite_diva": hotel_suite_diva, "hotel_suite_billionaire": hotel_suite_billionaire,
     "housekeeping_empty": housekeeping_empty, "housekeeping_staubfrei": housekeeping_staubfrei,
     "housekeeping_robots": housekeeping_robots, "housekeeping_housegeist": housekeeping_housegeist,
     "home_exchange": home_exchange,

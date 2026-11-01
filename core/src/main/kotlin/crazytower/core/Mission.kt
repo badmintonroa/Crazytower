@@ -63,8 +63,8 @@ object Mission {
 
     // ---- tasks
     val SUITES = MissionTask("suites", Tr("Regierungs-Suiten", "Government suites"),
-        Tr("20 Nächte lang Beamte vom Ministerium für Formulare im Hotel unterbringen. Sie zählen nur, wenn sie gut gelaunt abreisen.",
-            "Put up officials from the Ministry of Forms in the hotel for 20 nights. They only count if they leave in a good mood."), 20)
+        Tr("20 Nächte lang Beamte vom Ministerium für Formulare in Doppelzimmern unterbringen (Suiten sind laut Formular 12c zu teuer). Sie zählen nur, wenn sie gut gelaunt abreisen.",
+            "Put up officials from the Ministry of Forms in double rooms for 20 nights (form 12c says suites are too dear). They only count if they leave in a good mood."), 20)
     val PERMIT = MissionTask("permit", Tr("Baugenehmigung", "Building permit"),
         Tr("Der Kopierraum der Ewigkeit kopiert 10.000 Antragsformulare, aber nur, wenn Büroleute im Turm sind.",
             "The Copy Room of Eternity copies 10,000 application forms, but only while office workers are in the tower."), 10_000)
@@ -212,7 +212,7 @@ internal fun Simulation.partBuilt(room: Room) {
 internal fun Simulation.missionTenant(room: Room): TenantKind? {
     if (random.nextFloat() >= Mission.MISSION_TENANT_CHANCE) return null
     return when {
-        room.type.role == RoomRole.HOTEL && taskOpen(Mission.SUITES) -> Tenants.byId("officials")
+        room.type.role == RoomRole.HOTEL && room.type.hotelClass == HotelClass.DOUBLE && taskOpen(Mission.SUITES) -> Tenants.byId("officials")
         room.type.role == RoomRole.OFFICE && !room.type.luxury && taskOpen(Mission.CONTROL) && hasWorkersFor(room.type.capacity) -> Tenants.byId("rocket")
         room.type.role == RoomRole.HOME && !room.type.luxury && taskOpen(Mission.ASTRONAUTS) -> Tenants.byId("astronauts")
         else -> null

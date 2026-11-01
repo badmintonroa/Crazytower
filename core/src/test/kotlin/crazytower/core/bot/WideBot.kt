@@ -32,9 +32,9 @@ class WideBot(sim: Simulation) : ColumnBot(sim) {
         if (homesWaiting < 2 + count(Catalog.KITA)) return Catalog.HOME
         if (dormOk()) return Catalog.DORM
         if (officeOk()) return Catalog.OFFICE
-        if (sim.stage >= 3 && count(Catalog.HOTEL) * 30 < rentables().size + 1) return Catalog.HOTEL
+        if (sim.stage >= 3 && hotelRooms() * 30 < rentables().size + 1) return hotelType()
         return null
     }
 
-    override fun fallback(type: RoomType): RoomType? = if (type.width > SLOT) Catalog.HOME else null
+    override fun fallback(type: RoomType): RoomType? = if (type == Catalog.HOTEL_SUITE) Catalog.HOTEL else if (type.width > SLOT) Catalog.HOME else null
 }

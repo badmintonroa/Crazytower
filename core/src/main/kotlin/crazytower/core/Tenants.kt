@@ -109,6 +109,8 @@ data class TenantKind(
     val crew: List<String> = emptyList(),
     /** Only moves into luxury rooms, and only luxury tenants do. */
     val luxury: Boolean = false,
+    /** Hotel guests only book rooms of this class, see [RoomType.hotelClass]. */
+    val hotelClass: HotelClass = HotelClass.DOUBLE,
 ) {
     /** The look of the [i]-th person of this tenant: the crew in turn, or always [look]. */
     fun lookFor(i: Int): String = if (crew.isEmpty()) look else crew[i % crew.size]
@@ -244,6 +246,34 @@ object Tenants {
         TenantKind("spacetourists", Tr("Weltraumtouristen", "Space Tourists"), RoomRole.HOTEL, "hotel_spacetourists", "npc_alien",
             minStars = 5, rentPerDay = 6_000, plan = GUEST_PLAN, quirk = Tr("Geben fünf Sterne. Von zwölf möglichen.", "Give five stars. Out of twelve.")),
 
+        // Single rooms: one guest, a small bill
+        TenantKind("salesman", Tr("Staubsaugervertreter Klaus", "Klaus the Vacuum Salesman"), RoomRole.HOTEL, "hotel_single_salesman", "npc_office_sleeves",
+            rentPerDay = 1_800, plan = GUEST_PLAN, hotelClass = HotelClass.SINGLE,
+            quirk = Tr("Saugt zur Vorführung auch das Zimmer. Und den Gang. Und den Aufzug.", "Vacuums the room as a demo. And the corridor. And the elevator.")),
+        TenantKind("penguin", Tr("Ein Pinguin ohne Reservierung", "A Penguin Without a Booking"), RoomRole.HOTEL, "hotel_single_penguin", "npc_penguin",
+            rentPerDay = 1_600, plan = GUEST_PLAN, hotelClass = HotelClass.SINGLE,
+            quirk = Tr("Dreht die Klimaanlage auf minus zwölf und bestellt Fisch beim Zimmerservice.", "Turns the air conditioning down to minus twelve and orders fish from room service.")),
+        TenantKind("mime", Tr("Ein einsamer Pantomime", "A Lonely Mime"), RoomRole.HOTEL, "hotel_single_mime", "npc_clown_mime",
+            rentPerDay = 1_700, plan = GUEST_PLAN, hotelClass = HotelClass.SINGLE,
+            quirk = Tr("Beschwert sich über das enge Zimmer. Lautlos, an einer unsichtbaren Wand.", "Complains about the tiny room. Silently, against an invisible wall.")),
+        TenantKind("detective", Tr("Detektiv Spürnase (undercover)", "Detective Sniffer (undercover)"), RoomRole.HOTEL, "hotel_single_detective", "npc_detective",
+            minStars = 4, rentPerDay = 2_400, plan = GUEST_PLAN, hotelClass = HotelClass.SINGLE,
+            quirk = Tr("Ermittelt, wer die Minibar geleert hat. Er selbst, sagen die Spuren.", "Investigates who emptied the minibar. He did, say the clues.")),
+
+        // Suites: posh guests who pay a fortune for a night and make the VIPs jealous
+        TenantKind("queen", Tr("Die Königin von Klein-Irgendwo", "The Queen of Little Nowhere"), RoomRole.HOTEL, "hotel_suite_queen", "npc_vip",
+            crew = listOf("npc_vip", "npc_ministry", "npc_courier"),
+            minStars = 4, luxury = true, rentPerDay = 10_000, plan = GUEST_PLAN, hotelClass = HotelClass.SUITE,
+            quirk = Tr("Ihr Königreich ist kleiner als die Suite. Sie hat nachgemessen.", "Her kingdom is smaller than the suite. She measured.")),
+        TenantKind("diva", Tr("Filmdiva Dolores Drama", "Film Diva Dolores Drama"), RoomRole.HOTEL, "hotel_suite_diva", "npc_student_artist",
+            crew = listOf("npc_student_artist", "npc_courier"),
+            minStars = 4, luxury = true, rentPerDay = 11_000, plan = GUEST_PLAN, hotelClass = HotelClass.SUITE,
+            quirk = Tr("Will nur grüne Gummibärchen. Einzeln poliert.", "Only eats green gummy bears. Polished one by one.")),
+        TenantKind("billionaire", Tr("Milliardär im Bademantel", "Billionaire in a Bathrobe"), RoomRole.HOTEL, "hotel_suite_billionaire", "npc_office_boss",
+            crew = listOf("npc_office_boss", "npc_accountant"),
+            minStars = 5, luxury = true, rentPerDay = 14_000, plan = GUEST_PLAN, hotelClass = HotelClass.SUITE,
+            quirk = Tr("Wollte den Turm kaufen. Hat dann doch nur die Minibar genommen.", "Wanted to buy the tower. Settled for the minibar.")),
+
         // Cleaning companies: the hours they work
         TenantKind("staubfrei", Tr("Putzkolonne Staubfrei & Söhne", "Dustfree & Sons Cleaners"), RoomRole.HOUSEKEEPING, "housekeeping_staubfrei", "npc_janitor",
             plan = plan(Tr("täglich 9–19 Uhr", "daily 9 am–7 pm"), WorkPlan.DAILY, 9, 19), quirk = Tr("Wischt auch schlechte Laune weg. Meistens.", "Mops up bad moods too. Mostly.")),
@@ -290,5 +320,8 @@ object Tenants {
 
     /** Tenants that may move into a room of [type] in a tower with [stars] stars at [stage]. */
     fun candidates(type: RoomType, stars: Int, stage: Int): List<TenantKind> =
-        all.filter { it.role == type.role && it.luxury == type.luxury && !it.eventOnly && it.minStars <= stars && it.minStage <= stage }
+        all.filter {
+            it.role == type.role && it.luxury == type.luxury && !it.eventOnly && it.minStars <= stars && it.minStage <= stage &&
+                (type.role != RoomRole.HOTEL || it.hotelClass == type.hotelClass)
+        }
 }

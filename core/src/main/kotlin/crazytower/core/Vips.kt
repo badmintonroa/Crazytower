@@ -116,7 +116,8 @@ object Vips {
 
     /**
      * What the VIP thinks of the tower: the mood in the tower, the mood in the room she visited,
-     * how long the way up took, and how tidy the hotel rooms are. Plus her mood of the day.
+     * how long the way up took, and how tidy the hotel rooms are. Plus her mood of the day, and a
+     * bonus for posh hotel rooms: the more suites and the fewer single rooms, the better.
      */
     fun judge(sim: Simulation, room: Room?, minutes: Double): VipVerdict {
         val tower = sim.satisfaction / 100f
@@ -124,16 +125,34 @@ object Vips {
         val travel = (1f - ((minutes - QUICK_MINUTES) / (SLOW_MINUTES - QUICK_MINUTES)).toFloat()).coerceIn(0f, 1f)
         val hotels = sim.tower.allRooms.count { it.type.role == RoomRole.HOTEL }
         val tidy = if (hotels == 0) 1f else 1f - sim.dirtyRooms.count { it.type.role == RoomRole.HOTEL }.toFloat() / hotels
+        val luxury = hotelLuxury(sim)
         val whim = (sim.random.nextFloat() * 2f - 1f) * WHIM
-        val score = (0.3f * tower + 0.2f * roomMood + 0.4f * travel + 0.1f * tidy + whim).coerceIn(0f, 1f)
+        val score = (0.3f * tower + 0.2f * roomMood + 0.4f * travel + 0.1f * tidy + LUXURY_BONUS * luxury + whim).coerceIn(0f, 1f)
         // the worst part, weighted like the score
         val complaint = listOf(
             0.3f * (1f - tower) to tr("Die Laune im Turm ist im Keller.", "The mood in the tower is rock bottom."),
             0.2f * (1f - roomMood) to tr("Bei ${room?.tenant?.name ?: "den Mietern"} herrscht dicke Luft.", "There is tension in the air at ${room?.tenant?.name ?: "the tenants"}."),
             0.4f * (1f - travel) to tr("Der Weg nach oben hat ewig gedauert.", "The way up took forever."),
             0.1f * (1f - tidy) to tr("Überall ungeputzte Hotelzimmer.", "Dirty hotel rooms everywhere."),
+            (if (hotels == 0 || !sim.unlocked(Catalog.HOTEL_SUITE)) 0f else LUXURY_BONUS * (1f - luxury)) to
+                tr("Keine Suite weit und breit, nur Zimmer mit Bett und Haken.", "Not a suite in sight, just rooms with a bed and a hook."),
         ).maxBy { it.first }.takeIf { it.first > 0.05f }?.second
         return VipVerdict(score, complaint)
+    }
+
+    /**
+     * How posh the hotel is, 0..1: the average [HotelClass.comfort] of all hotel rooms. Without a
+     * hotel there is nothing to show off, so 0.
+     */
+    fun hotelLuxury(sim: Simulation): Float {
+        var rooms = 0
+        var comfort = 0f
+        for (room in sim.tower.allRooms) {
+            if (room.type.role != RoomRole.HOTEL) continue
+            rooms++
+            comfort += room.type.hotelClass.comfort
+        }
+        return if (rooms == 0) 0f else comfort / rooms
     }
 
     /**
@@ -188,6 +207,8 @@ object Vips {
     const val QUICK_MINUTES = 15.0
     const val SLOW_MINUTES = 90.0
     const val WHIM = 0.1f
+    /** What a hotel of nothing but suites adds to a VIP's score, see [hotelLuxury]. */
+    const val LUXURY_BONUS = 0.1f
 }
 
 /** Sends [guest] from the street to one rented room, her favourite tenant if the tower has one. */

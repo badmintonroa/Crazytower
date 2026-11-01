@@ -34,7 +34,7 @@ class TwinBot(sim: Simulation) : ColumnBot(sim) {
         if (!sim.unlocked(Catalog.OFFICE)) return if (unsoldHomes() < 2) Catalog.HOME else null
         val n = rentables().size + 1
         if (foodNeeded()) return Catalog.FOOD
-        if (sim.stage >= 3 && count(Catalog.HOTEL) * 14 < n) return Catalog.HOTEL
+        if (sim.stage >= 3 && hotelRooms() * 14 < n) return hotelType()
         if (shopNeeded()) return Catalog.SHOP
         if (sim.stage >= 4 && sim.money > 500_000 && luxuryOk() && count(Catalog.LUXURY_OFFICE) * 12 < n) return Catalog.LUXURY_OFFICE
         if (dormOk()) return Catalog.DORM

@@ -660,10 +660,190 @@
     "h": 192
    }
   },
-  "housekeeping_empty.png": {
+  "hotel_single_empty.png": {
    "frame": {
     "x": 0,
     "y": 2400,
+    "w": 384,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 384,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 384,
+    "h": 192
+   }
+  },
+  "hotel_single_salesman.png": {
+   "frame": {
+    "x": 392,
+    "y": 2400,
+    "w": 384,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 384,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 384,
+    "h": 192
+   }
+  },
+  "hotel_single_penguin.png": {
+   "frame": {
+    "x": 784,
+    "y": 2400,
+    "w": 384,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 384,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 384,
+    "h": 192
+   }
+  },
+  "hotel_single_mime.png": {
+   "frame": {
+    "x": 1176,
+    "y": 2400,
+    "w": 384,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 384,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 384,
+    "h": 192
+   }
+  },
+  "hotel_single_detective.png": {
+   "frame": {
+    "x": 0,
+    "y": 2600,
+    "w": 384,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 384,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 384,
+    "h": 192
+   }
+  },
+  "hotel_suite_empty.png": {
+   "frame": {
+    "x": 392,
+    "y": 2600,
+    "w": 1152,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 1152,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 1152,
+    "h": 192
+   }
+  },
+  "hotel_suite_queen.png": {
+   "frame": {
+    "x": 0,
+    "y": 2800,
+    "w": 1152,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 1152,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 1152,
+    "h": 192
+   }
+  },
+  "hotel_suite_diva.png": {
+   "frame": {
+    "x": 0,
+    "y": 3000,
+    "w": 1152,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 1152,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 1152,
+    "h": 192
+   }
+  },
+  "hotel_suite_billionaire.png": {
+   "frame": {
+    "x": 0,
+    "y": 3200,
+    "w": 1152,
+    "h": 192
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 1152,
+    "h": 192
+   },
+   "sourceSize": {
+    "w": 1152,
+    "h": 192
+   }
+  },
+  "housekeeping_empty.png": {
+   "frame": {
+    "x": 1160,
+    "y": 3200,
     "w": 576,
     "h": 192
    },
@@ -682,8 +862,8 @@
   },
   "housekeeping_staubfrei.png": {
    "frame": {
-    "x": 584,
-    "y": 2400,
+    "x": 0,
+    "y": 3400,
     "w": 576,
     "h": 192
    },
@@ -702,8 +882,8 @@
   },
   "housekeeping_robots.png": {
    "frame": {
-    "x": 1168,
-    "y": 2400,
+    "x": 584,
+    "y": 3400,
     "w": 576,
     "h": 192
    },
@@ -722,8 +902,8 @@
   },
   "housekeeping_housegeist.png": {
    "frame": {
-    "x": 0,
-    "y": 2600,
+    "x": 1168,
+    "y": 3400,
     "w": 576,
     "h": 192
    },
@@ -742,8 +922,8 @@
   },
   "home_exchange.png": {
    "frame": {
-    "x": 584,
-    "y": 2600,
+    "x": 0,
+    "y": 3600,
     "w": 576,
     "h": 192
    },
@@ -762,8 +942,8 @@
   },
   "extra_copyroom.png": {
    "frame": {
-    "x": 1168,
-    "y": 2600,
+    "x": 584,
+    "y": 3600,
     "w": 576,
     "h": 192
    },
@@ -782,8 +962,8 @@
   },
   "dorm_empty.png": {
    "frame": {
-    "x": 0,
-    "y": 2800,
+    "x": 1168,
+    "y": 3600,
     "w": 576,
     "h": 192
    },
@@ -802,8 +982,8 @@
   },
   "dorm_full.png": {
    "frame": {
-    "x": 584,
-    "y": 2800,
+    "x": 0,
+    "y": 3800,
     "w": 576,
     "h": 192
    },
@@ -822,8 +1002,8 @@
   },
   "shop_empty.png": {
    "frame": {
-    "x": 1168,
-    "y": 2800,
+    "x": 584,
+    "y": 3800,
     "w": 576,
     "h": 192
    },
@@ -842,8 +1022,8 @@
   },
   "shop_spaeti.png": {
    "frame": {
-    "x": 0,
-    "y": 3000,
+    "x": 1168,
+    "y": 3800,
     "w": 576,
     "h": 192
    },
@@ -862,8 +1042,8 @@
   },
   "shop_bio.png": {
    "frame": {
-    "x": 584,
-    "y": 3000,
+    "x": 0,
+    "y": 4000,
     "w": 576,
     "h": 192
    },
@@ -882,8 +1062,8 @@
   },
   "shop_robo.png": {
    "frame": {
-    "x": 1168,
-    "y": 3000,
+    "x": 584,
+    "y": 4000,
     "w": 576,
     "h": 192
    },
@@ -902,8 +1082,8 @@
   },
   "special_kita.png": {
    "frame": {
-    "x": 0,
-    "y": 3200,
+    "x": 1168,
+    "y": 4000,
     "w": 576,
     "h": 192
    },
@@ -922,8 +1102,8 @@
   },
   "special_subway.png": {
    "frame": {
-    "x": 584,
-    "y": 3200,
+    "x": 0,
+    "y": 4200,
     "w": 1152,
     "h": 192
    },
@@ -943,7 +1123,7 @@
   "special_conference.png": {
    "frame": {
     "x": 0,
-    "y": 3400,
+    "y": 4400,
     "w": 1152,
     "h": 192
    },
@@ -963,7 +1143,7 @@
   "penthouse_empty.png": {
    "frame": {
     "x": 0,
-    "y": 3600,
+    "y": 4600,
     "w": 1152,
     "h": 192
    },
@@ -983,7 +1163,7 @@
   "penthouse_full.png": {
    "frame": {
     "x": 0,
-    "y": 3800,
+    "y": 4800,
     "w": 1152,
     "h": 192
    },
@@ -1003,7 +1183,7 @@
   "office_rocket.png": {
    "frame": {
     "x": 1160,
-    "y": 3800,
+    "y": 4800,
     "w": 576,
     "h": 192
    },
@@ -1023,7 +1203,7 @@
   "home_astronauts.png": {
    "frame": {
     "x": 0,
-    "y": 4000,
+    "y": 5000,
     "w": 576,
     "h": 192
    },
@@ -1043,7 +1223,7 @@
   "hotel_officials.png": {
    "frame": {
     "x": 584,
-    "y": 4000,
+    "y": 5000,
     "w": 576,
     "h": 192
    },
@@ -1063,7 +1243,7 @@
   "special_deck.png": {
    "frame": {
     "x": 1168,
-    "y": 4000,
+    "y": 5000,
     "w": 576,
     "h": 192
    },
@@ -1083,7 +1263,7 @@
   "special_souvenirs.png": {
    "frame": {
     "x": 0,
-    "y": 4200,
+    "y": 5200,
     "w": 576,
     "h": 192
    },
@@ -1103,7 +1283,7 @@
   "station_ramp.png": {
    "frame": {
     "x": 584,
-    "y": 4200,
+    "y": 5200,
     "w": 1152,
     "h": 192
    },
@@ -1123,7 +1303,7 @@
   "station_tank.png": {
    "frame": {
     "x": 0,
-    "y": 4400,
+    "y": 5400,
     "w": 1152,
     "h": 192
    },
@@ -1143,7 +1323,7 @@
   "station_capsule.png": {
    "frame": {
     "x": 0,
-    "y": 4600,
+    "y": 5600,
     "w": 1152,
     "h": 192
    },
@@ -1163,7 +1343,7 @@
   "station_lift.png": {
    "frame": {
     "x": 0,
-    "y": 4800,
+    "y": 5800,
     "w": 1152,
     "h": 192
    },
@@ -1186,7 +1366,7 @@
   "scale": "4",
   "size": {
    "w": 1752,
-   "h": 4992
+   "h": 5992
   }
  }
 }

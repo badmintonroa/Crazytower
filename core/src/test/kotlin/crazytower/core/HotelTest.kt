@@ -59,6 +59,48 @@ class HotelTest {
     }
 
     @Test
+    fun everyHotelClassGetsItsOwnGuests() {
+        val single = Tenants.candidates(Catalog.HOTEL_SINGLE, stars = 5, stage = 5)
+        val double = Tenants.candidates(Catalog.HOTEL, stars = 5, stage = 5)
+        val suite = Tenants.candidates(Catalog.HOTEL_SUITE, stars = 5, stage = 5)
+        assertTrue(single.isNotEmpty() && single.all { it.hotelClass == HotelClass.SINGLE })
+        assertTrue(double.isNotEmpty() && double.all { it.hotelClass == HotelClass.DOUBLE })
+        assertTrue(suite.isNotEmpty() && suite.all { it.hotelClass == HotelClass.SUITE && it.luxury })
+        // the posher the room, the dearer the night
+        assertTrue(single.maxOf { it.rentPerDay } < double.minOf { it.rentPerDay })
+        assertTrue(double.maxOf { it.rentPerDay } < suite.minOf { it.rentPerDay })
+        assertTrue(Catalog.HOTEL_SINGLE.width < Catalog.HOTEL.width && Catalog.HOTEL.width < Catalog.HOTEL_SUITE.width)
+        // suites come with the fourth star, single and double rooms with the hotel
+        assertTrue(Tenants.candidates(Catalog.HOTEL_SUITE, stars = 3, stage = 3).isEmpty())
+        assertTrue(Tenants.candidates(Catalog.HOTEL_SINGLE, stars = 3, stage = 3).isNotEmpty())
+        assertEquals(Catalog.HOTEL.minStage, Catalog.HOTEL_SINGLE.minStage)
+        assertEquals(4, Catalog.HOTEL_SUITE.minStars)
+    }
+
+    @Test
+    fun suitesTakeLongerToCleanThanSingleRooms() {
+        val sim = stage3()
+        sim.stars = 4
+        sim.bestStars = 4
+        val single = sim.buildReachable(Catalog.HOTEL_SINGLE, 10)
+        val suite = sim.buildReachable(Catalog.HOTEL_SUITE, 20)
+        assertTrue(sim.cleanMinutes(single) < Simulation.CLEAN_MINUTES)
+        assertEquals(Simulation.CLEAN_MINUTES * 2, sim.cleanMinutes(suite))
+    }
+
+    @Test
+    fun theOfficialsOnlyBookDoubleRooms() {
+        val sim = stage3()
+        sim.stars = 4
+        sim.bestStars = 4
+        sim.stage = Mission.STAGE
+        val single = sim.buildReachable(Catalog.HOTEL_SINGLE, 10)
+        val suite = sim.buildReachable(Catalog.HOTEL_SUITE, 20)
+        assertTrue(Tenants.candidates(single.type, 5, 5).none { it.id == "officials" })
+        assertTrue(Tenants.candidates(suite.type, 5, 5).none { it.id == "officials" })
+    }
+
+    @Test
     fun dirtyRoomsSurviveSaving() {
         val sim = stage3()
         val hotel = sim.buildReachable(Catalog.HOTEL, 10)
