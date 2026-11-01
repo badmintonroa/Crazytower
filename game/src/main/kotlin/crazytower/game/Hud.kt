@@ -108,7 +108,7 @@ class Hud(
 
     /** The little star on a category button that holds room types the player has not seen yet. */
     private val categoryNews = HashMap<Category, View>()
-    private var flyoutKey: Triple<Category?, Int, Int>? = null
+    private var flyoutKey: List<Any?>? = null
     private lateinit var tickerText: Text
     private lateinit var tickerClip: Container
     private var tickerOffset = 0.0
@@ -334,7 +334,9 @@ class Hud(
     }
 
     private fun refreshFlyout(force: Boolean = false) {
-        val key = Triple(game.category, sim.stage, sim.stars)
+        // while a room is chosen the list folds into a small card, so the tower stays visible
+        val chosen = (game.tool as? Tool.Build)?.type?.takeIf { game.category != null }
+        val key = listOf(game.category, sim.stage, sim.stars, chosen)
         if (!force && key == flyoutKey) {
             updateFlyoutSelection()
             return
@@ -347,6 +349,10 @@ class Hud(
             return
         }
         flyout.visible = true
+        if (chosen != null) {
+            buildCompactFlyout(category, chosen)
+            return
+        }
         val bg = Panel(FLYOUT_WIDTH, 100.0).addTo(flyout)
         val heading = flyout.label(category.label.uppercase(), 20.0, Theme.TEXT, Theme.bodyBold).xy(14.0, 12.0)
         val close = flyout.label(tr("Esc schließt", "Esc closes"), 12.0, Theme.TEXT_DIM)
@@ -403,6 +409,39 @@ class Hud(
         updateFlyoutSelection()
     }
 
+    /**
+     * The folded build list while placing: the chosen room with its price, a button back to the
+     * full list and one to stop building. The details are in the card's hover tip.
+     */
+    private fun buildCompactFlyout(category: Category, type: RoomType) {
+        val bg = Panel(FLYOUT_WIDTH, 100.0).addTo(flyout)
+        val heading = flyout.label(category.label.uppercase(), 13.0, Theme.TEXT_DIM, Theme.bodyBold).xy(14.0, 10.0)
+        val close = flyout.label(tr("Esc bricht ab", "Esc cancels"), 11.0, Theme.TEXT_DIM)
+        close.xy(FLYOUT_WIDTH - 14.0 - close.width, 11.0)
+        heading.fitWidth(close.x - 24.0)
+        var y = 32.0
+        val card = ItemCard(type, unlocked = true, info = emptyList(), onPress = { game.tool = null })
+        card.selected = true
+        card.xy(14.0, y)
+        card.tip {
+            Tip(
+                type.name.toString(),
+                roomInfo(type).joinToString("\n") + tr("\n\nKlick zeigt wieder alle Räume.", "\n\nClick to show all rooms again."),
+            )
+        }
+        flyout.addChild(card)
+        y += card.cardHeight + 8
+        val half = (FLYOUT_TEXT - 8.0) / 2
+        TextButton(half, 34.0, tr("Wechseln", "Change"), 13.0) { game.tool = null }.addTo(flyout).xy(14.0, y)
+            .tip(tr("Wechseln", "Change"), tr("Zeigt wieder die ganze Liste.", "Shows the whole list again."), "${Category.entries.indexOf(category) + 1}")
+        TextButton(half, 34.0, tr("Abbrechen", "Cancel"), 13.0) { game.tool = null; game.category = null }.addTo(flyout).xy(14.0 + half + 8.0, y)
+            .tip(tr("Abbrechen", "Cancel"), tr("Hört auf zu bauen und schließt die Liste.", "Stops building and closes the list."), tr("Rechtsklick", "Right-click"))
+        y += 34.0 + 12.0
+        bg.resize(FLYOUT_WIDTH, y)
+        flyout.panelWidth = FLYOUT_WIDTH
+        flyout.panelHeight = y
+    }
+
     private fun updateFlyoutSelection() {
         val tool = game.tool
         for (child in flyout.children) {
@@ -419,7 +458,8 @@ class Hud(
         // long lines wrap, the card grows with them
         val info: List<String> = roomInfo(type).flatMap { wrapText(it, CARD_TEXT, 12.0).split('\n') },
         val cardHeight: Double = if (info.isEmpty()) 62.0 else 66.0 + info.size * 17.0,
-    ) : Button(242.0, cardHeight, { game.tool = Tool.Build(type) }) {
+        onPress: () -> Unit = { game.tool = Tool.Build(type) },
+    ) : Button(242.0, cardHeight, onPress) {
         init {
             enabled = unlocked
             content.image(assets.room(type.art)) {

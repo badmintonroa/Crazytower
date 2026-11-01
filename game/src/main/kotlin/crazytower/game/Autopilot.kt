@@ -68,6 +68,8 @@ object Autopilot {
         if (System.getenv("CRAZYTOWER_FINANCE") != null) game.financeOpen = true
         if (System.getenv("CRAZYTOWER_OPTIONS") != null) game.optionsOpen = true
         System.getenv("CRAZYTOWER_CATEGORY")?.let { name -> Category.entries.firstOrNull { it.name == name }?.let { game.openCategory(it) } }
+        // CRAZYTOWER_BUILD=<room id> chooses that room as if clicked in the open list (folded build menu)
+        System.getenv("CRAZYTOWER_BUILD")?.let { id -> crazytower.core.Catalog.roomTypes.firstOrNull { it.id == id }?.let { game.tool = Tool.Build(it) } }
         System.getenv("CRAZYTOWER_CELEBRATE")?.let { hud.celebrate(stage = it == "stage") }
         // CRAZYTOWER_HOVER=x,y pretends the mouse rests there (window pixels), to show a tip; CRAZYTOWER_HELP=1 opens the key overview
         System.getenv("CRAZYTOWER_HOVER")?.split(",")?.mapNotNull { it.trim().toDoubleOrNull() }?.takeIf { it.size == 2 }?.let {

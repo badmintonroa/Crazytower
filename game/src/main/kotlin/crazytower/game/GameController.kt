@@ -86,7 +86,8 @@ class GameController(val sim: Simulation) {
             tool = Tool.Demolish
             return
         }
-        category = if (category == c) null else c
+        // with a room chosen, the category button brings the full list back instead of closing it
+        category = if (category == c && tool == null) null else c
         tool = null
     }
 
