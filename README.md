@@ -12,6 +12,8 @@ Voraussetzung: JDK 21.
 ./gradlew :core:playthrough --args="110 42" -Dbot=all   # die drei Bots spielen 110 Tage mit Seed 42, eine Zeile pro Tag und ein Vergleich
 ```
 
+Nur beim Start über `./gradlew :game:run` (Entwicklermodus, `DevMode.kt`) zeigt `F7` oben links die FPS und wie viele Millisekunden jedes System pro Frame braucht, das langsamste zuerst. Im Installer, auf Steam und in der Demo gibt es die Anzeige nicht; KorGEs eigene Debugansicht auf `F7`/`F12` ist überall aus. Ein fertiges Paket lässt sich mit `CRAZYTOWER_DEV=1` trotzdem prüfen. `CRAZYTOWER_PROFILE=<sekunden>` schreibt dieselben Zahlen jede Sekunde in die Konsole.
+
 ## Steam: Demo und Windows-Build
 
 ```bash

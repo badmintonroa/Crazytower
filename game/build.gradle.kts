@@ -84,3 +84,9 @@ tasks.register<Exec>("packageApp") {
     )
     for (option in addOpens + "-Xmx2g") args("--java-options", option)
 }
+
+// `./gradlew :game:run` is the developer's start: F7 shows FPS and time per system (DevMode.kt).
+// Packaged builds (installer, Steam, demo) do not go through this task and never get the flag.
+tasks.named<JavaExec>("run") {
+    systemProperty("crazytower.dev", "true")
+}
