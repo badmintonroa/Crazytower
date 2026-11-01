@@ -26,7 +26,7 @@ import kotlin.system.exitProcess
 
 /**
  * Development helper: with CRAZYTOWER_SCREENSHOT=<file.png> the game builds a demo tower,
- * lets it run for a while, saves a screenshot and quits (CRAZYTOWER_FINANCE=1 opens the finance window, CRAZYTOWER_OPTIONS=1 the options, CRAZYTOWER_CELEBRATE=star or stage the celebration, CRAZYTOWER_EVENT=<id> starts an event, CRAZYTOWER_SPEND=1 buys extras, CRAZYTOWER_EXTRAS=1 and CRAZYTOWER_MISSION=1 open those windows). Used to check the rendering
+ * lets it run for a while, saves a screenshot and quits (CRAZYTOWER_FINANCE=1 opens the finance window, CRAZYTOWER_OPTIONS=1 the options, CRAZYTOWER_CELEBRATE=star or stage the celebration, CRAZYTOWER_EVENT=<id> starts an event, CRAZYTOWER_SPEND=1 buys extras, CRAZYTOWER_EXTRAS=1 and CRAZYTOWER_MISSION=1 open those windows, CRAZYTOWER_HOVER=x,y shows the tip there). Used to check the rendering
  * on machines without a screen.
  */
 object Autopilot {
@@ -69,6 +69,11 @@ object Autopilot {
         if (System.getenv("CRAZYTOWER_OPTIONS") != null) game.optionsOpen = true
         System.getenv("CRAZYTOWER_CATEGORY")?.let { name -> Category.entries.firstOrNull { it.name == name }?.let { game.openCategory(it) } }
         System.getenv("CRAZYTOWER_CELEBRATE")?.let { hud.celebrate(stage = it == "stage") }
+        // CRAZYTOWER_HOVER=x,y pretends the mouse rests there (window pixels), to show a tip; CRAZYTOWER_HELP=1 opens the key overview
+        System.getenv("CRAZYTOWER_HOVER")?.split(",")?.mapNotNull { it.trim().toDoubleOrNull() }?.takeIf { it.size == 2 }?.let {
+            crazytower.game.ui.Tips.fakeMouse = korlibs.math.geom.Point(it[0], it[1])
+        }
+        if (System.getenv("CRAZYTOWER_HELP") != null) game.helpOpen = true
         screenshotAfter(root, target, 20)
     }
 

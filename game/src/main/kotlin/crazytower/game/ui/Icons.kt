@@ -138,4 +138,16 @@ object Icons {
             close()
         }
     }
+
+    /** A small padlock, 12 x 14, for locked buttons and the reason in a tip. */
+    fun lock(parent: Container, color: RGBA): Graphics = parent.graphics {
+        // the shackle: an arch of three straight pieces
+        fill(color) {
+            rect(2.0, 2.0, 2.0, 5.0)
+            rect(8.0, 2.0, 2.0, 5.0)
+            rect(3.0, 0.0, 6.0, 2.0)
+        }
+        fill(color) { rect(0.0, 6.0, 12.0, 8.0) }
+        fill(Theme.INK) { rect(5.0, 8.5, 2.0, 3.0) }
+    }
 }

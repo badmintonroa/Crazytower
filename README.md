@@ -46,10 +46,17 @@ Der Aufnahmemodus (`game/.../Film.kt`, `CRAZYTOWER_FILM=<datei.mp4|.png>`) läuf
 | Pfeiltasten, WASD | Kamera bewegen |
 | `1` bis `6` | Baukategorien |
 | Leertaste | Pause |
+| `,` / `.` | Langsamer / schneller |
+| `N` | Nachts vorspulen an/aus |
+| `F` oder Klick aufs Geld | Finanzen |
+| `O` | Optionen |
+| `F1` oder `H` | Tastenübersicht |
 | `F5` / `F9` | Speichern / Laden |
 | `X` oder `$`-Knopf | Extras für reiche Türme (ab Stufe 4) |
 | `M` oder Klick auf die Stufe | Mondmission (ab Stufe 5) |
 | Klick auf den Ticker | Zum Ort der Nachricht springen |
+
+Bleibt die Maus kurz auf einem Knopf der Kopfleiste oder des Baumenüs, erklärt ein Hinweis, was er tut, welche Taste dasselbe macht und warum er gerade gesperrt ist (Schloss). Gekürzte Texte zeigen dort ihren ganzen Text. Kein Text im Spiel ist kleiner als 13 px (`MIN_TEXT` in `ui/Widgets.kt`), zu lange Texte werden lieber gekürzt als winzig. Die Tastenübersicht (`Shortcuts` in `HelpWindow.kt`) ist die eine Liste aller Tasten; wer eine Taste hinzufügt, trägt sie dort und hier ein. Für Screenshots zeigt `CRAZYTOWER_HOVER=x,y` den Hinweis an dieser Stelle, `CRAZYTOWER_HELP=1` die Tastenübersicht.
 
 ## Aufbau
 

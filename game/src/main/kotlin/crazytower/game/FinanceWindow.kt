@@ -83,7 +83,7 @@ class FinanceWindow(private val sim: Simulation, private val onClose: () -> Unit
     private fun chart() {
         val left = 350.0
         val top = 80.0
-        val height = 200.0
+        val height = 186.0
         val barWidth = 14.0
         body.label(tr("Letzte 7 Tage", "Last 7 days"), 15.0, Theme.TEXT, Theme.bodyBold).xy(left, 52.0)
         val today = sim.clock.day
@@ -97,13 +97,14 @@ class FinanceWindow(private val sim: Simulation, private val onClose: () -> Unit
             val hOut = height * expenses / max
             body.solidRect(barWidth, hIn.coerceAtLeast(1.0), Theme.GOOD).xy(x, top + height - hIn)
             body.solidRect(barWidth, hOut.coerceAtLeast(1.0), Theme.ALARM).xy(x + barWidth + 2, top + height - hOut)
-            body.label(if (day == today) tr("heute", "today") else GameClock.WEEKDAYS[day % 7], 11.0, Theme.TEXT_DIM).xy(x, top + height + 6).fitWidth(34.0)
+            body.label(if (day == today) tr("heute", "today") else GameClock.WEEKDAYS[day % 7], 11.0, Theme.TEXT_DIM).xy(x, top + height + 6).fitWidth(if (day == today) 60.0 else 36.0)
         }
         body.solidRect(250.0, 1.0, Theme.TEXT_DIM).xy(left, top + height)
         body.solidRect(10.0, 10.0, Theme.GOOD).xy(left, top + height + 30)
         body.label(tr("Einnahmen", "Income"), 12.0, Theme.TEXT_DIM).xy(left + 14, top + height + 27).fitWidth(82.0)
-        body.solidRect(10.0, 10.0, Theme.ALARM).xy(left + 100, top + height + 30)
-        body.label(tr("Ausgaben (mit Bauen)", "Expenses (incl. building)"), 12.0, Theme.TEXT_DIM).xy(left + 114, top + height + 27).fitWidth(panelWidth - left - 114 - 18.0)
+        // the legend in two lines, so it stays readable at the minimum text size
+        body.solidRect(10.0, 10.0, Theme.ALARM).xy(left, top + height + 50)
+        body.label(tr("Ausgaben (mit Bauen)", "Expenses (incl. building)"), 12.0, Theme.TEXT_DIM).xy(left + 14, top + height + 47).fitWidth(panelWidth - left - 14 - 18.0)
 
         val sums = sim.finance.day(today)
         val parts = MoneyKind.entries.filter { it.income && (sums[it] ?: 0L) != 0L }
