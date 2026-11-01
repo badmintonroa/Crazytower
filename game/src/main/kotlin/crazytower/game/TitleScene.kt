@@ -62,7 +62,8 @@ class TitleScene(private val assets: Assets) : Scene() {
         // a tall tower takes longer for the trip to the roof and back
         val top = sim.tower.allRooms.maxOfOrNull { it.floor } ?: 0
         val period = (24.0 + top * 0.8).coerceAtMost(110.0)
-        addUpdater { dt ->
+        addUpdater { realDt ->
+            val dt = Film.step(realDt)
             val step = dt.inWholeMilliseconds / 1000.0
             seconds += step
             game.update(dt)
@@ -71,6 +72,7 @@ class TitleScene(private val assets: Assets) : Scene() {
             options?.let { if (it.visible) it.sync() }
         }
         System.getenv("CRAZYTOWER_SCREENSHOT")?.let { Autopilot.screenshotAfter(this, it, 30) }
+        Film.attachToTitle(this)
     }
 
     /** The middle of the space right of the menu. */

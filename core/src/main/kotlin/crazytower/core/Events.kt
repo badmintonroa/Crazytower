@@ -26,7 +26,7 @@ object Events {
             val old = office.tenant!!.name
             val clowns = Tenants.byId("clown")
             moveIn(office, clowns, announce = false)
-            news.post(tr("$old ist über Nacht zur $clowns geworden. Die Hupen sind beglaubigt.", "Overnight, $old has turned into the $clowns. The horns are certified."), office.center, important = true)
+            news.post(tr("$old ist über Nacht zur ${clowns.name} geworden. Die Hupen sind beglaubigt.", "Overnight, $old has turned into the ${clowns.name}. The horns are certified."), office.center, important = true)
             true
         },
         TowerEvent("ghost", 2) {

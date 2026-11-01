@@ -30,8 +30,8 @@ import kotlin.system.exitProcess
  * on machines without a screen.
  */
 object Autopilot {
-    /** True when the game runs for a screenshot; then it must not touch the player's files. */
-    val active: Boolean get() = System.getenv("CRAZYTOWER_SCREENSHOT") != null
+    /** True when the game runs for a screenshot or a trailer clip; then it must not touch the player's files. */
+    val active: Boolean get() = System.getenv("CRAZYTOWER_SCREENSHOT") != null || Film.active
 
     fun attachIfRequested(root: SContainer, sim: Simulation, game: GameController, tower: TowerView, hud: Hud) {
         val target = System.getenv("CRAZYTOWER_SCREENSHOT") ?: return

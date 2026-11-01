@@ -59,6 +59,7 @@ class GameScene(private val assets: Assets, private val loaded: Simulation? = nu
             },
             5.0,
         )
+        Film.attachIfRequested(this, sim, game, tower, this@GameScene.hud)
         game.onTestTower = { stage ->
             // the real game is saved first, so F9 brings it back
             if (!test) SaveSlot.save(sim)
@@ -91,7 +92,8 @@ class GameScene(private val assets: Assets, private val loaded: Simulation? = nu
             down(Key.F3) { debug.toggle() }
         }
         var lastDay = sim.clock.day
-        addUpdater { dt ->
+        addUpdater { realDt ->
+            val dt = Film.step(realDt)
             val t0 = System.nanoTime()
             game.update(dt)
             val t1 = System.nanoTime()
