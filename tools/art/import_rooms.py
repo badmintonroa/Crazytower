@@ -15,9 +15,11 @@ import random
 import re
 import sys
 
-from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter
+from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
 OUT = os.path.join(os.path.dirname(__file__), "../../game/src/main/resources/rooms")
+FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+INK = (27, 29, 43)
 
 # Inside of the room in percent of the picture: left, top, right, bottom.
 CROPS = {
@@ -25,6 +27,7 @@ CROPS = {
     "dorm_empty": (7, 3, 97, 97),
     "dorm_full": (1, 3, 99, 97),
     "elevator_shaft": (0, 0, 100, 100),
+    "elevator_shaft_pass": (0, 0, 100, 100),
     "food_cafe": (6, 3, 93, 97),
     "food_empty": (8, 3, 92, 97),
     "food_imbiss": (14, 2, 77, 97),
@@ -176,6 +179,44 @@ def rundown(day, seed):
     return ImageEnhance.Brightness(im).enhance(0.9).convert("RGBA")
 
 
+def express_pass(shaft):
+    """
+    The express shaft on a floor it skips: the cabin and its doors are gone, the empty shaft runs
+    down to the floor, no call buttons, a barrier and a "KEIN HALT" sign. Fitted to the current
+    elevator_shaft picture; a generated elevator_shaft_pass picture replaces it.
+    """
+    w, h = shaft.size
+    s = w / 192
+
+    def b(*v):
+        return tuple(round(x * s) for x in v)
+
+    out = shaft.copy()
+    # the empty shaft above the cabin, repeated down to the floor
+    strip = shaft.crop(b(64, 66, 128, 88))
+    top, bottom, step = round(88 * s), round(171 * s), strip.height
+    for y in range(top, bottom, step):
+        out.paste(strip.crop((0, 0, strip.width, min(step, bottom - y))), (round(64 * s), y))
+    # wall over the call buttons
+    out.paste(shaft.crop(b(150, 126, 160, 150)), b(139, 126))
+    # a red and white barrier across the opening
+    bar = Image.new("RGBA", b(79, 8), (240, 240, 235, 255))
+    bd = ImageDraw.Draw(bar)
+    for x in range(0, bar.width + 1, round(12 * s)):
+        bd.polygon([(x, bar.height), (x + 6 * s, bar.height), (x + 12 * s, 0), (x + 6 * s, 0)], fill=(214, 64, 52))
+    bd.rectangle([0, 0, bar.width - 1, bar.height - 1], outline=INK)
+    out.paste(bar, b(58, 128))
+    # the sign
+    d = ImageDraw.Draw(out)
+    font = ImageFont.truetype(FONT, round(11 * s)) if os.path.exists(FONT) else ImageFont.load_default()
+    text = "KEIN HALT"
+    tw = d.textlength(text, font=font)
+    x, y = (w - tw) / 2 - 4 * s, 108 * s
+    d.rectangle([x, y, x + tw + 8 * s, y + 15 * s], fill=(214, 64, 52), outline=INK, width=max(1, round(2 * s)))
+    d.text((x + 4 * s, y + s), text, fill=(255, 255, 255), font=font)
+    return out
+
+
 def frames(name):
     with open(os.path.join(OUT, name + ".json")) as f:
         return json.load(f)
@@ -205,6 +246,13 @@ def main(src):
         if key + "_rundown.png" in sheets["extra_rundown"][1]:
             paste(sheets["extra_rundown"][0], sheets["extra_rundown"][1][key + "_rundown.png"], rundown(day, key))
         done.append(key)
+    # the express shaft on the floors it skips is made from the shaft, unless it has its own picture
+    if "elevator_shaft_pass" not in done and "elevator_shaft_pass.png" in sheets["extra"][1]:
+        f = sheets["extra"][1]["elevator_shaft.png"]["frame"]
+        day = express_pass(sheets["extra"][0].crop((f["x"], f["y"], f["x"] + f["w"], f["y"] + f["h"])))
+        paste(sheets["extra"][0], sheets["extra"][1]["elevator_shaft_pass.png"], day)
+        paste(sheets["extra_night"][0], sheets["extra_night"][1]["elevator_shaft_pass_night.png"], night(day))
+        paste(sheets["extra_rundown"][0], sheets["extra_rundown"][1]["elevator_shaft_pass_rundown.png"], rundown(day, "elevator_shaft_pass"))
     for n, (atlas, _) in sheets.items():
         atlas.save(os.path.join(OUT, n + ".png"), optimize=True)
     print(f"{len(done)} rooms imported")

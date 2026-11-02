@@ -9,6 +9,9 @@ object RoomLooks {
         room.type.role == crazytower.core.RoomRole.LOBBY -> crazytower.core.Stages.info(sim.stage).lobbyArt
         room.type.role == crazytower.core.RoomRole.PARKING ->
             if (sim.isTaken(room)) room.type.art + CAR_COLORS[room.id % CAR_COLORS.size] else room.type.art + "_empty"
+        // an express shaft shows no doors on the floors it rushes past
+        room.type.role == crazytower.core.RoomRole.ELEVATOR && room.type.express &&
+            !crazytower.core.transport.Elevators.isExpressStop(room.floor) -> room.type.art + "_pass"
         else -> room.tenant?.art ?: room.type.art
     }
 

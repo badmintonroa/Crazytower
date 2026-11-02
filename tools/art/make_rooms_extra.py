@@ -147,6 +147,24 @@ def elevator():
     return r.save()
 
 
+def elevator_pass():
+    """An express shaft between its stops: no doors, no buttons, just the cables rushing past."""
+    r = Room(2, (176, 186, 204))
+    d = r.d
+    r.box(36, 22, 120, 146, (70, 76, 94))                     # the bare shaft, walled in
+    for y in range(30, 168, 22):                                 # concrete joints
+        d.line([39, y, 153, y], fill=(60, 64, 80), width=2)
+    for x in (52, 140):                                          # guide rails
+        d.rectangle([x - 3, 25, x + 3, 165], fill=(150, 156, 172), outline=INK, width=1)
+    for x in (88, 104):                                          # the cables
+        d.line([x, 25, x, 165], fill=(30, 30, 40), width=3)
+    for y, x in ((48, 66), (92, 112), (130, 70)):                # speed lines: something fast just went by
+        d.line([x, y, x, y + 22], fill=(255, 150, 140), width=2)
+    r.sign(44, 70, "KEIN\nHALT", bg=(220, 64, 52), fg=(255, 255, 255), size=14)
+    r.sign(104, 128, "nur\ngucken", bg=(255, 244, 214), size=9, pad=4)
+    return r.save()
+
+
 def home_empty():
     r = Room(6, (232, 226, 210), floor=(140, 100, 70))
     r.window(60, 40, 120, 80)
@@ -1480,6 +1498,7 @@ ROOMS = {
     "office_rocket": office_rocket, "home_astronauts": home_astronauts, "hotel_officials": hotel_officials,
     "special_deck": special_deck, "special_souvenirs": special_souvenirs,
     "station_ramp": station_ramp, "station_tank": station_tank, "station_capsule": station_capsule, "station_lift": station_lift,
+    "elevator_shaft_pass": elevator_pass,
 }
 
 # The old car park only shows in old saves, and the parking spaces are in the basement anyway.
