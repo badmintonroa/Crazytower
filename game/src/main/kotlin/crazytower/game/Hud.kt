@@ -23,6 +23,8 @@ import crazytower.core.openDayBlocked
 import crazytower.core.startOpenDay
 import crazytower.core.undo
 import crazytower.core.tr
+import crazytower.game.ui.BakedText
+import crazytower.game.ui.bakedLabel
 import crazytower.game.ui.Button
 import crazytower.game.ui.Icons
 import crazytower.game.ui.Panel
@@ -120,7 +122,8 @@ class Hud(
     /** The little star on a category button that holds room types the player has not seen yet. */
     private val categoryNews = HashMap<Category, View>()
     private var flyoutKey: List<Any?>? = null
-    private lateinit var tickerText: Text
+    private lateinit var tickerText: BakedText
+    private var tickerWidth = 0.0
     private lateinit var tickerClip: Container
     private var tickerOffset = 0.0
     private var tickerItems: List<NewsItem> = emptyList()
@@ -584,7 +587,8 @@ class Hud(
         badgeText.xy((150.0 - badgeText.width * badgeText.scaleX) / 2, 4.0)
         badge.tip(tr("Tower-Ticker", "Tower ticker"), tr("Die neuesten Meldungen aus dem Turm. Klick auf die Laufschrift springt zum Ort der neuesten Meldung.", "The latest news from the tower. Click the scrolling text to go to the newest news."))
         tickerClip = ticker.clipContainer(Size(screenWidth - 180.0, 50.0)) { xy(172.0, 0.0) }
-        tickerText = tickerClip.label("", 15.0, Theme.TEXT).also { it.y = 15.0 }
+        // a picture of the text: a scrolling text in a vector font would be drawn anew on the processor every frame
+        tickerText = tickerClip.bakedLabel("", 15.0, Theme.TEXT, Theme.body).also { it.y = 15.0 }
         tickerClip.onClick { e ->
             // jump to the newest message that has a place
             tickerItems.firstOrNull { it.where != null }?.where?.let { tower.lookAt(it) }
@@ -774,7 +778,7 @@ class Hud(
         }
         val missing = sim.nextStarMissing
         val part = sim.currentPart
-        stageHint.text = when {
+        val hint = when {
             next != null && now >= Edition.maxStars -> tr("Gibt es in der Vollversion", "Available in the full version")
             // everything is there, the rating catches up within the hour
             next != null && missing.isEmpty() -> tr("Alles erfüllt, der Stern kommt gleich", "All done, the star is on its way")
@@ -783,8 +787,14 @@ class Hud(
             part != null -> tr("${part.step}: ${part.type.name} · M öffnet die Mission", "${part.step}: ${part.type.name} · M opens the mission")
             else -> tr("Der Turm ist komplett verrückt.", "The tower is completely crazy.")
         }
-        stageFull[stageHint] = stageHint.text
-        stageHint.fitWidth(stageBarWidth)
+        // Only a changed hint is set and fitted again: fitWidth shortens it letter by letter, and every
+        // try draws the text anew on the processor, which cost several milliseconds in every frame.
+        if (stageFull[stageHint] != hint || drawnHintWidth != stageBarWidth) {
+            stageFull[stageHint] = hint
+            drawnHintWidth = stageBarWidth
+            stageHint.text = hint
+            stageHint.fitWidth(stageBarWidth)
+        }
         val progress = (if (next == null && sim.missionStarted) sim.missionProgress else sim.stageProgress).coerceIn(0.0, 1.0)
         val w = stageBarWidth
         // a new shape is drawn again from scratch, so only when it changed
@@ -797,6 +807,7 @@ class Hud(
     }
 
     private var drawnStageBar: Pair<Double, Double>? = null
+    private var drawnHintWidth = -1.0
 
     /** A celebration for every station part, a long one for the lift-off. */
     private fun syncMission() {
@@ -834,12 +845,16 @@ class Hud(
                 items.take(6).joinToString("   ·   ") { it.text }
             }
             tickerOffset = 0.0
+            tickerWidth = tickerText.width
         }
         tickerOffset += dt * 60
-        val span = tickerText.width + 200
+        val span = tickerWidth + 200
         if (tickerOffset > span) tickerOffset = -tickerClip.width + 200
         tickerText.x = -tickerOffset.coerceAtLeast(0.0) + (if (tickerOffset < 0) -tickerOffset else 0.0)
     }
+
+    private var drawnTooltip: Pair<String, Boolean>? = null
+    private var tooltipWidth = 0.0
 
     private fun syncTooltip() {
         val info = tower.ghostInfo
@@ -848,17 +863,23 @@ class Hud(
             tooltip.visible = false
             return
         }
-        tooltip.removeChildren()
-        val (text, ok) = info
-        val t = Text(text, 13.0, if (ok) Theme.TEXT else Theme.ON_SELECT, Theme.bodyBold).fitWidth(screenWidth - 60.0)
-        val box = Panel(t.width + 28, 32.0, if (ok) Theme.INK else Theme.ALARM, 6.0).addTo(tooltip)
-        if (ok) {
-            box.color = Theme.SELECT
-            Panel(t.width + 24, 28.0, Theme.INK, 5.0).addTo(tooltip).xy(2.0, 2.0)
+        // built again only when it says something else; it follows the mouse as a picture
+        if (info != drawnTooltip) {
+            drawnTooltip = info
+            tooltip.removeChildren()
+            val (text, ok) = info
+            val t = BakedText(text, 13.0, if (ok) Theme.TEXT else Theme.ON_SELECT, Theme.bodyBold)
+            if (t.width > screenWidth - 60.0) t.scale = (screenWidth - 60.0) / t.width
+            tooltipWidth = t.width * t.scale
+            val box = Panel(tooltipWidth + 28, 32.0, if (ok) Theme.INK else Theme.ALARM, 6.0).addTo(tooltip)
+            if (ok) {
+                box.color = Theme.SELECT
+                Panel(tooltipWidth + 24, 28.0, Theme.INK, 5.0).addTo(tooltip).xy(2.0, 2.0)
+            }
+            t.addTo(tooltip).xy(14.0, 8.0)
         }
-        t.addTo(tooltip).xy(14.0, 8.0)
         tooltip.xy(
-            (hover.screen.x - (t.width + 28) / 2).coerceIn(4.0, screenWidth - t.width - 32),
+            (hover.screen.x - (tooltipWidth + 28) / 2).coerceIn(4.0, screenWidth - tooltipWidth - 32),
             hover.screen.y - 62.0,
         )
         tooltip.visible = true
