@@ -49,6 +49,10 @@ python3 -I tools/steam/capsules.py <keyart> out/grafiken    # Capsules, Biblioth
 
 Der Aufnahmemodus (`game/.../Film.kt`, `CRAZYTOWER_FILM=<datei.mp4|.png>`) läuft mit festem Zeitschritt und schickt jedes Bild an ffmpeg, deshalb ruckelt nichts, egal wie langsam der Rechner rendert. Kamerafahrten (`CRAZYTOWER_CAM`), Verwandlungen, Ereignisse und Fenster (`CRAZYTOWER_ACTIONS`) werden per Umgebungsvariable gesteuert; die Beschreibung steht oben in `Film.kt`. Die Musik erzeugt `tools/steam/music.py` selbst, ohne Samples.
 
+## Musik
+
+Die cozy Hintergrundmusik (ein Stück für den Tag, eins für die Nacht) erzeugt das Spiel selbst, ohne Samples und ohne fremde Lizenzen. Lautstärke unter Optionen → „Musik“. Details, Hörproben und wie man eigene Stücke einsetzt: [docs/musik.md](docs/musik.md).
+
 ## Steuerung
 
 | Eingabe | Aktion |

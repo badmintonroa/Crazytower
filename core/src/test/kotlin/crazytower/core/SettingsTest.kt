@@ -30,7 +30,7 @@ class SettingsTest {
     @Test
     fun brokenFileGivesDefaults() {
         assertEquals(Settings(), Settings.fromJson("{kaputt"))
-        val s = Settings(fullscreen = true, crowd = 0.5, volume = 30)
+        val s = Settings(fullscreen = true, crowd = 0.5, volume = 30, music = 0)
         assertEquals(s, Settings.fromJson(s.toJson()))
     }
 }

@@ -69,6 +69,7 @@ class TitleScene(private val assets: Assets) : Scene() {
             val step = dt.inWholeMilliseconds / 1000.0
             seconds += step
             game.update(dt)
+            Music.update(isNight = DayLight.light(sim.clock.minuteOfDay) < 0.5)
             tower.showcase(seconds, centerX = towerCenter(), width = (layoutWidth - MENU_WIDTH) * 0.9, period = period)
             tower.sync(step)
             options?.let { if (it.visible) it.sync() }
