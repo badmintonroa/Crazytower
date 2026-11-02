@@ -1,8 +1,8 @@
 package crazytower.game
 
 import korlibs.image.color.RGBA
+import korlibs.image.vector.Context2d
 import korlibs.korge.view.Container
-import korlibs.korge.view.Graphics
 import korlibs.korge.view.View
 import korlibs.korge.view.container
 import korlibs.korge.view.graphics
@@ -19,8 +19,8 @@ object EventArt {
     private val PURPLE_LIGHT = RGBA(196, 140, 255)
     private val WHITE = RGBA(255, 255, 255)
 
-    /** A purple badge with a lightning bolt, over rooms where an event is running. */
-    fun badge(parent: Container, size: Double = 34.0): Graphics = parent.graphics {
+    /** A purple badge with a lightning bolt, centred on 0,0, over rooms where an event is running. The tower shows it as a bitmap ([WorldSprites]). */
+    fun drawBadge(c: Context2d, size: Double = 34.0): Unit = with(c) {
         val r = size / 2
         fill(Theme.INK) { oval(0.0, 0.0, r + 2.5, r + 2.5) }
         fill(PURPLE) { oval(0.0, 0.0, r, r) }

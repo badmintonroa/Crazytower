@@ -3,6 +3,7 @@ package crazytower.game.ui
 import crazytower.core.Category
 import crazytower.game.Theme
 import korlibs.image.color.RGBA
+import korlibs.image.vector.Context2d
 import korlibs.korge.view.*
 import korlibs.math.geom.Point
 import kotlin.math.PI
@@ -51,13 +52,16 @@ object Icons {
     }
 
     /** Five-point star, filled or empty. */
-    fun star(parent: Container, filled: Boolean, size: Double = 20.0): Graphics {
+    fun star(parent: Container, filled: Boolean, size: Double = 20.0): Graphics = parent.graphics { drawStar(this, filled, size) }
+
+    /** The drawing of [star], for a [Graphics] or a bitmap ([crazytower.game.WorldSprites]). */
+    fun drawStar(c: Context2d, filled: Boolean, size: Double = 20.0) {
         val s = size / 24.0
         val gold = RGBA(0xFF, 0xC9, 0x4D)
         val goldDark = RGBA(0xF2, 0xB6, 0x32)
         val empty = RGBA(0x3A, 0x40, 0x60)
         val outline = listOf(12 to 2, 15 to 9, 22 to 9, 16.5 to 13.5, 18.5 to 21, 12 to 16.5, 5.5 to 21, 7.5 to 13.5, 2 to 9, 9 to 9)
-        return parent.graphics {
+        c.apply {
             fill(if (filled) gold else empty) {
                 outline.forEachIndexed { i, (x, y) ->
                     val pt = Point(x.toDouble() * s, y.toDouble() * s)
@@ -76,9 +80,9 @@ object Icons {
 
     /**
      * The badge over a room nobody moves into, centred on 0,0: an exclamation mark, or an
-     * angry face when the way there is the problem.
+     * angry face when the way there is the problem. The tower shows it as a bitmap ([crazytower.game.WorldSprites]).
      */
-    fun problem(parent: Container, angry: Boolean, size: Double = 34.0): Graphics = parent.graphics {
+    fun drawProblem(c: Context2d, angry: Boolean, size: Double = 34.0): Unit = with(c) {
         val r = size / 2
         fun disc(cx: Double, cy: Double, radius: Double) {
             val corners = 20

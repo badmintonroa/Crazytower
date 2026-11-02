@@ -23,14 +23,10 @@ import crazytower.core.tr
 import crazytower.core.whereOf
 import crazytower.core.undoableBuild
 import crazytower.core.undoableDemolish
-import crazytower.game.ui.Icons
-import crazytower.game.ui.chamferPath
 import crazytower.game.ui.formatMoney
 import crazytower.game.ui.label
 import korlibs.event.Key
 import korlibs.event.MouseButton
-import korlibs.image.bitmap.Bitmap32
-import korlibs.image.bitmap.context2d
 import korlibs.image.color.Colors
 import korlibs.image.color.RGBA
 import korlibs.korge.input.keys
@@ -52,8 +48,7 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.random.Random
 
-/** Express elevators wear red so they stand out from the normal shafts. */
-private val EXPRESS_RED = RGBA(214, 64, 52)
+/** Express shafts are tinted towards [EXPRESS_RED]. */
 private val EXPRESS_TINT = RGBA(255, 150, 140)
 
 /** Screen metrics of the tower at zoom 1: the native art is shown at twice its size. */
@@ -396,7 +391,8 @@ class TowerView(
             if (payment.amount > 0) Sfx.play(Sfx.CASH, gapMillis = 400)
             if (!Options.current.moneyPopups) continue
             val text = (if (payment.amount > 0) "+" else "") + formatMoney(payment.amount)
-            val view = overlay.text(text, textSize = 22.0, color = if (payment.amount > 0) Theme.GOOD else Theme.ALARM, font = Theme.bodyBold)
+            // the bitmap font shares one texture; a vector font gives every popup a texture of its own
+            val view = overlay.text(text, textSize = 22.0, color = if (payment.amount > 0) Theme.GOOD else Theme.ALARM, font = Theme.numbers)
             view.xy(Metrics.x(where.x) - view.width / 2, Metrics.floorTop(where.floor) + 18.0)
             floaters += Floater(view, 0.0)
         }
@@ -462,7 +458,7 @@ class TowerView(
                 alive += key
                 val view = carViews.getOrPut(key) {
                     carsLayer.container {
-                        image(cabinArt(car.express))
+                        assets.sprite(this, if (car.express) WorldSprites.CABIN_EXPRESS else WorldSprites.CABIN)
                     }.also { carLabels[key] = it.label("", 14.0, Theme.GOLD, Theme.numbers).xy(20.0, 30.0) }
                 }
                 view.visible = cabin.position.roundToInt() in shownFloors
@@ -474,20 +470,6 @@ class TowerView(
         carViews.keys.filter { it !in alive }.forEach {
             carViews.remove(it)?.removeFromParent()
             carLabels.remove(it)
-        }
-    }
-
-    /**
-     * A cabin drawn once into a bitmap: a vector shape works out its bounds again every frame,
-     * and a full tower has a few hundred cabins.
-     */
-    private val cabinArts = HashMap<Boolean, Bitmap32>()
-
-    private fun cabinArt(express: Boolean): Bitmap32 = cabinArts.getOrPut(express) {
-        Bitmap32(64, 82, premultiplied = true).context2d {
-            fill(Theme.INK) { chamferPath(64.0, 82.0, 6.0, 0.0) }
-            fill(if (express) EXPRESS_RED else Theme.GOLD) { chamferPath(64.0, 82.0, 6.0, 3.0) }
-            fill(Theme.alpha(Theme.INK, 0.85)) { rect(10.0, 12.0, 44.0, 54.0) }
         }
     }
 
@@ -503,17 +485,27 @@ class TowerView(
         val dimmed = DayLight.isDark(sim.clock.minuteOfDay) && !key.endsWith("_night")
         // a long lobby gets a door at each end; the right one is the left one mirrored
         val entrance = if (room.type.role == RoomRole.LOBBY && room.floor == GROUND_FLOOR && tiles >= 2) entranceArt(key) else null
-        val clip = view.clipContainer(Size(Metrics.x(room.width), Metrics.FLOOR))
+        // No clip container: clipping ends KorGE's draw call, twice per room. The tile that would
+        // stick out of the room shows only the part of its picture that fits instead.
+        val artScale = 2.0 / Assets.ROOM_ART_SCALE
+        val roomPixels = (Metrics.x(room.width) / artScale).roundToInt()
+        val floorPixels = (Metrics.FLOOR / artScale).roundToInt()
         for (i in 0 until tiles) {
             val last = i == tiles - 1
+            val mirrored = entrance != null && last
             val tile = when {
                 entrance != null && (i == 0 || last) -> entrance
                 else -> art
             }
-            clip.image(tile) {
-                scale = 1.0 / Assets.ROOM_ART_SCALE * 2
+            // the mirrored entrance starts at the right end of the lobby and runs leftwards, at most the whole room
+            val start = if (mirrored) 0 else (Metrics.x(i * tileSegments) / artScale).roundToInt()
+            val w = minOf(tile.width, roomPixels - start)
+            val h = minOf(tile.height, floorPixels)
+            if (w <= 0) continue
+            view.image(if (w < tile.width || h < tile.height) tile.sliceWithSize(0, 0, w, h) else tile) {
+                scale = artScale
                 x = Metrics.x(i * tileSegments)
-                if (entrance != null && last) {
+                if (mirrored) {
                     // mirrored and pushed against the right end of the lobby
                     scaleX = -scaleX
                     x = Metrics.x(room.width)
@@ -524,7 +516,7 @@ class TowerView(
         }
         // done-up rooms wear their level as little stars in the corner
         for (i in 0 until room.upgrade) {
-            crazytower.game.ui.Icons.star(view, filled = true, size = 14.0).xy(Metrics.x(room.width) - 18.0 - i * 16.0, 4.0)
+            assets.sprite(view, WorldSprites.STAR).xy(Metrics.x(room.width) - 18.0 - i * 16.0, 4.0)
         }
         return view
     }
@@ -578,7 +570,8 @@ class TowerView(
             }
             val person = entity[Person]
             val view = personViews.getOrPut(entity.id) {
-                peopleLayer.image(assets.person(person.look, 0), Anchor.BOTTOM_CENTER) { smoothing = false }
+                // every sheet has the 4x size ([Assets]), so all people are smoothed alike and share a draw call
+                peopleLayer.image(assets.person(person.look, 0), Anchor.BOTTOM_CENTER) { smoothing = true }
             }
             val moving = entity has Route
             val frame = if (moving) 1 + (floor(pos.x * 3).toInt() and 1) else 0
@@ -600,8 +593,6 @@ class TowerView(
             }
             view.y = Metrics.floorBottom(pos.floor) - Metrics.FEET
             val scale = assets.personScale(person.look, 2.0)
-            // native 12x24 pixel art stays crisp, the 4x art is shrunk smoothly
-            view.smoothing = scale < 1.0
             view.scaleX = if (facingLeft) -scale else scale
             view.scaleY = scale
             // with a thinner crowd only every second or fourth person is drawn, but never the selected one
@@ -652,7 +643,7 @@ class TowerView(
             var view = problemViews[id]
             if (view == null || view.name != "$key") {
                 view?.removeFromParent()
-                view = Icons.problem(problemLayer, problem.far).also { it.name = "$key" }
+                view = assets.sprite(problemLayer, if (problem.far) WorldSprites.PROBLEM_ANGRY else WorldSprites.PROBLEM).also { it.name = "$key" }
                 problemViews[id] = view
             }
             view.visible = room.floor in shownFloors
@@ -676,7 +667,7 @@ class TowerView(
                 cat.y = Metrics.floorTop(where.floor) + kotlin.math.sin(problemTime * 1.5) * 1.5
                 continue
             }
-            val view = eventViews.getOrPut(key) { EventArt.badge(eventLayer) }
+            val view = eventViews.getOrPut(key) { assets.sprite(eventLayer, WorldSprites.BADGE) }
             view.visible = where.floor in shownFloors
             view.x = Metrics.x(where.x)
             view.y = Metrics.floorTop(where.floor) + 26.0 + kotlin.math.sin(problemTime * 4 + event.started) * 3

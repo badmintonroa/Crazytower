@@ -56,6 +56,12 @@ class GameScene(private val assets: Assets, private val loaded: Simulation? = nu
         this@GameScene.debug = debug
         System.getenv("CRAZYTOWER_SPEED")?.toIntOrNull()?.let { game.speed = it }
         Autopilot.attachIfRequested(this, sim, game, tower, hud)
+        // CRAZYTOWER_CAMERA=<zoom>,<floor> points the camera at the middle of the tower, e.g. 0.35,15 for a far view to measure or for screenshots
+        System.getenv("CRAZYTOWER_CAMERA")?.split(",")?.mapNotNull { it.trim().toDoubleOrNull() }?.takeIf { it.size == 2 }?.let { (zoom, floor) ->
+            val rooms = sim.tower.allRooms
+            val middle = if (rooms.isEmpty()) sim.lotWidth / 2.0 else (rooms.minOf { it.x } + rooms.maxOf { it.x + it.width }) / 2.0
+            tower.filmCamera(middle, floor, zoom)
+        }
         game.say(
             when {
                 test -> tr("Testturm: wird nicht gespeichert, F9 holt dein Spiel zurück", "Test tower: not saved, F9 brings your game back")
