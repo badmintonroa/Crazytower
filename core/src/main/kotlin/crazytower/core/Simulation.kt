@@ -34,7 +34,6 @@ import crazytower.core.nav.NavGraph
 import crazytower.core.transport.Car
 import crazytower.core.transport.Elevators
 import crazytower.core.transport.StairsLinks
-import crazytower.core.transport.TeleporterLinks
 import crazytower.core.ecs.EventSystem
 import crazytower.core.ecs.Vip
 import kotlin.random.Random
@@ -69,7 +68,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     val clock = GameClock()
     val tower = Tower()
     val elevators = Elevators(tower)
-    val nav = NavGraph(tower, listOf(StairsLinks, TeleporterLinks, elevators))
+    val nav = NavGraph(tower, listOf(StairsLinks, elevators))
     val news = NewsFeed()
 
     /** Empty rooms nobody will move into, and why. Kept up to date by the tenant system. */
@@ -1088,7 +1087,8 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         bestStars = maxOf(save.bestStars, stars)
         vipSurvived = save.vipSurvived
         val oldCarParks = save.rooms.filter { it.type == Catalog.OLD_CAR_PARK }
-        for (saved in save.rooms - oldCarParks.toSet()) {
+        val oldTeleporters = save.rooms.filter { it.type == Catalog.OLD_TELEPORTER }
+        for (saved in save.rooms - oldCarParks.toSet() - oldTeleporters.toSet()) {
             val room = tower.placeUnchecked(Catalog.type(saved.type), saved.floor, saved.x, saved.id, saved.width ?: Catalog.type(saved.type).width)
             val tenant = saved.tenant?.let { Tenants.byId(it) }
             if (tenant != null) {
@@ -1111,11 +1111,16 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
                 tower.placeUnchecked(Catalog.PARKING, saved.floor, x).since = saved.since
             }
         }
+        // the teleporters are gone: corridor where they stood, so nothing above loses its floor, and the money back
+        for (saved in oldTeleporters) {
+            tower.placeUnchecked(Catalog.FILLER, saved.floor, saved.x, width = saved.width ?: 2).since = saved.since
+        }
         for (item in save.news.asReversed()) {
             news.post(item.text, item.floor?.let { Loc(it, item.x ?: 0f) }, item.important)
         }
         lastOpenDay = save.lastOpenDay ?: lastOpenDay
         endgame = save.endgame ?: Endgame()
+        refundTeleporters(oldTeleporters.size)
         // older saves did not keep track: everything the tower already allows counts as seen
         seenTypes.clear()
         save.seenTypes?.let { seenTypes += it } ?: Catalog.roomTypes.filter { unlocked(it) }.mapTo(seenTypes) { it.id }
@@ -1125,12 +1130,18 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
         }
     }
 
-    /** A teleporter sent [entity] to the wrong place. */
-    fun onMisfire(entity: Entity, landed: Room) {
-        if (random.nextInt(3) == 0) {
-            val name = with(world) { entity[Person].name }
-            news.post(tr("$name wollte teleportieren und ist in der ${floorLabel(landed.floor)} gelandet. Nimmt es gelassen.", "$name tried to teleport and ended up ${onFloor(landed.floor)}. Takes it calmly."), landed.center)
-        }
+    /**
+     * The teleporter is out of the game: an old save gets back what its [pads] and the study
+     * against mix-ups cost, and a word in the news.
+     */
+    private fun refundTeleporters(pads: Int) {
+        val study = endgame.research.indexOf(OLD_TELEPORT_STUDY)
+        val refund = pads * Catalog.OLD_TELEPORTER_COST + (if (study >= 0) Research.FIRST_COST shl study else 0L)
+        if (study >= 0) endgame.research.remove(OLD_TELEPORT_STUDY)
+        if (refund == 0L) return
+        money += refund
+        news.post(tr("Das Bauamt hat die Teleporter eingezogen. Zu gefährlich, zu schnell, zu viel Papierkram. Es gibt ${formatMoney(refund)} zurück.",
+            "The building authority confiscated the teleporters. Too dangerous, too fast, too much paperwork. You get ${formatMoney(refund)} back."), important = true)
     }
 
     /** Street exit closest to [x]: people leave the tower to the left or right edge. */
@@ -1342,7 +1353,7 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
 
         val UPKEEP = mapOf(
             RoomRole.ELEVATOR to 60L, RoomRole.STAIRS to 10L, RoomRole.LOBBY to 40L, RoomRole.CORRIDOR to 5L,
-            RoomRole.SPECIAL to 300L, RoomRole.SECURITY to 800L, RoomRole.TELEPORTER to 1_000L,
+            RoomRole.SPECIAL to 300L, RoomRole.SECURITY to 800L,
             RoomRole.PARKING to 400L, RoomRole.HOTEL to HOTEL_UPKEEP, RoomRole.HOUSEKEEPING to HOUSEKEEPING_UPKEEP,
         )
         const val HOTEL_UPKEEP = 400L
@@ -1378,6 +1389,9 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
             stars == 4 -> 1_000
             else -> 1_600
         }
+
+        /** The study against teleporter mix-ups, which old saves may still have. */
+        const val OLD_TELEPORT_STUDY = "teleport"
 
         /** Extra commuters a subway station brings. */
         const val SUBWAY_COMMUTERS = 1_500

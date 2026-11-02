@@ -29,7 +29,7 @@ class TestTowerTest {
         val top = Stages.info(Stages.last).maxFloor - 1
         assertTrue(sim.tower.allRooms.any { it.floor == top }, "up to the top floor")
         assertTrue(sim.tower.allRooms.any { it.floor == Tower.MIN_FLOOR }, "down to the deepest basement")
-        for (type in listOf(Catalog.COPYROOM, Catalog.SECURITY, Catalog.TELEPORTER, Catalog.UFO_PAD, Catalog.PARKING, Catalog.EXPRESS, Catalog.FOOD)) {
+        for (type in listOf(Catalog.COPYROOM, Catalog.SECURITY, Catalog.UFO_PAD, Catalog.PARKING, Catalog.EXPRESS, Catalog.FOOD)) {
             assertTrue(sim.tower.allRooms.any { it.type == type }, "has ${type.name}")
         }
         val rentable = sim.tower.allRooms.filter { it.type.capacity > 0 }

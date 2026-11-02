@@ -147,12 +147,12 @@ object Events {
             )
         },
         TowerEvent("moon", 1, minStage = 5, lasting = true) {
-            if (tower.allRooms.none { it.type.role == RoomRole.TELEPORTER }) return@TowerEvent false
+            if (tower.allRooms.none { it.type == Catalog.UFO_PAD }) return@TowerEvent false
             val now = clock.totalMinutes
             startEvent(
                 ActiveEvent("moon", now, now + 120),
-                tr("Der Teleporter hat sich verwählt: Der ganze Turm steht jetzt auf dem Mond. Die Aussicht ist toll, die Besucher bleiben aus.",
-                    "The teleporter dialled the wrong number: the whole tower is on the moon now. Great view, no visitors."),
+                tr("Das Ufo hat beim Abflug den ganzen Turm mitgenommen: Er steht jetzt auf dem Mond. Die Aussicht ist toll, die Besucher bleiben aus.",
+                    "The UFO took the whole tower along when it left: it is on the moon now. Great view, no visitors."),
             )
         },
         TowerEvent("pigeons", 3, bad = true) {

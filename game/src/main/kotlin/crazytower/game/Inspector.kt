@@ -378,7 +378,6 @@ object PersonInfo {
             e has crazytower.core.ecs.Riding -> tr("Fährt Aufzug", "Riding the elevator")
             (e.getOrNull(crazytower.core.ecs.Route)?.legs?.firstOrNull() is crazytower.core.nav.Leg.Ride) -> tr("Wartet auf den Aufzug", "Waiting for the elevator")
             (e.getOrNull(crazytower.core.ecs.Route)?.legs?.firstOrNull() is crazytower.core.nav.Leg.Stairs) -> tr("Nimmt die Treppe", "Taking the stairs")
-            (e.getOrNull(crazytower.core.ecs.Route)?.legs?.firstOrNull() is crazytower.core.nav.Leg.Teleport) -> tr("Wird teleportiert", "Being teleported")
             e has crazytower.core.ecs.Vip -> tr("Inspiziert den Turm", "Inspecting the tower")
             visitor != null && visitor.leaving -> tr("Verlässt den Turm", "Leaving the tower")
             e has Idle -> tr("Staunt die Lobby an", "Marvelling at the lobby")

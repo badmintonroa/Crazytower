@@ -217,16 +217,3 @@ object StairsLinks : LinkProvider {
             )
         }
 }
-
-/** Every teleporter links to every other one. Fast, but it costs nerves (and sometimes the floor). */
-object TeleporterLinks : LinkProvider {
-    override fun links(tower: Tower): List<Link> {
-        val pads = tower.allRooms.filter { it.type.role == RoomRole.TELEPORTER }
-        val links = ArrayList<Link>()
-        for (a in pads) for (b in pads) {
-            if (a === b) continue
-            links += Link(a.center, b.center, Leg.Teleport(a.floor, b.floor, b.centerX)) { NavCosts.TELEPORT }
-        }
-        return links
-    }
-}

@@ -76,17 +76,30 @@ class StageEventSaveTest {
     }
 
     @Test
-    fun teleportersConnectFarFloors() {
-        val sim = officeSim(seed = 5, startMoney = 50_000_000)
-        sim.build(Catalog.LOBBY, 0, 0)
-        sim.build(Catalog.TELEPORTER, 0, 6).let { assertFalse(it.ok, "needs stage 4") }
-        val tower = sim.tower
-        val pad = TowerTestAccess.forcePlace(tower, Catalog.TELEPORTER, 0, 6)
-        val corridorTop = TowerTestAccess.forcePlace(tower, Catalog.CORRIDOR, 7, 0)
-        val padTop = TowerTestAccess.forcePlace(tower, Catalog.TELEPORTER, 7, 6)
-        check(pad.id != padTop.id && corridorTop.floor == 7)
-        val path = assertNotNull(sim.nav.findPath(Loc(0, 1f), Loc(7, 2f)))
-        assertEquals(1, path.count { it is Leg.Teleport })
+    fun oldSavesWithTeleportersLoadWithCorridorAndTheMoneyBack() {
+        val sim = officeSim(seed = 5, startMoney = 2_000_000)
+        sim.build(sim.planLobby(0, 11))
+        sim.build(Catalog.CORRIDOR, 1, 0)
+        sim.build(Catalog.OFFICE, 2, 0) // stands on floor 1, where the old pad was too
+        sim.endgame.research += "coffee"
+        sim.endgame.research += Simulation.OLD_TELEPORT_STUDY
+        val save = sim.toSave()
+        val pads = listOf(
+            SavedRoom(id = 900, type = Catalog.OLD_TELEPORTER, floor = 0, x = 6, since = 0.0),
+            SavedRoom(id = 901, type = Catalog.OLD_TELEPORTER, floor = 1, x = 6, since = 0.0),
+        )
+        // the pad on the ground took the place of part of the lobby
+        val rooms = save.rooms.filter { it.floor != GROUND_FLOOR } + SavedRoom(id = 902, type = "lobby", floor = 0, x = 0, since = 0.0, width = 6) + pads
+        val old = SaveGame.fromJson(save.copy(rooms = rooms).toJson())
+        val loaded = Simulation.load(old)
+        assertTrue(loaded.tower.allRooms.none { it.type.id == Catalog.OLD_TELEPORTER })
+        assertEquals(Catalog.FILLER, loaded.tower.roomAt(1, 6)?.type, "corridor where the pad stood")
+        assertEquals(Catalog.FILLER, loaded.tower.roomAt(GROUND_FLOOR, 7)?.type)
+        assertEquals(setOf("coffee"), loaded.endgame.research)
+        // two pads, and the study was the second one
+        assertEquals(sim.money + 2 * Catalog.OLD_TELEPORTER_COST + (Research.FIRST_COST shl 1), loaded.money)
+        assertTrue(loaded.news.latest.first().text.contains("Teleporter"))
+        loaded.step(60.0)
     }
 
     @Test
