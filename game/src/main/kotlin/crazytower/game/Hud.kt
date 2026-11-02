@@ -273,7 +273,7 @@ class Hud(
             val b = TextButton(40.0, 40.0, "", onPress = { game.optionsOpen = !game.optionsOpen })
             Icons.gear(b.content, Theme.TEXT)
             b.xy(10.0, 10.0)
-            b.tip(tr("Optionen", "Options"), tr("Sprache, Anzeige, Lautstärke, Autospeichern, Hauptmenü. F1 zeigt alle Tasten.", "Language, display, volume, autosave, main menu. F1 shows all keys."), "O")
+            b.tip(tr("Optionen", "Options"), tr("Sprache, Anzeige, Musik und Geräusche, Autospeichern, Hauptmenü. F1 zeigt alle Tasten.", "Language, display, music and sound, autosave, main menu. F1 shows all keys."), "O")
             addChild(b)
         }
     }

@@ -44,7 +44,8 @@ class OptionsWindow(
         }) { it.copy(crowd = next(Settings.CROWDS, it.crowd)) },
         Row(tr("Geld-Anzeigen", "Money pop-ups"), { onOff(it.moneyPopups) }) { it.copy(moneyPopups = !it.moneyPopups) },
         Row(tr("Nachts vorspulen", "Fast-forward nights"), { onOff(it.fastNights) }) { it.copy(fastNights = !it.fastNights) },
-        Row(tr("Lautstärke", "Volume"), { if (it.volume == 0) tr("stumm", "muted") else "${it.volume} %" }) { it.copy(volume = (it.volume + 20) % 120) },
+        Row(tr("Musik", "Music"), { if (it.music == 0) tr("aus", "off") else "${it.music} %" }) { it.copy(music = (it.music + 10) % 110) },
+        Row(tr("Geräusche", "Sound effects"), { if (it.volume == 0) tr("stumm", "muted") else "${it.volume} %" }) { it.copy(volume = (it.volume + 20) % 120) },
         Row(tr("Abriss nachfragen", "Ask before demolishing"), { onOff(it.confirmDemolish) }) { it.copy(confirmDemolish = !it.confirmDemolish) },
         Row(tr("Autospeichern", "Autosave"), {
             when (it.autosaveDays) {

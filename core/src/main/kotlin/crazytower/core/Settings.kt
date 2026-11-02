@@ -22,8 +22,10 @@ data class Settings(
     /** The "+1.800 $" texts that rise from rooms that pay. */
     val moneyPopups: Boolean = true,
     val fastNights: Boolean = true,
-    /** 0 to 100, for when the game has sound. */
+    /** Sound effects, 0 to 100. */
     val volume: Int = 80,
+    /** Background music, 0 to 100; 0 is off. */
+    val music: Int = 50,
     /** Saves the game every this many game days at midnight; 0 is off. */
     val autosaveDays: Int = 1,
     /** Asks before tearing down a room somebody rents or owns. */

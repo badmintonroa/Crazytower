@@ -108,6 +108,7 @@ class GameScene(private val assets: Assets, private val loaded: Simulation? = nu
             val dt = Film.step(realDt)
             val t0 = System.nanoTime()
             game.update(dt)
+            Music.update(isNight = DayLight.light(sim.clock.minuteOfDay) < 0.5)
             val t1 = System.nanoTime()
             tower.sync(dt.inWholeMilliseconds / 1000.0)
             val t2 = System.nanoTime()
