@@ -1,9 +1,11 @@
 package crazytower.game
 
 import com.github.quillraven.fleks.Entity
+import crazytower.core.Catalog
 import crazytower.core.Category
 import crazytower.core.RoomType
 import crazytower.core.Simulation
+import crazytower.core.tr
 import kotlin.time.Duration
 
 /** What the mouse does in the tower. */
@@ -115,6 +117,26 @@ class GameController(val sim: Simulation) {
         // with a room chosen, the category button brings the full list back instead of closing it
         category = if (category == c && tool == null) null else c
         tool = null
+    }
+
+    /**
+     * Why [type] can't be picked up again from the inspector's copy button, or null when it can:
+     * it must be in the build list (unlocked by stage and stars) and not at its limit yet.
+     */
+    fun copyBlocked(type: RoomType): String? = when {
+        type !in Catalog.roomTypes || !sim.unlocked(type) -> tr("Nicht im Baumenü", "Not in the build menu")
+        type.maxCount?.let { max -> sim.tower.allRooms.count { it.type == type } >= max } == true ->
+            tr("Mehr davon geht nicht", "No more of these allowed")
+        else -> null
+    }
+
+    /** Picks [type] for building, as if chosen in its build list, and closes the inspector. */
+    fun copy(type: RoomType): Boolean {
+        if (copyBlocked(type) != null) return false
+        category = type.category
+        tool = Tool.Build(type)
+        selection = null
+        return true
     }
 
     fun cancel() {

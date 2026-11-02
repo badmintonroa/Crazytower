@@ -22,6 +22,7 @@ object Shortcuts {
             "1 – 6" to tr("Baukategorien", "Build categories"),
             tr("Leertaste", "Space") to tr("Pause", "Pause"),
             SPEED to tr("Langsamer / schneller", "Slower / faster"),
+            "C" to tr("Gewählten Raum kopieren", "Copy the selected room"),
             "N" to tr("Nachts vorspulen an/aus", "Fast-forward nights on/off"),
             "F" to tr("Finanzen", "Finances"),
             "X" to tr("Extras (ab 4 Sternen)", "Extras (from 4 stars)"),

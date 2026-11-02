@@ -33,6 +33,7 @@ import crazytower.game.ui.Panel
 import crazytower.game.ui.TextButton
 import crazytower.game.ui.fitWidth
 import crazytower.game.ui.formatMoney
+import crazytower.game.ui.tip
 import crazytower.game.ui.label
 import crazytower.game.ui.wrappedLabel
 import crazytower.core.tr
@@ -193,8 +194,25 @@ class Inspector(private val sim: Simulation, private val game: GameController, p
         }
         val room = (sel as? Selection.RoomSel)?.let { sim.tower.room(it.roomId) }
         if (room != null && sim.stage >= SINK_STAGE) y = endgameButtons(room, y)
-        TextButton(panelWidth - 32, 40.0, tr("Schließen", "Close"), 14.0) { game.selection = null }.addTo(this).xy(16.0, y + 8)
-        y += 56.0
+        if (room != null) {
+            // copy: the same kind of room in the hand, to place another one right away
+            val half = (panelWidth - 40) / 2
+            val blocked = game.copyBlocked(room.type)
+            TextButton(half, 40.0, tr("Kopieren", "Copy"), 14.0) {
+                if (game.copy(room.type)) game.say(tr("${room.type.name} gewählt, klick in den Turm", "${room.type.name} chosen, click in the tower"))
+            }.addTo(this).xy(16.0, y + 8).also { it.enabled = blocked == null }
+                .tip(tr("Kopieren", "Copy"), blocked ?: tr("Wählt ${room.type.name} zum Bauen.", "Picks ${room.type.name} for building."), "C")
+            TextButton(half, 40.0, tr("Schließen", "Close"), 14.0) { game.selection = null }.addTo(this).xy(24.0 + half, y + 8)
+            y += 48.0
+            if (blocked != null) {
+                label(blocked, 11.0, Theme.TEXT_DIM).xy(16.0, y + 2).fitWidth(panelWidth - 32)
+                y += 18.0
+            }
+            y += 8.0
+        } else {
+            TextButton(panelWidth - 32, 40.0, tr("Schließen", "Close"), 14.0) { game.selection = null }.addTo(this).xy(16.0, y + 8)
+            y += 56.0
+        }
         panelHeight = y + 8
         bg.resize(panelWidth, panelHeight)
     }
