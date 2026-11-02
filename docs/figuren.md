@@ -8,14 +8,15 @@ Die ComfyUI-Dateien liegen im Projektordner unter `crazytower/comfyui/`.
 |---|---|
 | `batch_figuren.bat` | schickt alle Figuren aus `prompts_figuren.txt` an ComfyUI, 3 Varianten je Figur, Stärke 0.85 |
 | `prompts_figuren.txt` | ein Prompt pro fehlender Figur, `Name:` ist gleich der Name im Spiel |
-| `vorlage_figur.png` | graue Figur in den drei Posen (Stehen, Schritt links, Schritt rechts), 1536×512 auf Magenta |
-| `vorlage_figur_bunt.png` | dieselbe Figur in Farbe, falls die graue Vorlage zu blasse Farben gibt |
+| `vorlage_figur.png` | Figur in den drei Posen (Stehen, Schritt links, Schritt rechts), 1536×512 auf Magenta: Kleidung grau, Haut in Hautfarbe, damit die neuen Figuren keine graue Haut bekommen |
+| `vorlage_figur_bunt.png` | dieselbe Figur ganz in Farbe, falls die Figuren immer noch zu blass werden (dann färbt eher das hellblaue Hemd ab) |
 | `vorlage_figur_klein.png`, `vorlage_figur_tier.png` | kleinere Vorlagen (Kind, Pinguin) für kleine Figuren |
 | `ct_figur_img2img_krea2.json` | derselbe Ablauf zum Ausprobieren in ComfyUI (Workflow laden, Vorlage und Prompt tauschen) |
 
 Die Vorlage gibt Größe, Stand auf dem Boden und die drei Posen vor, der Prompt bestimmt die Figur.
 Im Prompt-Block kann man pro Figur `Bild: vorlage_figur_tier.png` und `Denoise: 0.9` setzen.
-Bleibt die Figur zu nah an der Vorlage (grau, Hemd mit Krawatte), Denoise erhöhen (0.9 bis 0.95);
+Bleibt die Figur zu nah an der Vorlage (grau, blass, Hemd mit Krawatte), Denoise erhöhen (0.9 bis 0.95)
+oder mit `--image vorlage_figur_bunt.png` die farbige Vorlage nehmen;
 zerfallen die Posen, Denoise senken (0.75 bis 0.8).
 
 Die Bilder landen in `ComfyUI/output/crazytower/figuren/`, z.B. `npc_cook_v2_00001_.png`.
