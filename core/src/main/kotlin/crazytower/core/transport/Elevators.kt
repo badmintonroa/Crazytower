@@ -59,7 +59,7 @@ class Car(val id: Int, val x: Int, var bottom: Int, var top: Int, val express: B
      * Floors the doors open on. An express shaft skips everything but every fifth floor above
      * ground; in the basement it picks up on every floor, for the people from the parking spaces.
      */
-    val stops: List<Int> get() = if (express) floors.filter { it <= GROUND_FLOOR || it % Elevators.EXPRESS_EVERY == 0 } else floors.toList()
+    val stops: List<Int> get() = if (express) floors.filter { Elevators.isExpressStop(it) } else floors.toList()
 
     /** Tuning level of the shaft, see [crazytower.core.Tuning]. */
     var tuning: Int = 0
@@ -191,6 +191,9 @@ class Elevators(private val tower: Tower) : LinkProvider {
 
         /** An express elevator stops on floors divisible by this. */
         const val EXPRESS_EVERY = 5
+
+        /** Whether an express shaft opens its doors on [floor]: every fifth floor and the whole basement. */
+        fun isExpressStop(floor: Int): Boolean = floor <= GROUND_FLOOR || floor % EXPRESS_EVERY == 0
         const val DOOR_MINUTES = 0.5f
         const val MAX_CABINS = 12
         const val CABIN_COST = 4_000L
