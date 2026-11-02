@@ -36,9 +36,25 @@ class DebugOverlay(private val sim: Simulation, private val views: Views) : Cont
     private val printEvery = System.getenv("CRAZYTOWER_PROFILE")?.toDoubleOrNull()
     private var printed = 0.0
 
+    /**
+     * Draw calls: the batches KorGE hands to the graphics card. Every change of texture set,
+     * clipping or smoothing starts a new one, so this is the number to keep low.
+     */
+    private var drawCalls = 0L
+    private var maxDrawCalls = 0
+    private var batchesBefore = 0
+
     private val listeners = listOf(
-        views.onBeforeRender.add { renderStart = System.nanoTime() },
-        views.onAfterRender.add { renderNanos += System.nanoTime() - renderStart },
+        views.onBeforeRender.add {
+            renderStart = System.nanoTime()
+            batchesBefore = views.renderContext.batch.batchCount
+        },
+        views.onAfterRender.add {
+            renderNanos += System.nanoTime() - renderStart
+            val calls = views.renderContext.batch.batchCount - batchesBefore
+            drawCalls += calls
+            maxDrawCalls = maxOf(maxDrawCalls, calls)
+        },
     )
 
     init {
@@ -82,6 +98,7 @@ class DebugOverlay(private val sim: Simulation, private val views: Views) : Cont
             if (elapsed >= printEvery) exitProcess(0)
         }
         frames = 0; frameSeconds = 0.0; maxFrame = 0.0
+        drawCalls = 0; maxDrawCalls = 0
         simNanosSum = 0; towerNanosSum = 0; hudNanosSum = 0; renderNanos = 0
     }
 
@@ -97,7 +114,8 @@ class DebugOverlay(private val sim: Simulation, private val views: Views) : Cont
         val rows = (systems + listOf("Spiel sonst" to rest, "Turmansicht" to towerNanosSum, "HUD" to hudNanosSum, "Zeichnen" to renderNanos))
             .sortedByDescending { it.second }
             .map { (name, nanos) -> name to "%.2f ms".format(nanos / 1e6 / n) }
-        val title = "%.0f FPS   %.1f ms/Frame (max %.1f)   %d Sim-Threads".format(n / frameSeconds, frameSeconds * 1000 / n, maxFrame * 1000, Workers.threads)
+        val title = "%.0f FPS   %.1f ms/Frame (max %.1f)   %d Draw Calls (max %d)   %d Sim-Threads"
+            .format(n / frameSeconds, frameSeconds * 1000 / n, maxFrame * 1000, drawCalls / n, maxDrawCalls, Workers.threads)
         return title to rows
     }
 
