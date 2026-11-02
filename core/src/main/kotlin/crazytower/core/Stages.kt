@@ -36,7 +36,7 @@ object Stages {
             unlocks = Tr("Neu: Sicherheitsdienst. Die Herren tragen Sonnenbrillen. Auch nachts.", "New: security. The gentlemen wear sunglasses. At night too.")),
         StageInfo(4, Tr("Mega-Tower", "Mega Tower"), maxFloor = 75,
             lobbyArt = "lobby_stage4_megatower",
-            unlocks = Tr("Neu: Teleporter. Kommt meistens dort an, wo man hinwollte.", "New: teleporter. Usually arrives where you wanted to go.")),
+            unlocks = Tr("Neu: Luxusbüros. Der Teppich kostet mehr als das Auto in der Tiefgarage.", "New: luxury offices. The carpet costs more than the car in the car park.")),
         StageInfo(5, Tr("CrazyTower", "CrazyTower"), maxFloor = 100,
             lobbyArt = "lobby_stage5_crazytower",
             unlocks = Tr("Neu: Ufo-Landeplatz. Die Botschaft von Gliese 581 hat schon angefragt.", "New: UFO landing pad. The Embassy of Gliese 581 has already asked.")),

@@ -108,7 +108,7 @@ Die Sterne sind die eine Fortschrittsleiter des Turms: Jeder Stern ist zugleich 
 | 1 | Bruchbude | 10 | 10 Bewohner | Büros, Imbiss |
 | 2 | Hochhaus | 25 | 300 Bewohner, Laune 50 % | Kopierraum, Express-Aufzug, Wohnheim, Späti, Kita, Grundstück 128 breit (Ende der Demo) |
 | 3 | Wolkenkratzer | 50 | 1.000 Bewohner, Laune 60 %, Imbiss | Sicherheitsdienst, Hotel, Penthouse, U-Bahn, Konferenzzentrum, Keller, Grundstück 160 breit, Fachkräfte |
-| 4 | Mega-Tower | 75 | 3.000 Bewohner, Laune 64 %, Sicherheitsdienst | Teleporter, Luxusbüros, Extras |
+| 4 | Mega-Tower | 75 | 3.000 Bewohner, Laune 64 %, Sicherheitsdienst | Luxusbüros, Extras |
 | 5 | CrazyTower | 100 | 6.000 Bewohner, Laune 68 %, VIP-Besuch überlebt | Ufo-Landeplatz, Mondmission |
 
 Der erste Stern kommt schnell, und die ersten 12 Haushalte eines neuen Turms ziehen sofort ein, ohne auf die Wohnungskäufer des nächsten Tages zu warten. Danach finden neue Wohnungen nur ein paar Käufer am Tag.
@@ -121,7 +121,7 @@ Ab 3 Sternen suchen Firmen **Fachkräfte**: Neue Büromieter ziehen nur ein, sol
 | 2 ★ | Späti | versorgt 30 Wohnungen und Wohnheime, Bewohner bis +6 Laune |
 | 2 ★ | Kita | +3 Wohnungskäufer pro Tag, höchstens 3 |
 | 3 ★ | Penthouse | 12 Felder, ab der 20. Etage, 4 Bewohner, viermal Hausgeld, braucht nur einen Käufer |
-| 3 ★ | U-Bahn-Station | im Keller, +1.500 Pendler für die Büros |
+| 3 ★ | U-Bahn-Station | im Keller, +1.500 Pendler für die Büros; ist sie mit dem Turm verbunden, steigen dort 40 % der Leute aus und ein |
 | 3 ★ | Konferenzzentrum | Hotelgäste zahlen 50 % mehr |
 
 So führen mehrere Wege zu 4 und 5 Sternen: Büros und Wohnungen gemischt, Büros mit Wohnheimen (die sich gegenseitig hochziehen), Büros mit U-Bahn und Hotels, oder viele Wohnungen mit Kitas und Penthouses, die irgendwann doch Büros brauchen. Drei Bots spielen das durch, siehe „Bots“ unten.
@@ -159,7 +159,7 @@ Ab 4 Sternen gibt es mehr zu kaufen als Räume. Die laufenden Kosten richten sic
 - **Ausbau** (Inspektor): Büros, Wohnungen, Hotels, Imbisse, Läden und Wohnheime bekommen bis zu drei Stufen, jede +15 % Miete und +3 Laune. Die Namen hängen vom Mieter ab (Clowns bekommen einen Hüpfburg-Boden, Vampire einen Sarg-Ruheraum). Ausgebaute Räume tragen kleine Sterne.
 - **Aufzug-Tuning** (Inspektor am Schacht): Turbo-Motor (30 % schneller), Streichquartett (Wartende werden später grantig), Liftboy mit Monokel (mehr Plätze, schnellere Türen).
 - **Wunschmieter anwerben** (Inspektor an leeren Räumen): eine Zeitungsanzeige, und der gewählte Mieter zieht sofort ein.
-- **Extras-Fenster** (`X`): Versicherungen gegen Tauben, Clowns, Spuk, Stromausfall und Aufzugspannen (verhindern die meisten dieser Ereignisse), eine Werbekampagne (3 Tage mehr Besucher und VIPs), das wöchentliche Turmfest (+10 Laune für 2 Tage), Deko für das Dach (Gummiente, Leuchtschrift, Discokugel, goldene Fassade, Lasershow; jede bringt mehr Schaulustige), drei Seiteneingänge aus Oma Hildegards Garten (kürzere Wege von der Straße) und das Labor für fragwürdige Wissenschaft (Teleporter ohne Verwechslung, Kaffee aus dem Kopierraum, selbstputzende Handtücher, Schallschluck-Tapete, Geduldspille).
+- **Extras-Fenster** (`X`): Versicherungen gegen Tauben, Clowns, Spuk, Stromausfall und Aufzugspannen (verhindern die meisten dieser Ereignisse), eine Werbekampagne (3 Tage mehr Besucher und VIPs), das wöchentliche Turmfest (+10 Laune für 2 Tage), Deko für das Dach (Gummiente, Leuchtschrift, Discokugel, goldene Fassade, Lasershow; jede bringt mehr Schaulustige), drei Seiteneingänge aus Oma Hildegards Garten (kürzere Wege von der Straße) und das Labor für fragwürdige Wissenschaft (Kaffee aus dem Kopierraum, selbstputzende Handtücher, Schallschluck-Tapete, Geduldspille).
 
 ## Mondmission ab 5 Sternen (`core/.../Mission.kt`)
 

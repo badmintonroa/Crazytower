@@ -50,8 +50,8 @@ class ScheduleSystem(
         }
         if (entity has Away) {
             if (!inside) return
-            // luxury tenants drive in and come up from their parking space
-            val car = sim.carSpot(room)
+            // luxury tenants drive in and come up from their parking space, others may come by subway
+            val car = sim.carSpot(room) ?: sim.subwaySpot(room.center)
             pos.floor = car?.floor ?: GROUND_FLOOR
             pos.x = car?.x ?: sim.arrivalX(room)
             entity.configure { drop(it, Away) }
@@ -59,7 +59,7 @@ class ScheduleSystem(
             return
         }
         if (!inside) {
-            sim.goTo(entity, sim.carSpot(room) ?: sim.streetExit(pos.x), Activity.LEAVING)
+            sim.goTo(entity, sim.carSpot(room) ?: sim.subwaySpot(room.center) ?: sim.streetExit(pos.x), Activity.LEAVING)
             return
         }
         if (schedule.ateOnDay != clock.day && Routine.mealTime(member.resident, schedule.plan, schedule.offset, clock)) {

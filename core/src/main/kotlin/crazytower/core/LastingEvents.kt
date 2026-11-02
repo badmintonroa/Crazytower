@@ -256,7 +256,7 @@ object Lasting {
         ),
         LastingKind(
             "moon", Tr("Turm auf dem Mond", "Tower on the moon"),
-            Tr("Der Teleporter hat den ganzen Turm auf den Mond gebeamt. Keine Besucher, bis er zurück ist.", "The teleporter beamed the whole tower to the moon. No visitors until it is back."),
+            Tr("Das Ufo hat den ganzen Turm auf den Mond geschleppt. Keine Besucher, bis er zurück ist.", "The UFO towed the whole tower to the moon. No visitors until it is back."),
             noVisitors = true,
             onEnd = { _, _ ->
                 val tips = (MOON_TIPS * starBonus).toLong()

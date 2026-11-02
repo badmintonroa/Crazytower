@@ -106,7 +106,7 @@ class NavGraph(private val tower: Tower, private val providers: List<LinkProvide
     /**
      * Finds the cheapest route from [from] to [to], or null if there is none.
      * The result never contains a zero-length walk. Nobody climbs more than
-     * [NavCosts.MAX_STAIRS_FLOORS] floors on foot in a row; an elevator or teleporter ride in
+     * [NavCosts.MAX_STAIRS_FLOORS] floors on foot in a row; an elevator ride in
      * between lets them catch their breath.
      */
     fun findPath(from: Loc, to: Loc): List<Leg>? {
@@ -174,7 +174,7 @@ class NavGraph(private val tower: Tower, private val providers: List<LinkProvide
         return false
     }
 
-    /** Whether any staircase, elevator stop or teleporter can be walked to from [loc]. */
+    /** Whether any staircase or elevator stop can be walked to from [loc]. */
     fun hasLinksNear(loc: Loc): Boolean {
         ensureBuilt()
         val key = spanKey(loc) ?: return false

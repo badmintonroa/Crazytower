@@ -67,9 +67,6 @@ class LotTest {
         sim.build(sim.planLobby(0, 40))
         assertTrue(sim.build(Catalog.COPYROOM, 1, 0).ok)
         assertEquals("Kopierraum der Ewigkeit gibt es schon, nur einmal pro Turm", sim.checkPlace(Catalog.COPYROOM, 1, 6).reason)
-        assertTrue(sim.build(Catalog.TELEPORTER, 1, 12).ok)
-        assertTrue(sim.build(Catalog.TELEPORTER, 1, 20).ok)
-        assertFalse(sim.checkPlace(Catalog.TELEPORTER, 1, 30).ok, "teleporters come as one pair")
         assertTrue(Catalog.roomTypes.filter { it.category == Category.SPECIAL }.all { it.effects.isNotEmpty() }, "every special says what it does")
     }
 

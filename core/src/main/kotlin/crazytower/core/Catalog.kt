@@ -35,9 +35,6 @@ enum class RoomRole {
     /** Needed for stage 4, keeps some of the chaos away. */
     SECURITY,
 
-    /** Teleporters connect to each other, wherever they are. */
-    TELEPORTER,
-
     /** One underground parking space for one car; earns parking fees, and luxury offices need some. */
     PARKING,
 
@@ -308,16 +305,6 @@ object Catalog {
             ONCE,
         ),
     )
-    val TELEPORTER = RoomType(
-        id = "teleporter", name = Tr("Teleporter", "Teleporter"), category = Category.SPECIAL, role = RoomRole.TELEPORTER,
-        width = 2, cost = 150_000, minStage = 4, art = "special_teleporter", maxCount = 2,
-        description = Tr("Kommt meistens dort an, wo man hinwollte.", "Usually arrives where you wanted to go."),
-        effects = listOf(
-            Tr("Leute springen sofort zum anderen Teleporter", "people jump straight to the other teleporter"),
-            Tr("spart lange Aufzugfahrten", "saves long elevator rides"),
-            Tr("genau ein Paar pro Turm", "exactly one pair per tower"),
-        ),
-    )
     val UFO_PAD = RoomType(
         id = "ufo", name = Tr("Ufo-Landeplatz", "UFO landing pad"), category = Category.SPECIAL, role = RoomRole.SPECIAL,
         width = 6, cost = 500_000, minStage = 5, art = "special_ufo", maxCount = 1,
@@ -416,10 +403,14 @@ object Catalog {
     /** The old car park for 40 cars; saves that still have one get single spaces instead. */
     const val OLD_CAR_PARK = "parking"
 
+    /** The teleporter, taken out of the game; saves that still have one get corridor and the money back. */
+    const val OLD_TELEPORTER = "teleporter"
+    const val OLD_TELEPORTER_COST = 150_000L
+
     val roomTypes: List<RoomType> =
         listOf(
             LOBBY, CORRIDOR, FILLER, STAIRS, ELEVATOR, EXPRESS, OFFICE, LUXURY_OFFICE, HOME, DORM, PENTHOUSE, HOTEL_SINGLE, HOTEL, HOTEL_SUITE, HOUSEKEEPING,
-            FOOD, SHOP, COPYROOM, SECURITY, KITA, SUBWAY, CONFERENCE, TELEPORTER, UFO_PAD, PARKING,
+            FOOD, SHOP, COPYROOM, SECURITY, KITA, SUBWAY, CONFERENCE, UFO_PAD, PARKING,
         ) + listOf(Mission.DECK, Mission.SOUVENIRS) + Mission.partTypes
 
     fun type(id: String): RoomType = roomTypes.first { it.id == id }

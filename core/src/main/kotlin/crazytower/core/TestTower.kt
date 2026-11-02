@@ -103,7 +103,7 @@ object TestTower {
                 sim.build(sim.planLobby(0, width - 1, floor))
                 continue
             }
-            fillFloor(sim, floor, width, teleporter = floor == 10 || floor == 60) { i ->
+            fillFloor(sim, floor, width) { i ->
                 when {
                     floor == top && i == 0 -> Catalog.UFO_PAD
                     floor == 1 && i == 4 -> Catalog.SECURITY
@@ -144,9 +144,9 @@ object TestTower {
 
     /**
      * Rooms of six from the left (from [start]), [pick] chooses each one. The narrow rest at the right end
-     * becomes corridor, so the floor above has something to stand on, with a [teleporter] in it.
+     * becomes corridor, so the floor above has something to stand on.
      */
-    private fun fillFloor(sim: Simulation, floor: Int, width: Int, teleporter: Boolean = false, start: Int = 0, pick: (Int) -> RoomType) {
+    private fun fillFloor(sim: Simulation, floor: Int, width: Int, start: Int = 0, pick: (Int) -> RoomType) {
         var x = start
         var i = 0
         while (x + 6 <= width) {
@@ -155,7 +155,6 @@ object TestTower {
             x += 6
             i++
         }
-        if (teleporter && x + Catalog.TELEPORTER.width <= width && sim.build(Catalog.TELEPORTER, floor, x).ok) x += Catalog.TELEPORTER.width
         if (x < width) sim.build(Catalog.CORRIDOR, floor, x, width - x)
     }
 

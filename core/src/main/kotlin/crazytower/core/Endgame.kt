@@ -392,8 +392,8 @@ object Gates {
             "Granny Hildegard sells her allotment. There is a side entrance in the middle of the tower now.")),
         Gate(Lot.maxWidth / 4f, 6_000_000, Tr("Oma Hildegard verkauft das nächste Beet. Dafür will sie eine Hollywoodschaukel. Neuer Seiteneingang links.",
             "Granny Hildegard sells the next flower bed. She wants a swing seat in return. New side entrance on the left.")),
-        Gate(Lot.maxWidth * 3 / 4f, 18_000_000, Tr("Oma Hildegard gibt das letzte Beet her, gegen Geld und einen Teleporter zu ihrem Enkel. Neuer Seiteneingang rechts.",
-            "Granny Hildegard gives up her last bed, for money and a teleporter to her grandson. New side entrance on the right.")),
+        Gate(Lot.maxWidth * 3 / 4f, 18_000_000, Tr("Oma Hildegard gibt das letzte Beet her, gegen Geld und eine Rutsche zu ihrem Enkel. Neuer Seiteneingang rechts.",
+            "Granny Hildegard gives up her last bed, for money and a slide to her grandson. New side entrance on the right.")),
     )
 }
 
@@ -432,7 +432,6 @@ object Research {
     const val PATIENCE = 3.0
 
     val all = listOf(
-        Study("teleport", Tr("Teleporter ohne Verwechslung", "Teleporter without mix-ups"), Tr("niemand landet mehr in der falschen Etage", "nobody lands on the wrong floor any more")),
         Study("coffee", Tr("Kopierraum kopiert jetzt auch Kaffee", "The copy room now copies coffee too"), Tr("Büroleute: doppelte Laune vom Kopierraum", "office workers: twice the mood from the copy room")),
         Study("towels", Tr("Selbstputzende Handtücher", "Self-cleaning towels"), Tr("Hotelzimmer sind doppelt so schnell sauber", "hotel rooms are clean twice as fast")),
         Study("wallpaper", Tr("Schallschluck-Tapete", "Sound-swallowing wallpaper"), Tr("Wohnheime stören die Nachbarn nicht mehr", "dorms no longer bother the neighbours")),

@@ -45,7 +45,7 @@ object Autopilot {
         // CRAZYTOWER_EVENT=<id> starts that event (if it fits the tower) and selects where it happens
         System.getenv("CRAZYTOWER_EVENT")?.let { id ->
             val started = Events.all.firstOrNull { it.id == id }?.apply?.invoke(sim) == true
-            // events that need no place in the tower start anyway, e.g. the moon without teleporters
+            // events that need no place in the tower start anyway, e.g. the moon without a UFO pad
             if (!started && Lasting.exists(id)) {
                 val now = sim.clock.totalMinutes
                 sim.startEvent(ActiveEvent(id, now, now + 120), Lasting.kind(id).title.toString())
