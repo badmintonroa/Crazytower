@@ -23,6 +23,7 @@ import crazytower.core.tr
 import crazytower.core.whereOf
 import crazytower.core.undoableBuild
 import crazytower.core.undoableDemolish
+import crazytower.game.ui.bakedLabel
 import crazytower.game.ui.formatMoney
 import crazytower.game.ui.label
 import korlibs.event.Key
@@ -255,7 +256,7 @@ class TowerView(
             extrasLayer.solidRect(26.0, 10.0, Theme.GOLD).xy(mid - 13.0, top - 40.0)
         }
         if ("neon" in e.decor) {
-            val sign = extrasLayer.text("CRAZYTOWER", textSize = 54.0, color = Theme.ALARM, font = Theme.bodyBold)
+            val sign = extrasLayer.bakedLabel("CRAZYTOWER", 54.0, Theme.ALARM, Theme.bodyBold)
             sign.xy(mid - sign.width / 2, top - 76.0)
         }
         if ("disco" in e.decor) {
@@ -293,11 +294,11 @@ class TowerView(
             val end = Metrics.x(next.width)
             lotMarks.solidRect(end - right, 6.0, Theme.GOLD.withAd(0.35)).xy(right, -6.0)
             lotMarks.solidRect(4.0, 16.0, Theme.GOLD.withAd(0.5)).xy(end - 2, -16.0)
-            val sign = lotMarks.text(tr("ZU VERKAUFEN · ab ${next.stars} Sternen", "FOR SALE · from ${next.stars} stars"), textSize = 22.0, color = Theme.GOLD, font = Theme.bodyBold)
+            val sign = lotMarks.bakedLabel(tr("ZU VERKAUFEN · ab ${next.stars} Sternen", "FOR SALE · from ${next.stars} stars"), 22.0, Theme.GOLD, Theme.bodyBold)
             sign.xy(right + (end - right - sign.width) / 2, -Metrics.FEET - 36.0)
         }
         if (!sim.basementOpen) {
-            val sign = lotMarks.text(tr("Keller ab ${Lot.BASEMENT_STARS} Sternen", "Basement from ${Lot.BASEMENT_STARS} stars"), textSize = 22.0, color = Theme.TEXT_DIM, font = Theme.bodyBold)
+            val sign = lotMarks.bakedLabel(tr("Keller ab ${Lot.BASEMENT_STARS} Sternen", "Basement from ${Lot.BASEMENT_STARS} stars"), 22.0, Theme.TEXT_DIM, Theme.bodyBold)
             sign.xy((right - sign.width) / 2, 40.0)
         }
     }
@@ -338,6 +339,9 @@ class TowerView(
     private var culledVersion = -1
 
     /**
+     * Texts in the tower are [crazytower.game.ui.BakedText]: a vector-font text would be drawn anew
+     * on the processor in every frame the camera moves.
+     *
      * KorGE draws every visible view, on screen or not. A full tower has thousands of rooms and
      * people, so everything outside the floors on screen is switched off.
      */
@@ -737,7 +741,7 @@ class TowerView(
                 }
             }
         }
-        shaftHandles.label("${car.cabins.size}", 14.0, Theme.GOLD, Theme.bodyBold).xy(side + size + 6, mid - 9)
+        shaftHandles.bakedLabel("${car.cabins.size}", 14.0, Theme.GOLD, Theme.bodyBold).xy(side + size + 6, mid - 9)
     }
 
     /** The left button went down: a press on a shaft handle acts on the shaft instead of the tower. */
