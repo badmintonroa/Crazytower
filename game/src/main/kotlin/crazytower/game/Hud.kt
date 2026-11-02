@@ -593,6 +593,19 @@ class Hud(
 
     // ---------------------------------------------------------------- keys
 
+    /** C: the selected room's kind in the hand, like the inspector's copy button. */
+    private fun copySelected() {
+        val sel = game.selection as? Selection.RoomSel ?: return
+        val type = sim.tower.room(sel.roomId)?.type ?: return
+        val blocked = game.copyBlocked(type)
+        if (blocked != null) {
+            game.say(blocked)
+            Sfx.play(Sfx.ERROR)
+        } else if (game.copy(type)) {
+            game.say(tr("${type.name} gewählt, klick in den Turm", "${type.name} chosen, click in the tower"))
+        }
+    }
+
     private fun setupKeys() {
         keys {
             Category.entries.forEachIndexed { i, c ->
@@ -612,6 +625,7 @@ class Hud(
             down(Key.F) { game.financeOpen = !game.financeOpen }
             down(Key.O) { game.optionsOpen = !game.optionsOpen }
             down(Key.X) { game.extrasOpen = !game.extrasOpen }
+            down(Key.C) { copySelected() }
             down(Key.M) { if (sim.missionStarted) game.missionOpen = !game.missionOpen }
             down(Key.ESCAPE) {
                 when {

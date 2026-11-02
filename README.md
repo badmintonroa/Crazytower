@@ -65,6 +65,7 @@ Der Aufnahmemodus (`game/.../Film.kt`, `CRAZYTOWER_FILM=<datei.mp4|.png>`) läuf
 | `F` oder Klick aufs Geld | Finanzen |
 | `O` | Optionen |
 | `F1` oder `H` | Tastenübersicht |
+| `C` | Gewählten Raum kopieren (gleichen Raumtyp zum Bauen wählen) |
 | `Strg+Z` | Letzten Bau oder Abriss zurücknehmen |
 | Esc (ohne offenes Fenster) | Pausenmenü: Weiterspielen, Speichern, Optionen, Tasten, Hauptmenü |
 | `F5` / `F9` | Speichern / Laden |
@@ -93,7 +94,7 @@ Die Simulation verteilt die Wegsuche und die Aufzugsschächte auf Hilfsthreads (
 - Etagen über dem Erdgeschoss brauchen darunter etwas, auf dem sie stehen. Das erste Untergeschoss geht überall, tiefere brauchen eine Decke.
 - Wege: Lobby (nur Erdgeschoss), Flur, Treppe (eine Etage hoch), Aufzug (Schachtstücke übereinander bauen, höchstens 30 Etagen). Wer einen Aufzug oder eine Treppe weiter zieht, als das Geld reicht, bekommt beim Loslassen so viele Etagen wie bezahlbar; der Rest ist in der Vorschau rot. Dasselbe gilt für Parkplatz-Reihen.
 - Das Baumenü zeigt nur, was die Sterne schon erlauben. Was seit dem letzten Blick dazugekommen ist, trägt beim ersten Anzeigen einen Stern und „NEU“, die Kategorie-Taste auch.
-- Ist ein Raum gewählt, klappt das Baumenü zu einer kleinen Karte zusammen (Raum, Preis, „Wechseln“, „Abbrechen“), damit man beim Platzieren den Turm sieht. Die Details stehen im Hinweis der Karte. „Wechseln“, ein Klick auf die Karte oder die Kategorie-Taste zeigen wieder die ganze Liste. Für Screenshots wählt `CRAZYTOWER_BUILD=<raum-id>` (mit `CRAZYTOWER_CATEGORY`) einen Raum vor.
+- Ist ein Raum gewählt, klappt das Baumenü zu einer kleinen Karte zusammen (Raum, Preis, „Wechseln“, „Abbrechen“), damit man beim Platzieren den Turm sieht. Die Details stehen im Hinweis der Karte. „Wechseln“, ein Klick auf die Karte oder die Kategorie-Taste zeigen wieder die ganze Liste. „Kopieren“ (oder `C`) im Infofenster eines gebauten Raums, einer Treppe oder eines Aufzugs wählt denselben Typ und öffnet diese kleine Karte, um gleich noch einen zu platzieren; gesperrt, wenn der Typ nicht im Baumenü steht oder sein Limit erreicht ist. Für Screenshots wählt `CRAZYTOWER_BUILD=<raum-id>` (mit `CRAZYTOWER_CATEGORY`) einen Raum vor.
 - Büros, Wohnungen und Imbisse werden vermietet, sobald man sie von der Straße aus erreicht. Wer einzieht, entscheidet der Turm: vom Steuerbüro bis zur Vampir-Versicherung (siehe `core/.../Tenants.kt`).
 - `tools/art/make_rooms_extra.py` zeichnet die Räume, für die es noch keine generierte Grafik gibt (Wege, Wohnungen, Imbisse, Hotel, Reinigungsdienst, Luxusbüros), jeweils bei Tag, bei Nacht und verwahrlost (`extra*.png`). Luxusbüros sind 12 Felder breit, ihre Bilder auch.
 - `tools/art/import_rooms.py <Ordner>` setzt generierte Raumbilder (z. B. aus ComfyUI, Dateiname = Raumname wie `food_sushi_00001_.png`) in diese Atlanten ein: schneidet Außenwände und Himmel weg, skaliert auf die Raumgröße und leitet Nacht- und Verwahrlost-Look per Filter ab. Nach `make_rooms_extra.py` erneut laufen lassen, sonst sind die Bilder wieder weg.
