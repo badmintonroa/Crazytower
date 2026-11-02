@@ -1146,14 +1146,37 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
     fun arrivalX(room: Room): Float =
         if (endgame.gates == 0) (if (random.nextBoolean()) 0f else lotWidth - 0.01f) else streetExit(room.centerX).x
 
+    private var subwayVersion = -1
+    private var subwayReach: ((Loc) -> Float?)? = null
+
+    /** The subway station, if the tower has one. */
+    val subway: Room? get() = tower.allRooms.firstOrNull { it.type.role == RoomRole.SUBWAY }
+
+    /**
+     * Where someone going to or from [to] gets on or off the train: a spot on the platform of
+     * the subway station, for about [SUBWAY_SHARE] of the trips, when the tower has a station
+     * and [to] can be reached from it. Null means the street.
+     */
+    fun subwaySpot(to: Loc): Loc? {
+        val station = subway ?: return null
+        if (random.nextFloat() >= SUBWAY_SHARE) return null
+        if (subwayVersion != tower.version || subwayReach == null) {
+            subwayVersion = tower.version
+            subwayReach = nav.travelMinutesFrom(station.center)
+        }
+        if (subwayReach?.invoke(to) == null) return null
+        return spotIn(station)
+    }
+
     fun spawnVisitor(spectator: Boolean = false): Entity {
         val doors = entrances
-        val start = doors[random.nextInt(doors.size)]
+        val train = tower.allRooms.firstOrNull { it.type.role == RoomRole.LOBBY }?.let { subwaySpot(it.center) }
+        val start = train?.x ?: doors[random.nextInt(doors.size)]
         val fromLeft = start < lotWidth / 2f
         val looks = if (spectator) SPECTATOR_LOOKS else VISITOR_LOOKS
         val look = looks[random.nextInt(looks.size)]
         return world.entity {
-            it += Position(GROUND_FLOOR, start, facingLeft = !fromLeft)
+            it += Position(train?.floor ?: GROUND_FLOOR, start, facingLeft = !fromLeft)
             it += Person(Names.random(random), look)
             it += Visitor(stopsLeft = if (spectator) 3 else 1 + random.nextInt(3), spectator = spectator, since = clock.totalMinutes)
         }
@@ -1358,6 +1381,9 @@ class Simulation(seed: Long = 1L, startMoney: Long = START_MONEY) {
 
         /** Extra commuters a subway station brings. */
         const val SUBWAY_COMMUTERS = 1_500
+
+        /** Share of the trips into and out of the tower that take the subway once there is a station. */
+        const val SUBWAY_SHARE = 0.4f
 
         /** Students need side jobs: there are at most 1 / [STUDENT_JOBS] as many students as office workers. */
         const val STUDENT_JOBS = 2

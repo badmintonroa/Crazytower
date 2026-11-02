@@ -100,7 +100,8 @@ class VisitorSystem(
         }
         if (visitor.stopsLeft <= 0 || lobbies.isEmpty()) {
             visitor.leaving = true
-            entity.configure { it += Goal(sim.streetExit(entity[Position].x)) }
+            val pos = entity[Position]
+            entity.configure { it += Goal(sim.subwaySpot(Loc(pos.floor, pos.x)) ?: sim.streetExit(pos.x)) }
             return
         }
         visitor.stopsLeft--
