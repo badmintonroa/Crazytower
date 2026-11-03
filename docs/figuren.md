@@ -14,14 +14,15 @@ Damit alle drei Posen dieselbe Figur zeigen, entsteht erst nur das Stehbild, dan
    mit Qwen 2.1, zum Vergleichen.
    Für alle Figuren: `batch_figuren_stufe1.bat` (4 Varianten pro Figur).
    Ergebnis: `ComfyUI/output/crazytower/figuren_stufe1_krea2/` und `figuren_stufe1_qwen21-edit/`.
-   Qwen bekommt als Vorlage `vorlage_figur_stand.png` (eine stehende Puppe) und als Stil-Referenzen
-   `stil_referenz.png` und `ref_stand_1–5.png`. Krea zeichnet das Stehbild ohne Vorlage nur aus dem Prompt,
-   weil die graue Puppe bei Krea sonst durchdrückt (graue Haut, graue Extra-Figuren daneben).
+   Beide Modelle zeichnen das Stehbild ohne Puppe: Qwen bekommt eine leere Magenta-Fläche (`leer_stand.png`)
+   und als Stil-Referenzen `stil_referenz.png` und `ref_stand_1–5.png`, Krea nur den Prompt. Mit der grauen
+   Puppe hat Krea graue Haut und Extra-Figuren gemalt und Qwen Kopf und Haare der Puppe übernommen.
 2. In diesen Ordnern die Stehbilder löschen, die nicht gefallen. Pro Figur darf eins oder mehrere übrig bleiben.
 3. `test_stufe2.bat` bzw. `batch_figuren_stufe2.bat`: schneidet jedes übrige Stehbild aus, setzt es so groß wie die Puppe
    auf deren Bodenlinie links in die 3-Posen-Vorlage und lässt
    nur die zwei Schritte daneben zeichnen, mit dem Stehbild als Vorbild. Ergebnis: `figuren_stufe2_<modell>/`.
-   Qwen bekommt das Stehbild als Bild 1. Krea kann keine Referenzen, dort bleibt das linke Drittel per Maske
+   Qwen bekommt das Stehbild dreimal nebeneinander als Bild 1 und ändert in der Mitte und rechts nur Beine
+   und Arme, so gibt es keine fremden Köpfe. Krea kann keine Referenzen, dort bleibt das linke Drittel per Maske
    (`maske_schritte.png`) stehen und nur Mitte und rechts werden neu gezeichnet.
    Liegt dein ComfyUI nicht unter `D:\ai\ComfyUI`, in der .bat den Pfad bei `OUT` anpassen.
 4. `figuren_stufe2_<modell>` wie unten beschrieben mit `import_people.py` ins Spiel holen.
