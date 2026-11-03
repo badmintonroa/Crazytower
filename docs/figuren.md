@@ -13,7 +13,10 @@ Kein Vorlagenbild, keine Referenzen: Z-Image zeichnet alle drei Posen in einem B
 zwei Schritte) und Stil. Modelle: `z_image_turbo_bf16.safetensors`, `qwen_3_4b.safetensors`, `ae.safetensors`
 (8 Schritte, cfg 1, res_multistep).
 
-1. `test_zimage.bat`: Koch, Drache, Königin, je 2 Varianten. Ergebnis: `ComfyUI/output/crazytower/figuren_zimage/`.
+1. `test_zimage.bat`: Koch, Drache, Königin, je 2 Varianten. Ergebnis: `ComfyUI/output/crazytower/figuren_einfach_zimage/`.
+   Zum Vergleich: `test_einfach.bat` schickt dieselben Prompts an Z-Image, Qwen 2.1 und Krea 2
+   (`figuren_einfach_zimage/`, `figuren_einfach_qwen21-edit/`, `figuren_einfach_krea2/`). Qwen 2.1 ist ein
+   Edit-Modell und bekommt dafür nur eine leere Magenta-Fläche (`leer_bogen.png`), keine Referenzen.
 2. Passt es, `batch_figuren_zimage.bat` für alle 64 Figuren (3 Varianten), oder `--nur npc_cook,npc_queen`.
 3. Gute Bilder behalten, den Rest löschen, dann wie unten mit `import_people.py` ins Spiel holen.
 
