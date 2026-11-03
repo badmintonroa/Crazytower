@@ -1,7 +1,9 @@
 """Puts generated figure pictures (ComfyUI, Gemini, ...) into the game as people sprite sheets.
 
 Each picture shows one figure three times side by side on a magenta background (#FF00FF): standing,
-walking with the left leg forward, walking with the right leg forward. That is what the ComfyUI
+walking with the left leg forward, walking with the right leg forward. A picture that is less than twice
+as wide as high (e.g. 1152x768) has only two poses, standing and walking; the step is used for both
+walking frames. That is what the ComfyUI
 img2img template vorlage_figur.png (1536x512) gives. The file is named after the look, e.g.
 "npc_cook_00001_.png", "npc_cook_v2_00001_.png" or "npc_cook.png". The ComfyUI counter and a
 "_v<n>" variant ending are dropped; if a look comes several times, the newest file wins, unless
@@ -95,23 +97,31 @@ def solid(mask, axis, least):
     return np.where(mask.sum(axis) >= least)[0]
 
 
-def poses(path):
+def pose_count(w, h):
+    """3 Posen nebeneinander (1536x512, 1536x640) oder nur 2, Stehen und Gehen (1152x768): am Seitenverhaeltnis."""
+    return 2 if w / h < 2 else 3
+
+
+def poses(path, count=None):
     rgba, alpha = key(Image.open(path))
     mask = alpha > 0.5
     h, w = mask.shape
+    count = count or pose_count(w, h)
     out = []
-    for j in range(3):
-        l, r = w * j // 3, w * (j + 1) // 3
+    for j in range(count):
+        l, r = w * j // count, w * (j + 1) // count
         m = mask[:, l:r]
         ys, xs = solid(m, 1, 3), solid(m, 0, 3)
         if len(ys) == 0 or len(xs) == 0:
-            sys.exit(f"{os.path.basename(path)}: im {j + 1}. Drittel ist keine Figur zu finden.")
+            sys.exit(f"{os.path.basename(path)}: im {j + 1}. Teil von {count} ist keine Figur zu finden.")
         y0, y1, x0, x1 = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
         m = m[y0:y1, x0:x1]
         head = m[: max(8, (y1 - y0) // 4)]
         hx = np.where(head.any(0))[0]
         cx = (hx.min() + hx.max()) / 2 if len(hx) else (x1 - x0) / 2
         out.append(dict(img=Image.fromarray(rgba[y0:y1, l + x0:l + x1]), h=y1 - y0, w=x1 - x0, cx=cx))
+    if count == 2:  # nur ein Schritt: er dient fuer beide Gehbilder, das Spiel wechselt Schritt und Stehen
+        out.append(out[1])
     return out
 
 
@@ -190,6 +200,8 @@ def main():
     ap.add_argument("--size", action="append", default=[], metavar="LOOK=FAKTOR",
                     help="Größe im Vergleich zu einem Erwachsenen, z.B. npc_dragon=1.1")
     ap.add_argument("--dry-run", action="store_true", help="nur die Vorschau schreiben, nichts ins Spiel")
+    ap.add_argument("--posen", type=int, choices=(2, 3),
+                    help="Posen pro Bild; sonst am Format erkannt (breit = 3, sonst 2: Stehen und Gehen)")
     ap.add_argument("--raw", action="store_true",
                     help="Stil nicht angleichen (Farbstärke, Helligkeit, Umriss bleiben wie generiert)")
     a = ap.parse_args()
@@ -218,7 +230,7 @@ def main():
     index = [l.strip() for l in open(index_path, encoding="utf-8") if l.strip()]
     rows = []
     for name, path in sorted(files.items()):
-        new = sheet(poses(path), sizes.get(name, 1.0))
+        new = sheet(poses(path, a.posen), sizes.get(name, 1.0))
         if not a.raw:
             new = match_style(new, ref)
         old = name if name in index else known.get(name)

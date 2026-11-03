@@ -20,6 +20,12 @@ zwei Schritte) und Stil. Modelle: `z_image_turbo_bf16.safetensors`, `qwen_3_4b.s
 2. Passt es, `batch_figuren_zimage.bat` für alle 64 Figuren (3 Varianten), oder `--nur npc_cook,npc_queen`.
 3. Gute Bilder behalten, den Rest löschen, dann wie unten mit `import_people.py` ins Spiel holen.
 
+**Nur zwei Posen (Stehen und Gehen):** `prompts_zwei.txt` verlangt die Figur nur zweimal (1152×768), das
+schaffen die Modelle zuverlässiger als drei. `test_zwei.bat` schickt Koch, Drache und Königin an Z-Image,
+Qwen 2.1 und Krea 2 (`figuren_zwei_<modell>/`), `batch_figuren_zwei.bat` macht alle 64 (Standard Z-Image,
+sonst `--modell krea2` oder `--modell qwen21-edit` anhängen). `import_people.py` erkennt das Format selbst
+und nimmt den Schritt für beide Gehbilder; im Spiel wechseln dann Schritt und Stehen.
+
 Den Stil für alle Figuren ändert man oben im `Stil:`-Block, `{figur}` ist die Stelle, an der die Beschreibung landet.
 
 ### In zwei Stufen (Qwen-Image 2.1 Turbo Edit)
