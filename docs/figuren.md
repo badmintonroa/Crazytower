@@ -6,7 +6,20 @@ damit sie zusammenpassen. Die Regeln dafür stehen in `art_direction_figuren.md`
 
 ## 1. Erzeugen
 
-### Empfohlen: in zwei Stufen (Qwen-Image 2.1 Turbo Edit)
+### Am schnellsten: Z-Image Turbo, nur aus dem Prompt
+
+Kein Vorlagenbild, keine Referenzen: Z-Image zeichnet alle drei Posen in einem Bild (1536×640), nur nach
+`prompts_zimage.txt`. Dort steht die Figur am Anfang, danach Aufbau (drei Kopien in einer Reihe, Stehen und
+zwei Schritte) und Stil. Modelle: `z_image_turbo_bf16.safetensors`, `qwen_3_4b.safetensors`, `ae.safetensors`
+(8 Schritte, cfg 1, res_multistep).
+
+1. `test_zimage.bat`: Koch, Drache, Königin, je 2 Varianten. Ergebnis: `ComfyUI/output/crazytower/figuren_zimage/`.
+2. Passt es, `batch_figuren_zimage.bat` für alle 64 Figuren (3 Varianten), oder `--nur npc_cook,npc_queen`.
+3. Gute Bilder behalten, den Rest löschen, dann wie unten mit `import_people.py` ins Spiel holen.
+
+Den Stil für alle Figuren ändert man oben im `Stil:`-Block, `{figur}` ist die Stelle, an der die Beschreibung landet.
+
+### In zwei Stufen (Qwen-Image 2.1 Turbo Edit)
 
 Damit alle drei Posen dieselbe Figur zeigen, entsteht erst nur das Stehbild, danach die zwei Schritte dazu.
 
