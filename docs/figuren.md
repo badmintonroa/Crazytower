@@ -6,6 +6,22 @@ damit sie zusammenpassen. Die Regeln dafür stehen in `art_direction_figuren.md`
 
 ## 1. Erzeugen
 
+### Empfohlen: in zwei Stufen (Qwen-Image 2.1 Turbo Edit)
+
+Damit alle drei Posen dieselbe Figur zeigen, entsteht erst nur das Stehbild, danach die zwei Schritte dazu.
+
+1. **Zum Ausprobieren:** `test_stufe1.bat` macht nur 3 Stehbilder (Koch, Drache, Königin).
+   Für alle Figuren: `batch_figuren_stufe1.bat` (4 Varianten pro Figur).
+   Ergebnis: `ComfyUI/output/crazytower/figuren_stufe1/`. Vorlage ist `vorlage_figur_stand.png` (eine stehende Puppe),
+   Stil-Referenzen sind `stil_referenz.png` und `ref_stand_1–5.png`.
+2. Im Ordner `figuren_stufe1` die Stehbilder löschen, die nicht gefallen. Pro Figur darf eins oder mehrere übrig bleiben.
+3. `test_stufe2.bat` bzw. `batch_figuren_stufe2.bat`: setzt jedes übrige Stehbild links in die 3-Posen-Vorlage und lässt
+   nur die zwei Schritte daneben zeichnen, mit dem Stehbild als Vorbild. Ergebnis: `figuren_stufe2/`.
+   Liegt dein ComfyUI nicht unter `D:\ai\ComfyUI`, in der .bat den Pfad bei `STAND` anpassen.
+4. `figuren_stufe2` wie unten beschrieben mit `import_people.py` ins Spiel holen.
+
+### In einem Schritt
+
 | Datei | Wofür |
 |---|---|
 | `batch_figuren.bat` | schickt alle Figuren aus `prompts_figuren.txt` an ComfyUI, 3 Varianten je Figur, Stärke 0.85 |
