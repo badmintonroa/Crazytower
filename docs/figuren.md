@@ -22,6 +22,19 @@ Bleibt die Figur zu nah an der Vorlage (grau, blass, Hemd mit Krawatte), Denoise
 oder mit `--image vorlage_figur_bunt.png` die farbige Vorlage nehmen;
 zerfallen die Posen, Denoise senken (0.75 bis 0.8).
 
+### Mit Qwen statt Krea
+
+| Datei | Wofür |
+|---|---|
+| `batch_figuren_qwen.bat` | dasselbe mit Qwen-Image (img2img mit der Vorlage, echter Negativ-Prompt, 20 Schritte) |
+| `batch_figuren_qwen-edit.bat` | Qwen-Image-Edit 2509: bekommt die Vorlage (Posen) **und** `stil_referenz.png` (vier bisherige Figuren) als Bilder und zeichnet im Stil der Referenz. Für einen einheitlichen Stil der beste Weg |
+| `ct_figur_qwen_api.json`, `ct_figur_qwen_edit_api.json` | dieselben Abläufe zum Laden in ComfyUI (API-Format, per Drag & Drop) |
+
+Erwartete Dateinamen: `qwen_image_fp8_e4m3fn.safetensors`, `qwen_image_edit_2509_fp8_e4m3fn.safetensors`,
+`qwen_2.5_vl_7b_fp8_scaled.safetensors`, `qwen_image_vae.safetensors`. Heißen deine anders, oben in
+`batch_krea2.py` bei `MODELS` ändern oder `--unet <datei> --clip <datei>` mitgeben. Die Bilder landen in
+`output/crazytower/figuren_qwen/` bzw. `figuren_qwen-edit/`.
+
 Nur einen Teil erzeugen: `batch_figuren.bat --nur npc_clown,npc_cook` (der Anfang des Namens reicht).
 
 Die Bilder landen in `ComfyUI/output/crazytower/figuren/`, z.B. `npc_cook_v2_00001_.png`.

@@ -25,7 +25,11 @@ def shoe(d,ankle,col):
     d.rounded_rectangle([P(box[0]-OL,box[1]-OL),P(box[2]+OL,box[3]+OL)],radius=14*SS,fill=INK)
     d.rounded_rectangle([P(*box[:2]),P(*box[2:])],radius=12*SS,fill=col)
 def leg(d,hip,thigh,shin,col,scol,ground):
-    knee=seg(hip,thigh,74); ank=seg(knee,shin,70)
+    knee=seg(hip,thigh,74)
+    # bend the shin so that both feet stand on the same ground line
+    c=max(-1.0,min(1.0,(ground-22-knee[1])/70))
+    shin=math.copysign(math.degrees(math.acos(c)),shin) if shin else 0
+    ank=seg(knee,shin,70)
     # stand the lowest foot on the ground
     limb(d,[hip,knee,ank],42,col); shoe(d,ank,scol); return ank
 def arm(d,sh,up,lo,col):
@@ -64,7 +68,7 @@ def figure(d,cx,pose,scale_shift=0):
     d.ellipse([P(hc[0]+66,hc[1]-2),P(hc[0]+94,hc[1]+24)],fill=INK); d.ellipse([P(hc[0]+70,hc[1]+2),P(hc[0]+90,hc[1]+20)],fill=SKIN)
     d.rectangle([P(hc[0]+60,hc[1]),P(hc[0]+74,hc[1]+22)],fill=SKIN)
     d.arc([P(hc[0]+48,hc[1]+26),P(hc[0]+80,hc[1]+50)],20,120,fill=INK,width=5*SS)
-POSES={"stand":(4,0,-4,0,6,-6),"stepA":(28,8,-26,-38,-24,26),"stepB":(-26,-38,28,8,26,-24)}
+POSES={"stand":(4,0,-4,0,6,-6),"stepA":(34,8,-30,-30,-24,26),"stepB":(-30,-30,34,8,26,-24)}
 def sheet(out,scale=1.0):
     img=Image.new("RGB",(W*SS,H*SS),(255,0,255)); d=ImageDraw.Draw(img)
     for i,k in enumerate(("stand","stepA","stepB")): figure(d,256+512*i,POSES[k])
