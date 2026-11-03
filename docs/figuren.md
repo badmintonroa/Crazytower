@@ -10,15 +10,18 @@ damit sie zusammenpassen. Die Regeln dafür stehen in `art_direction_figuren.md`
 
 Damit alle drei Posen dieselbe Figur zeigen, entsteht erst nur das Stehbild, danach die zwei Schritte dazu.
 
-1. **Zum Ausprobieren:** `test_stufe1.bat` macht nur 3 Stehbilder (Koch, Drache, Königin).
+1. **Zum Ausprobieren:** `test_stufe1.bat` macht nur 3 Stehbilder (Koch, Drache, Königin), einmal mit Krea und einmal
+   mit Qwen 2.1, zum Vergleichen.
    Für alle Figuren: `batch_figuren_stufe1.bat` (4 Varianten pro Figur).
-   Ergebnis: `ComfyUI/output/crazytower/figuren_stufe1/`. Vorlage ist `vorlage_figur_stand.png` (eine stehende Puppe),
+   Ergebnis: `ComfyUI/output/crazytower/figuren_stufe1_krea2/` und `figuren_stufe1_qwen21-edit/`. Vorlage ist `vorlage_figur_stand.png` (eine stehende Puppe),
    Stil-Referenzen sind `stil_referenz.png` und `ref_stand_1–5.png`.
-2. Im Ordner `figuren_stufe1` die Stehbilder löschen, die nicht gefallen. Pro Figur darf eins oder mehrere übrig bleiben.
+2. In diesen Ordnern die Stehbilder löschen, die nicht gefallen. Pro Figur darf eins oder mehrere übrig bleiben.
 3. `test_stufe2.bat` bzw. `batch_figuren_stufe2.bat`: setzt jedes übrige Stehbild links in die 3-Posen-Vorlage und lässt
-   nur die zwei Schritte daneben zeichnen, mit dem Stehbild als Vorbild. Ergebnis: `figuren_stufe2/`.
-   Liegt dein ComfyUI nicht unter `D:\ai\ComfyUI`, in der .bat den Pfad bei `STAND` anpassen.
-4. `figuren_stufe2` wie unten beschrieben mit `import_people.py` ins Spiel holen.
+   nur die zwei Schritte daneben zeichnen, mit dem Stehbild als Vorbild. Ergebnis: `figuren_stufe2_<modell>/`.
+   Qwen bekommt das Stehbild als Bild 1. Krea kann keine Referenzen, dort bleibt das linke Drittel per Maske
+   (`maske_schritte.png`) stehen und nur Mitte und rechts werden neu gezeichnet.
+   Liegt dein ComfyUI nicht unter `D:\ai\ComfyUI`, in der .bat den Pfad bei `OUT` anpassen.
+4. `figuren_stufe2_<modell>` wie unten beschrieben mit `import_people.py` ins Spiel holen.
 
 ### In einem Schritt
 
