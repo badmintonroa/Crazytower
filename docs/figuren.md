@@ -1,13 +1,16 @@
-# Neue Figuren mit ComfyUI (img2img)
+# Figuren mit ComfyUI (img2img)
 
-Die ComfyUI-Dateien liegen im Projektordner unter `crazytower/comfyui/`.
+Die ComfyUI-Dateien liegen im Projektordner unter `crazytower/comfyui/`. Alle 64 Figuren des Spiels
+(40 bisherige und 24 neue) werden mit demselben Stil, derselben Vorlage und demselben Import erzeugt,
+damit sie zusammenpassen. Die Regeln dafür stehen in `art_direction_figuren.md`.
 
 ## 1. Erzeugen
 
 | Datei | Wofür |
 |---|---|
 | `batch_figuren.bat` | schickt alle Figuren aus `prompts_figuren.txt` an ComfyUI, 3 Varianten je Figur, Stärke 0.85 |
-| `prompts_figuren.txt` | ein Prompt pro fehlender Figur, `Name:` ist gleich der Name im Spiel |
+| `prompts_figuren.txt` | oben der `Stil:`-Block (Art Direction), dann ein Prompt pro Figur, `Name:` ist gleich der Name im Spiel |
+| `art_direction_referenz.png` | die bisherigen Figuren als Vorbild für den Stil |
 | `vorlage_figur.png` | Figur in den drei Posen (Stehen, Schritt links, Schritt rechts), 1536×512 auf Magenta: Kleidung grau, Haut in Hautfarbe, damit die neuen Figuren keine graue Haut bekommen |
 | `vorlage_figur_bunt.png` | dieselbe Figur ganz in Farbe, falls die Figuren immer noch zu blass werden (dann färbt eher das hellblaue Hemd ab) |
 | `vorlage_figur_klein.png`, `vorlage_figur_tier.png` | kleinere Vorlagen (Kind, Pinguin) für kleine Figuren |
@@ -18,6 +21,8 @@ Im Prompt-Block kann man pro Figur `Bild: vorlage_figur_tier.png` und `Denoise: 
 Bleibt die Figur zu nah an der Vorlage (grau, blass, Hemd mit Krawatte), Denoise erhöhen (0.9 bis 0.95)
 oder mit `--image vorlage_figur_bunt.png` die farbige Vorlage nehmen;
 zerfallen die Posen, Denoise senken (0.75 bis 0.8).
+
+Nur einen Teil erzeugen: `batch_figuren.bat --nur npc_clown,npc_cook` (der Anfang des Namens reicht).
 
 Die Bilder landen in `ComfyUI/output/crazytower/figuren/`, z.B. `npc_cook_v2_00001_.png`.
 
@@ -35,7 +40,11 @@ Das Skript stanzt das Magenta aus, schneidet die drei Posen aus, skaliert sie au
 `index.txt`. Im selben Ordner wie die Bilder entsteht `people_preview.png`: links die Figur, die das
 Spiel bisher gezeigt hat, rechts die neue.
 
+Bisherige Figuren werden dabei ersetzt, die Vorschau zeigt alt und neu nebeneinander. Am einheitlichsten
+wird es, wenn alle Figuren aus demselben Durchlauf kommen und zusammen importiert werden.
+
 - Nur nachsehen, ohne etwas ins Spiel zu schreiben: `--dry-run`
+- Das Skript gleicht Farbstärke, Helligkeit und Umriss an die Art Direction an. Ohne das: `--raw`
 - Größe ändern: `--size npc_dragon=1.1` (1.0 = Erwachsener). Feste Werte für Roboter, Drache und Co.
   stehen oben im Skript in `SIZES`.
 - Gibt es mehrere Bilder für dieselbe Figur, gewinnt das neueste. Einzelne Dateien kann man auch direkt angeben.

@@ -13,6 +13,8 @@ For every picture the script
   - scales all three frames alike so an adult is as tall as the figures already in the game
     (about 83 of 96 pixels; children, animals and robots get the factor from SIZES below),
   - stands each figure on the bottom of a 48x96 frame, centred between head and body,
+  - pulls it towards the look of the figures already in the game (docs/art_direction_figuren.md):
+    colour strength and brightness like theirs, a closed dark outline, hard edges (--raw: off),
   - writes game/src/main/resources/people/<look>.png (144x96) and adds the look to index.txt,
   - and draws people_preview.png next to the pictures: old stand-in and new figure side by side.
 
@@ -46,6 +48,7 @@ SIZES = {
     "npc_queen": 0.95,
     "npc_kid": 0.85,
     "npc_penguin": 0.66,
+    "npc_ghost": 0.83,
 }
 MIN_FIT = 0.88  # a figure wider than a frame shrinks to at most this much, the rest is cut off
 
@@ -132,6 +135,39 @@ def sheet(frames, factor):
     return out
 
 
+INK = np.array([16, 14, 24])  # outline colour of the figures in the game
+
+
+# Art direction (docs/art_direction_figuren.md): mean saturation and brightness (0..255) of the
+# figures that were in the game before the restyle. New sheets are pulled towards these values.
+STYLE_SATURATION = 113
+STYLE_BRIGHTNESS = 137
+
+
+def match_style(img, ref):
+    """Pulls a new sheet towards the look of the old ones: same colour strength and brightness,
+    a closed dark outline and hard edges, so generated figures of different runs fit together."""
+    rgba = np.asarray(img).astype(float)
+    alpha = rgba[..., 3]
+    opaque = alpha > 200
+    if ref is not None and opaque.any():
+        hsv = np.asarray(img.convert("RGB").convert("HSV")).astype(float)
+        s_gain = np.clip(ref[0] / max(hsv[..., 1][opaque].mean(), 1), 0.8, 1.6)
+        v_gain = np.clip(ref[1] / max(hsv[..., 2][opaque].mean(), 1), 0.85, 1.2)
+        hsv[..., 1] = np.clip(hsv[..., 1] * s_gain, 0, 255)
+        hsv[..., 2] = np.clip(hsv[..., 2] * v_gain, 0, 255)
+        rgb = np.asarray(Image.fromarray(hsv.astype(np.uint8), "HSV").convert("RGB")).astype(float)
+        rgba[..., :3] = np.where(opaque[..., None], rgb, rgba[..., :3])
+    inside = alpha >= 128
+    # outline: inside pixels that touch the outside (the three frames never touch, so rolling is safe)
+    edge = np.zeros_like(inside)
+    for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+        edge |= inside & ~np.roll(np.roll(inside, dy, 0), dx, 1)
+    rgba[..., :3] = np.where(edge[..., None], rgba[..., :3] * 0.25 + INK * 0.75, rgba[..., :3])
+    rgba[..., 3] = np.where(inside, 255, 0)
+    return Image.fromarray(rgba.clip(0, 255).astype(np.uint8), "RGBA")
+
+
 def preview(rows, path):
     """Old figure (if any) and new figure next to each other, twice the size, on a lobby-like ground."""
     z, gap, label = 2, 16, 14
@@ -154,6 +190,8 @@ def main():
     ap.add_argument("--size", action="append", default=[], metavar="LOOK=FAKTOR",
                     help="Größe im Vergleich zu einem Erwachsenen, z.B. npc_dragon=1.1")
     ap.add_argument("--dry-run", action="store_true", help="nur die Vorschau schreiben, nichts ins Spiel")
+    ap.add_argument("--raw", action="store_true",
+                    help="Stil nicht angleichen (Farbstärke, Helligkeit, Umriss bleiben wie generiert)")
     a = ap.parse_args()
 
     sizes = dict(SIZES)
@@ -175,11 +213,14 @@ def main():
         sys.exit("Keine PNG-Bilder gefunden.")
 
     known = stand_ins()
+    ref = (STYLE_SATURATION, STYLE_BRIGHTNESS)
     index_path = os.path.join(PEOPLE, "index.txt")
     index = [l.strip() for l in open(index_path, encoding="utf-8") if l.strip()]
     rows = []
     for name, path in sorted(files.items()):
         new = sheet(poses(path), sizes.get(name, 1.0))
+        if not a.raw:
+            new = match_style(new, ref)
         old = name if name in index else known.get(name)
         old_img = Image.open(os.path.join(PEOPLE, old + ".png")).convert("RGBA") if old in index else None
         rows.append((name, old, old_img, new))
