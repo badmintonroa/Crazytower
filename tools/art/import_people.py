@@ -200,11 +200,18 @@ def main():
     ap.add_argument("--size", action="append", default=[], metavar="LOOK=FAKTOR",
                     help="Größe im Vergleich zu einem Erwachsenen, z.B. npc_dragon=1.1")
     ap.add_argument("--dry-run", action="store_true", help="nur die Vorschau schreiben, nichts ins Spiel")
+    ap.add_argument("--repo", help="CrazyTower-Ordner, wenn das Skript nicht im Repo unter tools/art liegt")
     ap.add_argument("--posen", type=int, choices=(2, 3),
                     help="Posen pro Bild; sonst am Format erkannt (breit = 3, sonst 2: Stehen und Gehen)")
     ap.add_argument("--raw", action="store_true",
                     help="Stil nicht angleichen (Farbstärke, Helligkeit, Umriss bleiben wie generiert)")
     a = ap.parse_args()
+    global PEOPLE, LOOKS_KT
+    if a.repo:
+        PEOPLE = os.path.join(a.repo, "game/src/main/resources/people")
+        LOOKS_KT = os.path.join(a.repo, "core/src/main/kotlin/crazytower/core/Looks.kt")
+    if not os.path.exists(os.path.join(PEOPLE, "index.txt")):
+        sys.exit(f"Kein CrazyTower-Repo gefunden ({PEOPLE}). Mit --repo <Ordner> angeben.")
 
     sizes = dict(SIZES)
     for s in a.size:
