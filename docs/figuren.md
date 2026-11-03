@@ -11,7 +11,7 @@ damit sie zusammenpassen. Die Regeln dafür stehen in `art_direction_figuren.md`
 | `batch_figuren.bat` | schickt alle Figuren aus `prompts_figuren.txt` an ComfyUI, 3 Varianten je Figur, Stärke 0.85 |
 | `prompts_figuren.txt` | oben der `Stil:`-Block (Art Direction), dann ein Prompt pro Figur, `Name:` ist gleich der Name im Spiel |
 | `art_direction_referenz.png` | die bisherigen Figuren als Vorbild für den Stil |
-| `vorlage_figur.png` | Figur in den drei Posen (Stehen, Schritt links, Schritt rechts), 1536×512 auf Magenta: Kleidung grau, Haut in Hautfarbe, damit die neuen Figuren keine graue Haut bekommen |
+| `vorlage_figur.png` | gezeichnete Puppe in den drei Posen (Stehen, Schritt mit vorderem Bein vorn, Schritt mit hinterem Bein vorn), 1536×512 auf Magenta; das hintere Bein und der hintere Arm sind dunkler. Neu zeichnen: `python tools/art/make_figure_template.py <Ordner>` |
 | `vorlage_figur_bunt.png` | dieselbe Figur ganz in Farbe, falls die Figuren immer noch zu blass werden (dann färbt eher das hellblaue Hemd ab) |
 | `vorlage_figur_klein.png`, `vorlage_figur_tier.png` | kleinere Vorlagen (Kind, Pinguin) für kleine Figuren |
 | `ct_figur_img2img_krea2.json` | derselbe Ablauf zum Ausprobieren in ComfyUI (Workflow laden, Vorlage und Prompt tauschen) |
