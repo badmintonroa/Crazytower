@@ -26,6 +26,8 @@ zerfallen die Posen, Denoise senken (0.75 bis 0.8).
 
 | Datei | Wofür |
 |---|---|
+| `batch_figuren_qwen21.bat` | **Empfohlen:** Qwen-Image 2.1 Turbo Edit. Bild 1 ist die Vorlage (wird bearbeitet), Bild 2–7 sind Stil-Referenzen: `stil_referenz.png` und `ref_figur_1.png` bis `ref_figur_5.png` (bisherige Figuren in den drei Posen). 8 Schritte, ohne Prompt-Verbesserer. Weitere Referenzen: Datei `ref_figur_6.png` usw. dazulegen und in `STYLE_REFS` eintragen (bis zu 9) |
+| `ct_figur_qwen21_edit_api.json` | derselbe Ablauf zum Reinziehen in ComfyUI |
 | `batch_figuren_qwen.bat` | dasselbe mit Qwen-Image (img2img mit der Vorlage, echter Negativ-Prompt, 20 Schritte) |
 | `batch_figuren_qwen-edit.bat` | Qwen-Image-Edit 2509: bekommt die Vorlage (Posen) **und** `stil_referenz.png` (vier bisherige Figuren) als Bilder und zeichnet im Stil der Referenz. Für einen einheitlichen Stil der beste Weg |
 | `ct_figur_qwen_api.json`, `ct_figur_qwen_edit_api.json` | dieselben Abläufe zum Laden in ComfyUI (API-Format, per Drag & Drop) |
