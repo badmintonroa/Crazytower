@@ -42,6 +42,6 @@ class TenantTest {
         }
         assertEquals(minOf(5, Catalog.OFFICE.capacity), looks.size, "every clown of the crew shows up: $looks")
         assertTrue(looks.all { it.startsWith("npc_clown") })
-        assertEquals("npc_retiree", Tenants.byId("retirees").lookFor(3), "a tenant without crew always looks the same")
+        assertEquals("npc_penguin", Tenants.byId("penguins").lookFor(3), "a tenant without crew always looks the same")
     }
 }

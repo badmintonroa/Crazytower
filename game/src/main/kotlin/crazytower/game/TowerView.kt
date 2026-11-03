@@ -52,6 +52,13 @@ import kotlin.random.Random
 /** Express shafts are tinted towards [EXPRESS_RED]. */
 private val EXPRESS_TINT = RGBA(255, 150, 140)
 
+/**
+ * Sheet frames while walking: step, legs together, other step, legs together. The standing frame
+ * stands in for the moment the legs pass each other, so people visibly walk even where the two
+ * step frames of a sheet look almost alike (as in most of the generated sheets).
+ */
+private val WALK_CYCLE = intArrayOf(1, 0, 2, 0)
+
 /** Screen metrics of the tower at zoom 1: the native art is shown at twice its size. */
 object Metrics {
     const val SEG = 48.0
@@ -578,7 +585,7 @@ class TowerView(
                 peopleLayer.image(assets.person(person.look, 0), Anchor.BOTTOM_CENTER) { smoothing = true }
             }
             val moving = entity has Route
-            val frame = if (moving) 1 + (floor(pos.x * 3).toInt() and 1) else 0
+            val frame = if (moving) WALK_CYCLE[floor(pos.x * 4).toInt() and 3] else 0
             view.bitmap = assets.person(person.look, frame)
             val queued = queues[entity.id]
             // standing still in a room puts them behind a shaft; walking and queueing stays in front

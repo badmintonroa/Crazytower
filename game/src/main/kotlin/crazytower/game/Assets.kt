@@ -1,5 +1,6 @@
 package crazytower.game
 
+import crazytower.core.Looks
 import korlibs.image.bitmap.Bitmap32
 import korlibs.image.bitmap.BmpSlice
 import korlibs.image.format.readBitmap
@@ -31,7 +32,8 @@ class Assets private constructor(
     fun room(key: String): BmpSlice = rooms[key] ?: rooms.getValue(FALLBACK_ROOM)
 
     /** Frame 0 = standing, 1 and 2 = walking. */
-    fun person(look: String, frame: Int): BmpSlice = (people[look] ?: people.getValue("casual"))[frame]
+    fun person(look: String, frame: Int): BmpSlice =
+        (people[look] ?: Looks.standIns[look]?.let { people[it] } ?: people.getValue("casual"))[frame]
 
     /** Scale that shows a person frame [times] its native 12x24 size, whatever resolution the sheet has. */
     fun personScale(look: String, times: Double): Double = times * PERSON_H / person(look, 0).height
