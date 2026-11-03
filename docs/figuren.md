@@ -30,7 +30,16 @@ zerfallen die Posen, Denoise senken (0.75 bis 0.8).
 | `batch_figuren_qwen-edit.bat` | Qwen-Image-Edit 2509: bekommt die Vorlage (Posen) **und** `stil_referenz.png` (vier bisherige Figuren) als Bilder und zeichnet im Stil der Referenz. Für einen einheitlichen Stil der beste Weg |
 | `ct_figur_qwen_api.json`, `ct_figur_qwen_edit_api.json` | dieselben Abläufe zum Laden in ComfyUI (API-Format, per Drag & Drop) |
 
-Erwartete Dateinamen: `qwen_image_fp8_e4m3fn.safetensors`, `qwen_image_edit_2509_fp8_e4m3fn.safetensors`,
+**Eigener Workflow (z.B. Qwen-Image 2.1 mit eigenem Lader):** Den Workflow in ComfyUI so bauen, dass er
+mit einem Bild läuft, im `Load Image`-Node `vorlage_figur.png` wählen und über *Workflow > Export (API)*
+als `mein_workflow_api.json` in den comfyui-Ordner speichern. Dann `batch_figuren_eigen.bat` starten.
+Der Batch setzt pro Figur Prompt, Vorlage, Seed, Denoise und Dateinamen ein, der Rest bleibt wie in
+deinem Workflow. Das Prompt-Feld findet er selbst (Text am `positive`-Eingang); klappt das nicht, ins
+Prompt-Feld `CT_PROMPT` schreiben und neu exportieren. Einen Prompt-Verbesserer (PE-Modell) am besten
+ausschalten, sonst schreibt er die Art Direction um. Ohne `Load Image` im Workflow entsteht das Bild nur
+aus dem Prompt, dann stimmen Größe und Posen weniger genau.
+
+Erwartete Dateinamen für die eingebauten Qwen-Abläufe: `qwen_image_fp8_e4m3fn.safetensors`, `qwen_image_edit_2509_fp8_e4m3fn.safetensors`,
 `qwen_2.5_vl_7b_fp8_scaled.safetensors`, `qwen_image_vae.safetensors`. Heißen deine anders, oben in
 `batch_krea2.py` bei `MODELS` ändern oder `--unet <datei> --clip <datei>` mitgeben. Die Bilder landen in
 `output/crazytower/figuren_qwen/` bzw. `figuren_qwen-edit/`.
