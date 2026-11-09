@@ -75,7 +75,9 @@ def look_name(path):
 
 def key(im):
     """RGBA picture and opacity 0..1: magenta is keyed out with a soft edge, magenta fringes are greyed."""
-    if im.mode in ("RGBA", "LA") and np.asarray(im.convert("RGBA"))[..., 3].min() < 250:
+    # Nur ein echter Alphakanal zaehlt: ComfyUI speichert manchmal einen fast ueberall deckenden (184..243),
+    # dann wird trotzdem das Magenta freigestellt.
+    if im.mode in ("RGBA", "LA") and (np.asarray(im.convert("RGBA"))[..., 3] < 16).mean() > 0.05:
         rgba = np.asarray(im.convert("RGBA"))
         return rgba, rgba[..., 3] / 255.0
     a = np.asarray(im.convert("RGB")).astype(int)
